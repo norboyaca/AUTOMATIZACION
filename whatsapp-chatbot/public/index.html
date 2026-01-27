@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NORBOY - Dashboard Chatbot WhatsApp</title>
+  <style>
+    /* ========================================
+       PARTE 1: RESET Y VARIABLES
+       ======================================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary-green: #075E54;
+      --secondary-green: #128C7E;
+      --light-green: #25D366;
+      --whatsapp-green: #DCF8C6;
+      --dark-gray: #2C2C2C;
+      --medium-gray: #666;
+      --light-gray: #F5F5F5;
+      --border-gray: #E0E0E0;
+      --white: #FFFFFF;
+      --sidebar-width: 260px;
+      --header-height: 70px;
+      --shadow: 0 2px 10px rgba(0,0,0,0.1);
+      --shadow-lg: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    /* ========================================
+       PARTE 2: LAYOUT PRINCIPAL DEL DASHBOARD
+       ======================================== */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--light-gray);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Dashboard Container */
+    .dashboard-wrapper {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ========================================
+       SIDEBAR (BARRA LATERAL IZQUIERDA)
+       ======================================== */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: linear-gradient(180deg, var(--primary-green) 0%, var(--secondary-green) 100%);
+      color: var(--white);
+      position: fixed;
+      height: 100vh;
+      left: 0;
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-lg);
+      z-index: 1000;
+    }
+
+    /* Logo Section */
+    .sidebar-logo {
+      padding: 30px 20px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .sidebar-logo img {
+      max-width: 120px;
+      height: auto;
+      margin-bottom: 10px;
+    }
+
+    .sidebar-logo-text {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 5px;
+    }
+
+    .sidebar-logo-subtitle {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 400;
+    }
+
+    /* Navigation Menu */
+    .sidebar-nav {
+      flex: 1;
+      padding: 20px 0;
+      overflow-y: auto;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 15px 25px;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--white);
+    }
+
+    .nav-item.active {
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--white);
+      border-left-color: var(--light-green);
+      font-weight: 600;
+    }
+
+    .nav-item-icon {
+      font-size: 22px;
+      margin-right: 15px;
+      width: 25px;
+      text-align: center;
+    }
+
+    .nav-item-text {
+      font-size: 15px;
+    }
+
+    .nav-section-title {
+      padding: 20px 25px 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    /* Sidebar Footer */
+    .sidebar-footer {
+      padding: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 11px;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* ========================================
+       MAIN CONTENT AREA
+       ======================================== */
+    .main-content {
+      margin-left: var(--sidebar-width);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ========================================
+       HEADER (BARRA SUPERIOR)
+       ======================================== */
+    .dashboard-header {
+      height: var(--header-height);
+      background: var(--white);
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 30px;
+      position: sticky;
+      top: 0;
+      z-index: 999;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .header-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--dark-gray);
+    }
+
+    .header-subtitle {
+      font-size: 14px;
+      color: var(--medium-gray);
+      font-weight: 400;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .header-status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--light-gray);
+      color: var(--medium-gray);
+    }
+
+    .header-status-badge.connected {
+      background: #e8f5e9;
+      color: #2e7d32;
+    }
+
+    .header-status-badge.waiting {
+      background: #fff3e0;
+      color: #ef6c00;
+    }
+
+    .header-status-badge.disconnected {
+      background: #ffebee;
+      color: #c62828;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .header-status-badge.connected .status-dot {
+      background: #2e7d32;
+    }
+
+    .header-status-badge.waiting .status-dot {
+      background: #ef6c00;
+    }
+
+    .header-status-badge.disconnected .status-dot {
+      background: #c62828;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ========================================
+       CONTENT AREA
+       ======================================== */
+    .dashboard-content {
+      flex: 1;
+      padding: 30px;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Breadcrumb */
+    .breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 25px;
+      font-size: 14px;
+      color: var(--medium-gray);
+    }
+
+    .breadcrumb-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .breadcrumb-separator {
+      color: var(--border-gray);
+    }
+
+    .breadcrumb-active {
+      color: var(--primary-green);
+      font-weight: 500;
+    }
+
+    /* ========================================
+       CONTENT CARD (ENVUELVE EL CONTENIDO ORIGINAL)
+       ======================================== */
+    .content-card {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: var(--shadow);
+      min-height: calc(100vh - 180px);
+    }
+
+    /* ========================================
+       RESPONSIVE DESIGN
+       ======================================== */
+    @media (max-width: 1024px) {
+      :root {
+        --sidebar-width: 80px;
+      }
+
+      .sidebar-logo-text,
+      .sidebar-logo-subtitle,
+      .nav-item-text,
+      .nav-section-title {
+        display: none;
+      }
+
+      .nav-item {
+        justify-content: center;
+        padding: 15px 10px;
+      }
+
+      .nav-item-icon {
+        margin-right: 0;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+
+      .sidebar.mobile-open {
+        transform: translateX(0);
+      }
+
+      .main-content {
+        margin-left: 0;
+      }
+
+      .dashboard-content {
+        padding: 20px;
+      }
+
+      .content-card {
+        padding: 25px;
+      }
+    }
+
+    /* ========================================
+       FIN DE LA PARTE 1
+       CONTINÚA EN LA PARTE 2...
+       ======================================== */
+  </style>
+</head>
+<body>
+
+  <!-- ========================================
+       ESTRUCTURA DEL DASHBOARD
+       ======================================== -->
+  <div class="dashboard-wrapper">
+    
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <!-- Logo -->
+      <div class="sidebar-logo">
+        <img src="LOGO.jpeg" alt="NORBOY Logo" style="max-width: 120px; height: auto; margin-bottom: 10px;">
+        <div class="sidebar-logo-text">NORBOY</div>
+        <div class="sidebar-logo-subtitle">Chatbot WhatsApp</div>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" onclick="changeView('home'); return false;">
+          <span class="nav-item-icon">🏠</span>
+          <span class="nav-item-text">Inicio</span>
+        </a>
+        <a href="#" class="nav-item" onclick="changeView('conversations'); return false;">
+          <span class="nav-item-icon">💬</span>
+          <span class="nav-item-text">Conversaciones</span>
+        </a>
+
+        <div class="nav-section-title">Herramientas</div>
+        
+        <a href="#" class="nav-item" onclick="changeView('stats'); return false;">
+          <span class="nav-item-icon">📊</span>
+          <span class="nav-item-text">Estadísticas</span>
+        </a>
+        <a href="#" class="nav-item" onclick="changeView('settings'); return false;">
+          <span class="nav-item-icon">⚙️</span>
+          <span class="nav-item-text">Configuración</span>
+        </a>
+      </nav>
+
+      <!-- Footer -->
+      <div class="sidebar-footer">
+        v1.0.0 - Dashboard
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+      
+      <!-- HEADER -->
+      <header class="dashboard-header">
+        <div class="header-left">
+          <div>
+            <div class="header-title">Dashboard Chatbot</div>
+            <div class="header-subtitle" id="current-view-name">Inicio</div>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="header-status-badge disconnected" id="header-status">
+            <span class="status-dot"></span>
+            <span id="header-status-text">Desconectado</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- CONTENT AREA -->
+      <main class="dashboard-content">
+        
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+          <span class="breadcrumb-item">
+            <span>🏠</span>
+            <span>Dashboard</span>
+          </span>
+          <span class="breadcrumb-separator">›</span>
+          <span class="breadcrumb-item breadcrumb-active" id="breadcrumb-active">Inicio</span>
+        </div>
+
+        <!-- Content Card - Aquí va el contenido original -->
+        <div class="content-card">
+          
+<!-- ========================================
+     PARTE 2 - INICIA AQUÍ
+     CONTENIDO ORIGINAL DEL CHATBOT
+     ======================================== -->
+
+<style>
+/* ========================================
+   PARTE 2: ESTILOS DEL CONTENIDO ORIGINAL
+   (Preservados sin modificar)
+   ======================================== */
+
+.container {
+  max-width: 100%;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  font-size: 40px;
+}
+
+.header-title h1 {
+  color: #075E54;
+  font-size: 24px;
+  text-align: left;
+}
+
+.header-title p {
+  color: #666;
+  font-size: 12px;
+  text-align: left;
+}
+
+.settings-btn {
+  background: #f5f5f5;
+  border: none;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 20px;
+  transition: background 0.3s;
+}
+
+.settings-btn:hover {
+  background: #e0e0e0;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  background: white;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.tab.active {
+  border-color: #075E54;
+  background: #e8f5e9;
+  color: #075E54;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.status-container {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  border-radius: 50px;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.status.disconnected { background: #ffebee; color: #c62828; }
+.status.waiting { background: #fff3e0; color: #ef6c00; }
+.status.connected { background: #e8f5e9; color: #2e7d32; }
+
+.qr-container {
+  background: #f5f5f5;
+  border-radius: 15px;
+  padding: 30px;
+  margin-bottom: 20px;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.qr-container img {
+  max-width: 220px;
+  border-radius: 10px;
+}
+
+.qr-placeholder { color: #999; font-size: 16px; }
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #075E54;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.instructions {
+  text-align: left;
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.instructions h3 {
+  color: #075E54;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.instructions ol {
+  padding-left: 20px;
+  color: #555;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.connected-info { text-align: center; }
+.connected-info .icon { font-size: 64px; margin-bottom: 15px; }
+.connected-info h3 { color: #2e7d32; margin-bottom: 10px; }
+.connected-info p { color: #666; font-size: 14px; }
+
+/* Settings Section */
+.settings-section {
+  text-align: left;
+}
+
+.settings-section h3 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 16px;
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.form-group input, .form-group select {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+.form-group input:focus, .form-group select:focus {
+  outline: none;
+  border-color: #075E54;
+}
+
+.form-group small {
+  display: block;
+  margin-top: 5px;
+  color: #999;
+  font-size: 12px;
+}
+
+.provider-select {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.provider-option {
+  flex: 1;
+  padding: 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.provider-option:hover {
+  border-color: #075E54;
+}
+
+.provider-option.active {
+  border-color: #075E54;
+  background: #e8f5e9;
+}
+
+.provider-option .icon {
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+
+.provider-option .name {
+  font-weight: 600;
+  color: #333;
+}
+
+.provider-option .desc {
+  font-size: 11px;
+  color: #666;
+}
+
+.provider-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.provider-status.ok { color: #2e7d32; }
+.provider-status.error { color: #c62828; }
+.provider-status.pending { color: #ef6c00; }
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #075E54 0%, #128C7E 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(7, 94, 84, 0.3);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.btn-secondary:hover {
+  background: #e0e0e0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.alert {
+  padding: 12px 15px;
+  border-radius: 10px;
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.alert-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.alert-error {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+footer {
+  text-align: center;
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+  color: #999;
+  font-size: 12px;
+}
+
+/* Test Section */
+.test-section {
+  display: none;
+  margin-top: 20px;
+  padding: 20px;
+  background: #f9f9f9;
+  border-radius: 10px;
+}
+
+.test-section h3 {
+  color: #075E54;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.test-input {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.test-input input {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.test-input button {
+  padding: 12px 25px;
+  background: #25D366;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.chat-test {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 15px;
+  background: white;
+  border-radius: 10px;
+  display: none;
+}
+
+.chat-test.active {
+  display: block;
+}
+
+.message {
+  margin-bottom: 10px;
+  padding: 10px 15px;
+  border-radius: 10px;
+  max-width: 80%;
+  word-wrap: break-word;
+}
+
+.message.user {
+  background: #DCF8C6;
+  margin-left: auto;
+  text-align: right;
+}
+
+.message.bot {
+  background: #f0f0f0;
+  margin-right: auto;
+}
+
+/* ========================================
+   FIN DE LA PARTE 2
+   CONTINÚA EN LA PARTE 3...
+   ======================================== */
+</style>
+
+<!-- ========================================
+     PARTE 3: HTML DEL CONTENIDO ORIGINAL
+     (Preservado sin modificar lógica)
+     ======================================== -->
+
+<div class="container">
+  <div class="header">
+    <div class="header-left">
+      <img src="LOGO.jpeg" alt="NORBOY Logo" class="logo" style="width: 50px; height: 50px; object-fit: contain;">
+      <div class="header-title">
+        <h1>NORBOY Chatbot</h1>
+        <p>Elegimos Juntos 2026-2029</p>
+      </div>
+    </div>
+    <button class="settings-btn" onclick="toggleTab('settings')">⚙️</button>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('whatsapp')">📱 WhatsApp</div>
+    <div class="tab" onclick="switchTab('settings')">🔑 API Keys</div>
+  </div>
+
+  <!-- WhatsApp Tab -->
+  <div id="tab-whatsapp" class="tab-content active">
+    <div class="status-container">
+      <div id="status" class="status disconnected">
+        <span class="status-dot"></span>
+        <span id="status-text">Desconectado</span>
+      </div>
+    </div>
+
+    <div id="qr-container" class="qr-container">
+      <div class="spinner"></div>
+      <p class="qr-placeholder">Cargando...</p>
+    </div>
+
+    <div id="instructions" class="instructions" style="display: none;">
+      <h3>📱 Cómo conectar WhatsApp:</h3>
+      <ol>
+        <li>Abre WhatsApp en tu teléfono</li>
+        <li>Ve a <strong>Configuración</strong> → <strong>Dispositivos vinculados</strong></li>
+        <li>Toca en <strong>Vincular un dispositivo</strong></li>
+        <li>Escanea el código QR de arriba</li>
+      </ol>
+    </div>
+
+    <div id="test-section" class="test-section">
+      <h3>🧪 Probar Chatbot</h3>
+      <div class="test-input">
+        <input type="text" id="test-message" placeholder="Escribe un mensaje...">
+        <button onclick="testChat()">Enviar</button>
+      </div>
+      <div id="chat-test" class="chat-test"></div>
+    </div>
+  </div>
+
+  <!-- Settings Tab -->
+  <div id="tab-settings" class="tab-content">
+    <div class="settings-section">
+      <h3>⚙️ Configuración de Providers</h3>
+
+      <div id="settings-alert"></div>
+
+      <div class="provider-select">
+        <div id="provider-groq" class="provider-option active" onclick="selectProvider('groq')">
+          <div class="icon">🚀</div>
+          <div class="name">Groq</div>
+          <div class="desc">Rápido y gratuito</div>
+          <div id="groq-status" class="provider-status pending">⏳ No configurado</div>
+        </div>
+        <div id="provider-openai" class="provider-option" onclick="selectProvider('openai')">
+          <div class="icon">🤖</div>
+          <div class="name">OpenAI</div>
+          <div class="desc">GPT-4 / GPT-3.5</div>
+          <div id="openai-status" class="provider-status pending">⏳ No configurado</div>
+        </div>
+      </div>
+
+      <!-- Groq Settings -->
+      <div id="groq-settings">
+        <div class="form-group">
+          <label>🔑 Groq API Key</label>
+          <input type="password" id="groq-key" placeholder="gsk_...">
+          <small>Obtén tu key en <a href="https://console.groq.com" target="_blank">console.groq.com</a></small>
+        </div>
+        <div class="form-group">
+          <label>Modelo</label>
+          <select id="groq-model">
+            <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Recomendado)</option>
+            <option value="llama-3.1-70b-versatile">Llama 3.1 70B</option>
+            <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+            <option value="gemma2-9b-it">Gemma 2 9B</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- OpenAI Settings -->
+      <div id="openai-settings" style="display: none;">
+        <div class="form-group">
+          <label>🔑 OpenAI API Key</label>
+          <input type="password" id="openai-key" placeholder="sk-...">
+          <small>Obtén tu key en <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a></small>
+        </div>
+        <div class="form-group">
+          <label>Modelo</label>
+          <select id="openai-model">
+            <option value="gpt-4o-mini">GPT-4o Mini (Económico)</option>
+            <option value="gpt-4o">GPT-4o (Potente)</option>
+            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn" onclick="saveSettings()">💾 Guardar Configuración</button>
+
+      <div style="margin-top: 15px;">
+        <button class="btn btn-secondary" onclick="testConnection()">🔌 Probar Conexión</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    NORBOY - Asistente Virtual WhatsApp
+  </footer>
+</div>
+
+<!-- ========================================
+     FIN DE LA PARTE 3
+     CONTINÚA EN LA PARTE 4 (JAVASCRIPT)...
+     ======================================== -->
+
+        </div>
+        <!-- Fin del content-card -->
+        
+      </main>
+      <!-- Fin del dashboard-content -->
+      
+    </div>
+    <!-- Fin del main-content -->
+    
+  </div>
+  <!-- Fin del dashboard-wrapper -->
+
+  <!-- ========================================
+       PARTE 4 FINAL: JAVASCRIPT
+       ======================================== -->
+  
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    /* ========================================
+       FUNCIONES DEL DASHBOARD (NUEVO)
+       ======================================== */
+    
+    // Cambiar vista del sidebar
+    function changeView(view) {
+      // Actualizar items activos del sidebar
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      event.target.closest('.nav-item').classList.add('active');
+      
+      // Actualizar breadcrumb y título
+      const viewNames = {
+        'home': 'Inicio',
+        'conversations': 'Conversaciones',
+        'stats': 'Estadísticas',
+        'settings': 'Configuración'
+      };
+      
+      document.getElementById('current-view-name').textContent = viewNames[view] || 'Inicio';
+      document.getElementById('breadcrumb-active').textContent = viewNames[view] || 'Inicio';
+      
+      // Por ahora, todas las vistas muestran el mismo contenido
+      // En el futuro se pueden agregar diferentes secciones aquí
+    }
+    
+    // Sincronizar estado del header con el estado del chatbot
+    function syncHeaderStatus(status, text) {
+      const headerStatus = document.getElementById('header-status');
+      const headerStatusText = document.getElementById('header-status-text');
+      
+      headerStatus.className = 'header-status-badge ' + status;
+      headerStatusText.textContent = text;
+    }
+
+    /* ========================================
+       FUNCIONES ORIGINALES DEL CHATBOT
+       (Preservadas sin modificar)
+       ======================================== */
+    
+    const socket = io();
+    let currentProvider = 'groq';
+
+    // Elements
+    const qrContainer = document.getElementById('qr-container');
+    const statusEl = document.getElementById('status');
+    const statusText = document.getElementById('status-text');
+    const instructions = document.getElementById('instructions');
+    const testSection = document.getElementById('test-section');
+    const chatTest = document.getElementById('chat-test');
+
+    // Tab switching
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+      document.querySelector(`.tab:nth-child(${tab === 'whatsapp' ? 1 : 2})`).classList.add('active');
+      document.getElementById(`tab-${tab}`).classList.add('active');
+    }
+
+    function toggleTab(tab) {
+      const currentTab = document.querySelector('.tab-content.active').id.replace('tab-', '');
+      switchTab(currentTab === tab ? 'whatsapp' : tab);
+    }
+
+    // Provider selection
+    function selectProvider(provider) {
+      currentProvider = provider;
+      document.querySelectorAll('.provider-option').forEach(p => p.classList.remove('active'));
+      document.getElementById(`provider-${provider}`).classList.add('active');
+
+      document.getElementById('groq-settings').style.display = provider === 'groq' ? 'block' : 'none';
+      document.getElementById('openai-settings').style.display = provider === 'openai' ? 'block' : 'none';
+    }
+
+    // Save settings
+    async function saveSettings() {
+      const settings = {
+        provider: currentProvider,
+        groq: {
+          apiKey: document.getElementById('groq-key').value,
+          model: document.getElementById('groq-model').value
+        },
+        openai: {
+          apiKey: document.getElementById('openai-key').value,
+          model: document.getElementById('openai-model').value
+        }
+      };
+
+      try {
+        const response = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showAlert('Configuración guardada correctamente! ✅', 'success');
+          loadSettings();
+        } else {
+          showAlert('Error: ' + data.error, 'error');
+        }
+      } catch (error) {
+        showAlert('Error guardando configuración: ' + error.message, 'error');
+      }
+    }
+
+    // Load settings
+    async function loadSettings() {
+      try {
+        const response = await fetch('/api/settings');
+        const data = await response.json();
+
+        if (data.provider) {
+          selectProvider(data.provider);
+        }
+
+        if (data.groq?.apiKey) {
+          document.getElementById('groq-key').value = data.groq.apiKey;
+        }
+        if (data.groq?.model) {
+          document.getElementById('groq-model').value = data.groq.model;
+        }
+        if (data.openai?.apiKey) {
+          document.getElementById('openai-key').value = data.openai.apiKey;
+        }
+        if (data.openai?.model) {
+          document.getElementById('openai-model').value = data.openai.model;
+        }
+
+        // Update status indicators
+        if (data.groqAvailable) {
+          document.getElementById('groq-status').innerHTML = '✅ Conectado';
+          document.getElementById('groq-status').className = 'provider-status ok';
+        } else if (data.groq?.apiKey) {
+          document.getElementById('groq-status').innerHTML = '❌ Error';
+          document.getElementById('groq-status').className = 'provider-status error';
+        }
+
+        if (data.openaiAvailable) {
+          document.getElementById('openai-status').innerHTML = '✅ Conectado';
+          document.getElementById('openai-status').className = 'provider-status ok';
+        } else if (data.openai?.apiKey) {
+          document.getElementById('openai-status').innerHTML = '❌ Error';
+          document.getElementById('openai-status').className = 'provider-status error';
+        }
+
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    }
+
+    // Test connection
+    async function testConnection() {
+      showAlert('Probando conexión...', 'success');
+
+      try {
+        const response = await fetch('/api/test-connection', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: currentProvider })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showAlert(`Conexión exitosa con ${currentProvider.toUpperCase()}! ✅`, 'success');
+        } else {
+          showAlert('Error: ' + data.error, 'error');
+        }
+      } catch (error) {
+        showAlert('Error probando conexión: ' + error.message, 'error');
+      }
+    }
+
+    function showAlert(message, type) {
+      const alertDiv = document.getElementById('settings-alert');
+      alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+      setTimeout(() => alertDiv.innerHTML = '', 5000);
+    }
+
+    // WhatsApp status updates
+    function updateStatus(status, text) {
+      statusEl.className = 'status ' + status;
+      statusText.textContent = text;
+      // Sincronizar con el header
+      syncHeaderStatus(status, text);
+    }
+
+    socket.on('qr', (qr) => {
+      updateStatus('waiting', 'Esperando escaneo...');
+      qrContainer.innerHTML = `<img src="${qr}" alt="Código QR">`;
+      instructions.style.display = 'block';
+      testSection.style.display = 'none';
+    });
+
+    socket.on('authenticated', () => {
+      updateStatus('waiting', 'Autenticando...');
+      qrContainer.innerHTML = `<div class="spinner"></div><p class="qr-placeholder">Conectando...</p>`;
+    });
+
+    socket.on('ready', () => {
+      updateStatus('connected', 'Conectado');
+      qrContainer.innerHTML = `
+        <div class="connected-info">
+          <div class="icon">✅</div>
+          <h3>WhatsApp Conectado!</h3>
+          <p>El chatbot está activo.</p>
+        </div>
+      `;
+      instructions.style.display = 'none';
+      testSection.style.display = 'block';
+    });
+
+    socket.on('disconnected', () => {
+      updateStatus('disconnected', 'Desconectado');
+      qrContainer.innerHTML = `<div class="spinner"></div><p class="qr-placeholder">Reconectando...</p>`;
+      testSection.style.display = 'none';
+    });
+
+    socket.on('status', (data) => {
+      if (data.isReady) {
+        updateStatus('connected', 'Conectado');
+        qrContainer.innerHTML = `
+          <div class="connected-info">
+            <div class="icon">✅</div>
+            <h3>WhatsApp Conectado!</h3>
+            <p>El chatbot está activo.</p>
+          </div>
+        `;
+        instructions.style.display = 'none';
+        testSection.style.display = 'block';
+      } else if (data.hasQR) {
+        socket.emit('get-qr');
+      }
+    });
+
+    // Chat test
+    async function testChat() {
+      const input = document.getElementById('test-message');
+      const message = input.value.trim();
+      if (!message) return;
+
+      addMessage(message, 'user');
+      input.value = '';
+
+      try {
+        const response = await fetch('/api/test-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await response.json();
+        addMessage(data.response, 'bot');
+      } catch (error) {
+        addMessage('Error: ' + error.message, 'bot');
+      }
+    }
+
+    function addMessage(text, type) {
+      chatTest.classList.add('active');
+      const div = document.createElement('div');
+      div.className = 'message ' + type;
+      div.textContent = text;
+      chatTest.appendChild(div);
+      chatTest.scrollTop = chatTest.scrollHeight;
+    }
+
+    document.getElementById('test-message').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') testChat();
+    });
+
+    // Initialize
+    socket.emit('get-status');
+    loadSettings();
+  </script>
+
+</body>
+</html>
+
+<!-- ========================================
+     FIN DEL DASHBOARD COMPLETO
+     
+     RESUMEN DE LAS 4 PARTES:
+     
+     PARTE 1: Estructura base del dashboard
+              - Reset CSS y variables
+              - Layout con sidebar y header
+              - Estilos del dashboard
+              
+     PARTE 2: Estilos del contenido original
+              - Todos los estilos del chatbot
+              - Preservados sin modificar
+              
+     PARTE 3: HTML del contenido original
+              - Estructura del chatbot
+              - Tabs y formularios
+              - Preservado sin modificar
+              
+     PARTE 4: JavaScript completo
+              - Funciones del dashboard
+              - Funciones originales del chatbot
+              - Socket.io y todas las integraciones
+              
+     ======================================== -->

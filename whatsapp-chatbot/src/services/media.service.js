@@ -1,0 +1,174 @@
+/**
+ * ===========================================
+ * SERVICIO DE MEDIA (ARCHIVOS MULTIMEDIA)
+ * ===========================================
+ *
+ * Responsabilidades:
+ * - Descargar archivos multimedia de WhatsApp
+ * - Almacenar archivos temporalmente
+ * - Limpiar archivos después de procesarlos
+ * - Convertir formatos si es necesario
+ *
+ * IMPORTANTE: Los archivos de WhatsApp vienen como
+ * referencias (IDs o URLs). Este servicio se encarga
+ * de obtener el archivo real.
+ */
+
+const fs = require('fs').promises;
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
+const logger = require('../utils/logger');
+const config = require('../config');
+const whatsappProvider = require('../providers/whatsapp');
+
+/**
+ * Descarga un archivo multimedia de WhatsApp
+ * @param {string} mediaId - ID del archivo en WhatsApp
+ * @param {string} mimeType - Tipo MIME del archivo
+ * @returns {Promise<string>} Path al archivo descargado
+ */
+const downloadMedia = async (mediaId, mimeType) => {
+  try {
+    logger.debug(`Descargando media: ${mediaId}`);
+
+    // 1. Obtener URL de descarga del proveedor
+    const mediaUrl = await whatsappProvider.getMediaUrl(mediaId);
+
+    // 2. Descargar el archivo
+    const buffer = await whatsappProvider.downloadMedia(mediaUrl);
+
+    // 3. Determinar extensión según mime type
+    const extension = getExtensionFromMime(mimeType);
+
+    // 4. Guardar archivo temporal
+    const filename = `${uuidv4()}${extension}`;
+    const filepath = path.join(config.media.uploadDir, filename);
+
+    await fs.writeFile(filepath, buffer);
+
+    logger.info(`Media descargada: ${filepath}`);
+    return filepath;
+
+  } catch (error) {
+    logger.error('Error descargando media:', error);
+    throw error;
+  }
+};
+
+/**
+ * Elimina un archivo temporal
+ * @param {string} filepath - Path al archivo
+ */
+const deleteMedia = async (filepath) => {
+  try {
+    await fs.unlink(filepath);
+    logger.debug(`Archivo eliminado: ${filepath}`);
+  } catch (error) {
+    // No lanzar error si el archivo no existe
+    if (error.code !== 'ENOENT') {
+      logger.warn('Error eliminando archivo:', error);
+    }
+  }
+};
+
+/**
+ * Limpia archivos antiguos del directorio de uploads
+ * @param {number} maxAgeMinutes - Edad máxima en minutos
+ */
+const cleanupOldFiles = async (maxAgeMinutes = 60) => {
+  try {
+    const uploadDir = config.media.uploadDir;
+    const files = await fs.readdir(uploadDir);
+    const now = Date.now();
+    const maxAge = maxAgeMinutes * 60 * 1000;
+
+    let deletedCount = 0;
+
+    for (const file of files) {
+      // Ignorar .gitkeep y otros archivos del sistema
+      if (file.startsWith('.')) continue;
+
+      const filepath = path.join(uploadDir, file);
+      const stats = await fs.stat(filepath);
+
+      if (now - stats.mtimeMs > maxAge) {
+        await fs.unlink(filepath);
+        deletedCount++;
+      }
+    }
+
+    if (deletedCount > 0) {
+      logger.info(`Limpieza: ${deletedCount} archivos eliminados`);
+    }
+
+  } catch (error) {
+    logger.error('Error en limpieza de archivos:', error);
+  }
+};
+
+/**
+ * Obtiene la extensión de archivo según el MIME type
+ */
+const getExtensionFromMime = (mimeType) => {
+  const mimeMap = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'audio/ogg': '.ogg',
+    'audio/mpeg': '.mp3',
+    'audio/mp4': '.m4a',
+    'video/mp4': '.mp4',
+    'application/pdf': '.pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx'
+  };
+
+  return mimeMap[mimeType] || '.bin';
+};
+
+/**
+ * Verifica si el tipo de archivo está permitido
+ */
+const isAllowedFileType = (mimeType) => {
+  const extension = getExtensionFromMime(mimeType).slice(1); // Quitar el punto
+  return config.media.allowedExtensions.includes(extension);
+};
+
+/**
+ * Obtiene información de un archivo
+ */
+const getFileInfo = async (filepath) => {
+  try {
+    const stats = await fs.stat(filepath);
+    return {
+      path: filepath,
+      size: stats.size,
+      sizeFormatted: formatBytes(stats.size),
+      created: stats.birthtime,
+      modified: stats.mtime
+    };
+  } catch (error) {
+    return null;
+  }
+};
+
+/**
+ * Formatea bytes a formato legible
+ */
+const formatBytes = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+module.exports = {
+  downloadMedia,
+  deleteMedia,
+  cleanupOldFiles,
+  getExtensionFromMime,
+  isAllowedFileType,
+  getFileInfo
+};
