@@ -14,6 +14,7 @@
 const GroqProvider = require('./groq.provider');
 const OpenAIProvider = require('./openai.provider');
 const config = require('../../config');
+const settingsService = require('../../services/settings.service');
 const logger = require('../../utils/logger');
 
 // ===========================================
@@ -43,31 +44,43 @@ if (config.openai?.apiKey) {
 // ===========================================
 
 /**
- * Genera una respuesta de chat con fallback
+ * Genera una respuesta de chat (SIN fallback automático)
+ * Solo usa el proveedor activo configurado
  */
 const chat = async (messages, options = {}) => {
-  // Intentar con Groq primero
-  if (groqProvider) {
-    try {
-      logger.debug('Intentando con Groq...');
-      return await groqProvider.chat(messages, options);
-    } catch (error) {
-      logger.warn('Groq falló:', error.message);
+  // Obtener configuración actual
+  const currentSettings = settingsService.getApiKeys();
+
+  // Determinar qué proveedor usar según el configurado
+  const activeProvider = currentSettings.provider; // 'groq' o 'openai'
+
+  // Verificar si el proveedor activo está habilitado y tiene API key
+  if (activeProvider === 'groq' && currentSettings.groq.apiKey && currentSettings.groq.enabled) {
+    if (groqProvider) {
+      try {
+        logger.debug('Usando Groq (proveedor activo)...');
+        return await groqProvider.chat(messages, options);
+      } catch (error) {
+        logger.error('Error con Groq:', error.message);
+        throw error; // NO hacer fallback, lanzar error directamente
+      }
     }
   }
 
-  // Fallback a OpenAI
-  if (openaiProvider) {
-    try {
-      logger.debug('Intentando con OpenAI...');
-      return await openaiProvider.chat(messages, options);
-    } catch (error) {
-      logger.warn('OpenAI falló:', error.message);
+  if (activeProvider === 'openai' && currentSettings.openai.apiKey && currentSettings.openai.enabled) {
+    if (openaiProvider) {
+      try {
+        logger.debug('Usando OpenAI (proveedor activo)...');
+        return await openaiProvider.chat(messages, options);
+      } catch (error) {
+        logger.error('Error con OpenAI:', error.message);
+        throw error; // NO hacer fallback, lanzar error directamente
+      }
     }
   }
 
-  // Si todo falla, lanzar error para que chat.service use respuesta local
-  throw new Error('Ningún proveedor de IA disponible');
+  // Si el proveedor activo no está disponible, lanzar error
+  throw new Error(`Proveedor ${activeProvider.toUpperCase()} no disponible o no está activado`);
 };
 
 /**

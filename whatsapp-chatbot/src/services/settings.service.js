@@ -19,11 +19,13 @@ let settings = {
   provider: 'groq',
   groq: {
     apiKey: process.env.GROQ_API_KEY || '',
-    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+    enabled: true  // Habilitado por defecto
   },
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
-    model: process.env.OPENAI_MODEL || 'gpt-4o-mini'
+    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    enabled: true  // Habilitado por defecto
   }
 };
 
@@ -41,11 +43,13 @@ const loadSettings = () => {
         provider: saved.provider || settings.provider,
         groq: {
           apiKey: saved.groq?.apiKey || process.env.GROQ_API_KEY || '',
-          model: saved.groq?.model || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+          model: saved.groq?.model || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+          enabled: saved.groq?.enabled !== undefined ? saved.groq.enabled : true
         },
         openai: {
           apiKey: saved.openai?.apiKey || process.env.OPENAI_API_KEY || '',
-          model: saved.openai?.model || process.env.OPENAI_MODEL || 'gpt-4o-mini'
+          model: saved.openai?.model || process.env.OPENAI_MODEL || 'gpt-4o-mini',
+          enabled: saved.openai?.enabled !== undefined ? saved.openai.enabled : true
         }
       };
 
@@ -71,13 +75,15 @@ const saveSettings = (newSettings) => {
     }
 
     if (newSettings.groq) {
-      if (newSettings.groq.apiKey) settings.groq.apiKey = newSettings.groq.apiKey;
-      if (newSettings.groq.model) settings.groq.model = newSettings.groq.model;
+      if (newSettings.groq.apiKey !== undefined) settings.groq.apiKey = newSettings.groq.apiKey;
+      if (newSettings.groq.model !== undefined) settings.groq.model = newSettings.groq.model;
+      if (newSettings.groq.enabled !== undefined) settings.groq.enabled = newSettings.groq.enabled;
     }
 
     if (newSettings.openai) {
-      if (newSettings.openai.apiKey) settings.openai.apiKey = newSettings.openai.apiKey;
-      if (newSettings.openai.model) settings.openai.model = newSettings.openai.model;
+      if (newSettings.openai.apiKey !== undefined) settings.openai.apiKey = newSettings.openai.apiKey;
+      if (newSettings.openai.model !== undefined) settings.openai.model = newSettings.openai.model;
+      if (newSettings.openai.enabled !== undefined) settings.openai.enabled = newSettings.openai.enabled;
     }
 
     // Guardar en archivo
@@ -109,14 +115,16 @@ const getSettings = () => {
     provider: settings.provider,
     groq: {
       apiKey: maskApiKey(settings.groq.apiKey),
-      model: settings.groq.model
+      model: settings.groq.model,
+      enabled: settings.groq.enabled
     },
     openai: {
       apiKey: maskApiKey(settings.openai.apiKey),
-      model: settings.openai.model
+      model: settings.openai.model,
+      enabled: settings.openai.enabled
     },
-    groqAvailable: !!settings.groq.apiKey,
-    openaiAvailable: !!settings.openai.apiKey
+    groqAvailable: !!settings.groq.apiKey && settings.groq.enabled,
+    openaiAvailable: !!settings.openai.apiKey && settings.openai.enabled
   };
 };
 

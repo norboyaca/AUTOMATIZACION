@@ -9,6 +9,7 @@
 
 const logger = require('../utils/logger');
 const chatService = require('../services/chat.service');
+const conversationStateService = require('../services/conversation-state.service');
 
 class TextHandler {
   constructor() {
@@ -94,6 +95,12 @@ Puedes intentar de nuevo o escribir "menu" para ver las opciones disponibles.`;
    * Comando: /start o Hola
    */
   async handleStart(message) {
+    // Marcar que se envió el mensaje de bienvenida
+    const userId = message.from;
+    if (userId) {
+      conversationStateService.markWelcomeSent(userId);
+    }
+
     return `Hola! 👋 Bienvenido al asistente virtual de NORBOY.
 
 Soy tu guía para el proceso *"Elegimos Juntos 2026-2029"*. Estoy aquí para resolver tus dudas sobre:

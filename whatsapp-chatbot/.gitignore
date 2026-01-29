@@ -1,10 +1,13 @@
 # Dependencias
 node_modules/
 
-# Variables de entorno
-.env
+# Variables de entorno LOCALES (solo backups)
 .env.local
 .env.*.local
+
+# Llaves SSH (NUNCA SUBIR)
+*.pem
+chatbot-production-key.pem
 
 # Logs
 logs/
@@ -39,5 +42,3 @@ temp/
 # whatsapp-web.js (SESIONES Y CACHE)
 .wwebjs_auth/
 .wwebjs_cache/
-node_modules/
-

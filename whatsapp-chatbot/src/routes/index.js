@@ -13,6 +13,9 @@
 const express = require('express');
 const multer = require('multer');
 const webhookRoutes = require('./webhook.routes');
+const authRoutes = require('./auth.routes');
+const conversationsRoutes = require('./conversations.routes');
+const { requireAuth } = require('../middlewares/auth.middleware');
 const chatService = require('../services/chat.service');
 const settingsService = require('../services/settings.service');
 const knowledgeUploadService = require('../services/knowledge-upload.service');
@@ -42,6 +45,12 @@ const upload = multer({
 // Webhook de WhatsApp: /api/webhook
 router.use('/webhook', webhookRoutes);
 
+// Rutas de autenticación: /api/auth/*
+router.use('/auth', authRoutes);
+
+// Rutas de conversaciones: /api/conversations/*
+router.use('/conversations', conversationsRoutes);
+
 // ===========================================
 // ENDPOINT DE PRUEBA DEL CHAT
 // ===========================================
@@ -69,11 +78,11 @@ router.post('/test-chat', async (req, res) => {
 });
 
 // ===========================================
-// ENDPOINTS DE CONFIGURACIÓN
+// ENDPOINTS DE CONFIGURACIÓN (PROTEGIDOS)
 // ===========================================
 
 // Obtener configuración actual
-router.get('/settings', (req, res) => {
+router.get('/settings', requireAuth, (req, res) => {
   try {
     const settings = settingsService.getSettings();
     res.json(settings);
@@ -84,7 +93,7 @@ router.get('/settings', (req, res) => {
 });
 
 // Guardar configuración
-router.post('/settings', (req, res) => {
+router.post('/settings', requireAuth, (req, res) => {
   try {
     const { provider, groq, openai } = req.body;
 
@@ -104,7 +113,7 @@ router.post('/settings', (req, res) => {
 });
 
 // Probar conexión con proveedor
-router.post('/test-connection', async (req, res) => {
+router.post('/test-connection', requireAuth, async (req, res) => {
   try {
     const { provider } = req.body;
     const keys = settingsService.getApiKeys();
@@ -171,7 +180,7 @@ router.post('/test-connection', async (req, res) => {
 // ===========================================
 
 // Subir archivo a la base de conocimiento
-router.post('/knowledge/upload', upload.single('file'), async (req, res) => {
+router.post('/knowledge/upload', requireAuth, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No se recibió ningún archivo' });
@@ -187,7 +196,7 @@ router.post('/knowledge/upload', upload.single('file'), async (req, res) => {
 });
 
 // Listar archivos de conocimiento
-router.get('/knowledge/files', (req, res) => {
+router.get('/knowledge/files', requireAuth, (req, res) => {
   try {
     const files = knowledgeUploadService.getUploadedFiles();
     res.json({ success: true, files });
@@ -198,7 +207,7 @@ router.get('/knowledge/files', (req, res) => {
 });
 
 // Eliminar archivo de conocimiento
-router.delete('/knowledge/files/:id', (req, res) => {
+router.delete('/knowledge/files/:id', requireAuth, (req, res) => {
   try {
     knowledgeUploadService.deleteFile(req.params.id);
     res.json({ success: true, message: 'Archivo eliminado' });
@@ -209,7 +218,7 @@ router.delete('/knowledge/files/:id', (req, res) => {
 });
 
 // Buscar en archivos de conocimiento
-router.post('/knowledge/search', (req, res) => {
+router.post('/knowledge/search', requireAuth, (req, res) => {
   try {
     const { query } = req.body;
     if (!query) {

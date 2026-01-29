@@ -221,8 +221,19 @@ function deleteFile(fileId) {
  */
 function searchInFiles(query) {
   const results = [];
+
+  // Normalizar query de múltiples formas para ser más flexible
   const queryLower = query.toLowerCase();
+  const queryUpper = query.toUpperCase();
+  const queryCapitalized = query.charAt(0).toUpperCase() + query.slice(1).toLowerCase();
+
+  // Remover espacios extras y normalizar
+  const queryNormalized = query.trim().replace(/\s+/g, ' ');
+
+  // Extraer palabras clave
   const queryKeywords = extractKeywords(query);
+
+  logger.debug(`🔍 Buscando: "${query}" (normalizado: "${queryNormalized}")`);
 
   for (const file of knowledgeIndex.files) {
     const dataPath = path.join(KNOWLEDGE_DIR, `${file.id}_data.json`);
@@ -236,20 +247,43 @@ function searchInFiles(query) {
         // Calcular relevancia
         let score = 0;
 
-        // Coincidencia directa en texto
-        if (chunk.text.toLowerCase().includes(queryLower)) {
+        // Coincidencia directa exacta - probar múltiples variaciones
+        const chunkText = chunk.text;
+
+        // Búsqueda exacta (case-sensitive)
+        if (chunkText.includes(query)) {
+          score += 20; // Mayor peso para coincidencia exacta
+        }
+
+        // Búsqueda con diferentes variaciones de mayúsculas
+        if (chunkText.includes(queryLower)) {
+          score += 12;
+        }
+        if (chunkText.includes(queryUpper)) {
+          score += 12;
+        }
+        if (chunkText.includes(queryCapitalized)) {
+          score += 12;
+        }
+
+        // Búsqueda normalizada (ambas minúsculas)
+        if (chunkText.toLowerCase().includes(queryLower)) {
           score += 10;
         }
 
-        // Coincidencia de palabras clave
+        // Coincidencia de palabras clave - aumentar peso
         for (const keyword of queryKeywords) {
+          // Buscar en palabras clave del chunk
           if (chunk.keywords.includes(keyword)) {
+            score += 4;
+          }
+          // Buscar en texto del chunk
+          if (chunkText.toLowerCase().includes(keyword)) {
             score += 2;
           }
-          if (chunk.text.toLowerCase().includes(keyword)) {
-            score += 1;
-          }
         }
+
+        logger.debug(`  Chunk score: ${score} (buscando "${query}")`);
 
         if (score > 0) {
           results.push({
@@ -264,6 +298,8 @@ function searchInFiles(query) {
       logger.warn(`Error leyendo datos de ${file.originalName}:`, error.message);
     }
   }
+
+  logger.debug(`🎯 Resultados encontrados: ${results.length}`);
 
   // Ordenar por relevancia y retornar top 5
   return results.sort((a, b) => b.score - a.score).slice(0, 5);

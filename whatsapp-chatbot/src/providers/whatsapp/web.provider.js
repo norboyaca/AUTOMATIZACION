@@ -82,7 +82,8 @@ class WhatsAppWebProvider extends EventEmitter {
 
     // Cuando está listo
     this.client.on('ready', () => {
-      logger.info('WhatsApp Web está listo!');
+      logger.info('🎉 WhatsApp Web está listo!');
+      logger.info(`✅ Estado: isReady=${this.isReady} → true`);
       this.isReady = true;
       this.status = 'ready';
       this.emit('ready');
@@ -90,7 +91,7 @@ class WhatsAppWebProvider extends EventEmitter {
 
     // Cuando se desconecta
     this.client.on('disconnected', (reason) => {
-      logger.warn('WhatsApp desconectado:', reason);
+      logger.warn('⚠️ WhatsApp desconectado:', reason);
       this.isReady = false;
       this.status = 'disconnected';
       this.emit('disconnected', reason);
@@ -98,16 +99,32 @@ class WhatsAppWebProvider extends EventEmitter {
 
     // Cuando hay error de autenticación
     this.client.on('auth_failure', (msg) => {
-      logger.error('Error de autenticación:', msg);
+      logger.error('❌ Error de autenticación:', msg);
       this.status = 'auth_failure';
       this.emit('auth_failure', msg);
     });
 
+    // Cuando hay un error en el cliente
+    this.client.on('error', (error) => {
+      logger.error('❌ Error en cliente WhatsApp:', error.message);
+      logger.error('Error details:', error);
+    });
+
+    // Estado de cambio de batería
+    this.client.on('change_battery', (batteryInfo) => {
+      logger.debug(`🔋 Batería: ${batteryInfo.battery}%`);
+    });
+
     // Cuando llega un mensaje
     this.client.on('message', async (message) => {
+      logger.debug(`📨 Evento message recibido: from=${message.from}, fromMe=${message.fromMe}, type=${message.type}`);
+
       // Solo procesar mensajes que no son del bot
       if (!message.fromMe) {
+        logger.debug('✅ Mensaje de otro usuario, emitiendo evento...');
         this.emit('message', message);
+      } else {
+        logger.debug('❌ Mensaje propio del bot, ignorando...');
       }
     });
   }
@@ -229,6 +246,13 @@ class WhatsAppWebProvider extends EventEmitter {
       logger.error('Error descargando media:', error);
       throw error;
     }
+  }
+
+  /**
+   * Obtiene el cliente de WhatsApp directamente
+   */
+  getClient() {
+    return this.client;
   }
 
   /**
