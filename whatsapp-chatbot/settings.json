@@ -1,7 +1,7 @@
 {
   "provider": "openai",
   "groq": {
-    "apiKey": "gsk_Oxbo...f8cr",
+    "apiKey": "TU_API_KEY",
     "model": "llama-3.3-70b-versatile"
   },
   "openai": {
