@@ -10,6 +10,7 @@
 const logger = require('../utils/logger');
 const chatService = require('../services/chat.service');
 const conversationStateService = require('../services/conversation-state.service');
+const messageProcessor = require('../services/message-processor.service');
 
 class TextHandler {
   constructor() {
@@ -34,6 +35,13 @@ class TextHandler {
 
   /**
    * Procesa un mensaje de texto
+   *
+   * IMPORTANTE: Ahora usa messageProcessor que implementa todos los puntos de control:
+   * - Punto 1: Verifica bot_active
+   * - Punto 2: Desactivación por asesor
+   * - Punto 3: Fallback obligatorio
+   * - Punto 4: Control de horario (4:30 PM)
+   * - Punto 5: Flujo general
    */
   async process(message) {
     try {
@@ -42,19 +50,20 @@ class TextHandler {
 
       logger.debug(`Procesando texto de ${userId}: ${text.substring(0, 50)}...`);
 
-      // 1. Verificar si es un comando
+      // 1. Verificar si es un comando especial (estos sí se procesan directamente)
       const command = this._detectCommand(text);
       if (command) {
         return await command(message);
       }
 
-      // 2. Detectar saludos simples
+      // 2. Detectar saludos simples (también se procesan directamente)
       if (this._isGreeting(text)) {
         return await this.handleStart(message);
       }
 
-      // 3. Procesar con IA + base de conocimiento
-      const response = await chatService.generateTextResponse(userId, text);
+      // 3. Para cualquier otro mensaje, usar messageProcessor con todos los puntos de control
+      // Esto implementa: bot_active check, horario 4:30 PM, fallback, etc.
+      const response = await messageProcessor.processIncomingMessage(userId, text);
 
       return response;
 

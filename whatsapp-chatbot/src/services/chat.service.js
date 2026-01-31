@@ -15,6 +15,7 @@ const aiProvider = require('../providers/ai');
 const knowledgeBase = require('../knowledge');
 const knowledgeUploadService = require('./knowledge-upload.service');
 const conversationStateService = require('./conversation-state.service');
+const escalationService = require('./escalation.service');
 
 // Inicializar base de conocimiento
 knowledgeBase.initialize();
@@ -66,6 +67,12 @@ const generateTextResponse = async (userId, message, options = {}) => {
       conversationStateService.incrementInteractionCount(userId);
       logger.info(`💬 Usuario ${userId}: Interacción #${currentCount}`);
     }
+
+    // ===========================================
+    // IMPORTANTE: NO evaluar escalación aquí
+    // La escalación se maneja en messageProcessor
+    // Aquí solo intentar responder
+    // ===========================================
 
     // Si es la SEGUNDA interacción y no ha respondido consentimiento, mostrar mensaje
     if (currentCount === 2 && !userConsent.has(userId) && !userConsentRequested.get(userId) && !options.skipConsent) {
@@ -241,7 +248,53 @@ const generateWithAI = async (userId, message, options = {}) => {
     temperature: 0.7 // Un poco más preciso
   });
 
-  return cleanQuestionMarks(response);
+  const cleanedResponse = cleanQuestionMarks(response);
+
+  // ===========================================
+  // DETECTAR RESPUESTA DE BAJA CONFIANZA
+  // ===========================================
+  // Si la IA indica que no tiene información, activar escalación
+  const lowConfidencePatterns = [
+    'no tengo información',
+    'no cuento con información',
+    'no dispongo de información',
+    'no puedo responder',
+    'no se encuentra información',
+    'no mencionas',
+    'no especificas',
+    'lo siento pero no',
+    'no tengo información disponible',  // ✅ AGREGADO
+    'información sobre créditos',       // ✅ AGREGADO - específico para este caso
+    'no puedo ayudar con',             // ✅ AGREGADO
+    'no cuento con detalles',          // ✅ AGREGADO
+    'solo puedo ayudar'                // ✅ AGREGADO - cuando la IA limita su ayuda
+  ];
+
+  const normalizedResponse = cleanedResponse.toLowerCase().trim();
+  const hasLowConfidence = lowConfidencePatterns.some(pattern =>
+    normalizedResponse.includes(pattern)
+  );
+
+  if (hasLowConfidence) {
+    logger.warn(`⚠️ IA indica falta de información para ${userId}`);
+    logger.warn(`   Respuesta: "${cleanedResponse.substring(0, 100)}..."`);
+    logger.warn(`   Patrón detectado: Escalando a asesor humano`);
+
+    // Retornar objeto especial de escalación
+    return {
+      type: 'escalation_no_info',
+      text: NO_INFO_MESSAGE,
+      needsHuman: true,
+      escalation: {
+        reason: 'ai_no_information',
+        priority: 'medium',
+        detectedKeyword: 'low_confidence_response',
+        originalResponse: cleanedResponse.substring(0, 200) // Guardar respuesta original para referencia
+      }
+    };
+  }
+
+  return cleanedResponse;
 };
 
 /**
@@ -294,10 +347,27 @@ Escríbanos su pregunta, estamos para servirle 👍`;
 };
 
 /**
+ * Mensaje cuando la IA no tiene información suficiente
+ */
+const NO_INFO_MESSAGE = 'Estamos verificando esa información. Un asesor te contestará en breve.';
+
+/**
  * Respuesta genérica cuando no hay match
  */
 const getGenericResponse = (originalMessage) => {
-  return `Sumercé, no tenemos información sobre eso. Solo podemos ayudarle con temas del proceso "Elegimos Juntos" de NORBOY: delegados, Asamblea, órganos de control. Pregúntenos sobre esos temas, estamos para servirle 👍`;
+  logger.warn(`⚠️ Sin información en base de conocimientos para: "${originalMessage.substring(0, 50)}..."`);
+
+  // En lugar de devolver texto, devolver objeto de escalación
+  return {
+    type: 'escalation_no_info',
+    text: NO_INFO_MESSAGE,
+    needsHuman: true,
+    escalation: {
+      reason: 'no_knowledge_match',
+      priority: 'medium',
+      message: 'No se encontró información en base de conocimientos'
+    }
+  };
 };
 
 /**
@@ -333,7 +403,11 @@ https://norboy.coop/proteccion-de-datos-personales/
 💬 Uso de WhatsApp:
 https://www.whatsapp.com/legal
 
-Para continuar, responde:
+━━━━━━━━━━━━━━━━━━
+⚠️ IMPORTANTE
+
+Para continuar debes ESCRIBIR el número 
+aceptas las políticas:
 1️⃣ ACEPTAR
 2️⃣ NO ACEPTAR`,
     useList: false // No usar lista por ahora, solo texto
@@ -437,6 +511,39 @@ const cleanQuestionMarks = (text) => {
 };
 
 /**
+ * Mensaje cuando se escala a humano
+ */
+const getEscalationMessage = (escalation) => {
+  return {
+    type: 'escalation',
+    text: `Entiendo, sumercé. 👨‍💼
+
+Un asesor de NORBOY le atenderá en breve.
+Por favor, espere un momento mientras conectamos.`,
+    needsHuman: true,
+    escalation
+  };
+};
+
+/**
+ * Mensaje fuera de horario
+ */
+const getOutOfHoursMessage = () => {
+  const nextOpening = escalationService.getNextOpeningTime();
+
+  return {
+    type: 'out_of_hours',
+    text: `Sumercé, nuestro horario de atención es:
+🕐 Lunes a Viernes: 8:00 AM - 6:00 PM
+
+Lo atenderemos con gusto:
+📅 ${nextOpening.formatted}
+
+🌙 Buenas noches.`
+  };
+};
+
+/**
  * Construye mensajes para IA
  */
 const buildMessages = (userMessage, history = [], context = '', options = {}) => {
@@ -501,5 +608,8 @@ module.exports = {
   getUserInteractionCount,
   getPendingMessage,
   clearPendingMessage,
-  resetUserState  // NUEVA FUNCIÓN
+  resetUserState,
+  getEscalationMessage,
+  getOutOfHoursMessage,
+  NO_INFO_MESSAGE  // Exportar para uso en otros módulos
 };

@@ -19,6 +19,7 @@
 const config = require('../../config');
 const MetaProvider = require('./meta.provider');
 const TwilioProvider = require('./twilio.provider');
+const BaileysProvider = require('./baileys.provider');
 
 // ===========================================
 // FACTORY DE PROVEEDORES
@@ -43,6 +44,10 @@ const getProvider = () => {
       break;
     case 'twilio':
       providerInstance = new TwilioProvider(config.whatsapp.twilio);
+      break;
+    case 'baileys':
+      // BaileysProvider ya es un singleton, no hay que instanciarlo
+      providerInstance = BaileysProvider;
       break;
     default:
       throw new Error(`Proveedor WhatsApp no soportado: ${providerType}`);

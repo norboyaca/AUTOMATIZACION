@@ -19,6 +19,7 @@ const app = require('./src/app');
 const config = require('./src/config');
 const { requireAuth } = require('./src/middlewares/auth.middleware');
 const logger = require('./src/utils/logger');
+const messageProcessor = require('./src/services/message-processor.service');
 
 // Seleccionar provider: baileys (recomendado) o web (whatsapp-web.js)
 const whatsappProvider = process.env.WHATSAPP_PROVIDER || 'baileys';
@@ -106,6 +107,14 @@ whatsappWeb.on('message', async (message) => {
     logger.info(`📝 Tipo de mensaje: ${type} | fromMe: ${message.fromMe}`);
 
     // ===========================================
+    // IGNORAR MENSAJES VACÍOS (eventos históricos de Baileys)
+    // ===========================================
+    if (!body || body.trim() === '') {
+      logger.debug('⏭️ Mensaje vacío, ignorando (probablemente evento histórico)');
+      return;
+    }
+
+    // ===========================================
     // MANEJO DE RESPUESTAS A BOTONES (CONSENTIMIENTO)
     // ===========================================
     if (type === 'button_response' || message?.message?.buttonsResponseMessage) {
@@ -133,12 +142,13 @@ whatsappWeb.on('message', async (message) => {
           const response = await chatService.generateTextResponse(from, pendingMessage, { skipConsent: true });
 
           if (response && !response?.type) {
-            await client.sendMessage(from, { text: response });
+            const responseText = typeof response === 'string' ? response : response.text || '';
+            await client.sendMessage(from, { text: responseText });
             logger.info(`✅ Respuesta enviada para mensaje pendiente`);
 
             io.emit('bot-response', {
               to: from,
-              response: `[Aceptó consentimiento y respondió]: ${response.substring(0, 50)}...`,
+              response: `[Aceptó consentimiento y respondió]: ${responseText.substring(0, 50)}...`,
               chatType
             });
           }
@@ -173,32 +183,42 @@ whatsappWeb.on('message', async (message) => {
     }
 
     // ===========================================
-    // FALLBACK: DETECTAR RESPUESTAS DE TEXTO PARA CONSENTIMIENTO
+    // MANEJO DE RESPUESTAS DE TEXTO (CONSENTIMIENTO)
     // ===========================================
-    if (type === 'chat' || type === 'conversation') {
+    // Verificar si el usuario está respondiendo al consentimiento con texto
+    const hasPendingMessage = chatService.getPendingMessage(from);
+    const interactionCount = chatService.getUserInteractionCount(from);
+    const hasConsent = chatService.hasUserConsent(from);
+
+    // Si hay mensaje pendiente (esperando respuesta de consentimiento) y el texto es una respuesta
+    if (hasPendingMessage && !hasConsent && interactionCount >= 2) {
       const normalizedBody = body.toLowerCase().trim();
+      const positiveResponses = ['1', 'aceptar', 'ok', 'si', 'sí', 'yes', 'acepto', 'acepto'];
+      const negativeResponses = ['2', 'no aceptar', 'no', 'rechazar', 'rechazo'];
 
-      // Verificar si el usuario está respondiendo al consentimiento con texto
-      // (desde la segunda interacción en adelante, si no ha aceptado)
-      const interactionCount = chatService.getUserInteractionCount(from);
-      const hasNotResponded = interactionCount >= 2 && !chatService.hasUserConsent(from);
+      logger.info(`🔍 Detectada posible respuesta de consentimiento: "${body}"`);
 
-      // Verificar también si ya se mostró el mensaje de consentimiento
-      const consentRequested = interactionCount >= 2;
+      let consentResponse = null;
 
-      if (hasNotResponded && consentRequested) {
-        logger.info(`🔍 Verificando respuesta de texto para consentimiento: "${normalizedBody}"`);
+      if (positiveResponses.includes(normalizedBody) || positiveResponses.some(r => normalizedBody.includes(r))) {
+        consentResponse = 'accept';
+        logger.info(`✅ Usuario ${from} aceptó el consentimiento (texto: "${body}")`);
+      } else if (negativeResponses.includes(normalizedBody) || negativeResponses.some(r => normalizedBody.includes(r))) {
+        consentResponse = 'reject';
+        logger.info(`❌ Usuario ${from} rechazó el consentimiento (texto: "${body}")`);
+      }
 
-        // Respuestas positivas
-        if (['1', 'aceptar', 'acepto', 'ok', 'si', 'sí', 'yes', 'claro', 'de acuerdo', 'estar de acuerdo'].some(ans => normalizedBody.includes(ans) || normalizedBody === ans)) {
+      // Si se detectó una respuesta de consentimiento
+      if (consentResponse) {
+        const client = whatsappWeb.getClient();
+
+        if (consentResponse === 'accept') {
           chatService.setConsentResponse(from, true);
-          const client = whatsappWeb.getClient();
 
           // Enviar confirmación de aceptación
           await client.sendMessage(from, {
             text: '✅ Gracias por aceptar. Procesando su consulta...'
           });
-          logger.info(`✅ Usuario ${from} aceptó el consentimiento (texto)`);
 
           // Verificar si hay un mensaje pendiente y responderlo
           const pendingMessage = chatService.getPendingMessage(from);
@@ -206,16 +226,17 @@ whatsappWeb.on('message', async (message) => {
             logger.info(`📝 Procesando mensaje pendiente: "${pendingMessage.substring(0, 50)}..."`);
             chatService.clearPendingMessage(from);
 
-            // Generar respuesta para el mensaje pendiente
+            // Generar respuesta para el mensaje pendiente con skipConsent
             const response = await chatService.generateTextResponse(from, pendingMessage, { skipConsent: true });
 
             if (response && !response?.type) {
-              await client.sendMessage(from, { text: response });
+              const responseText = typeof response === 'string' ? response : response.text || '';
+              await client.sendMessage(from, { text: responseText });
               logger.info(`✅ Respuesta enviada para mensaje pendiente`);
 
               io.emit('bot-response', {
                 to: from,
-                response: `[Aceptó consentimiento y respondió]: ${response.substring(0, 50)}...`,
+                response: `[Aceptó consentimiento y respondió]: ${responseText.substring(0, 50)}...`,
                 chatType
               });
             }
@@ -226,84 +247,62 @@ whatsappWeb.on('message', async (message) => {
 
             io.emit('bot-response', {
               to: from,
-              response: 'Aceptó consentimiento (texto)',
+              response: 'Aceptó consentimiento',
               chatType
             });
           }
-
-          return;
-        }
-
-        // Respuestas negativas
-        if (['2', 'no aceptar', 'no acepto', 'no', 'rechazar', 'rechazo'].some(ans => normalizedBody.includes(ans) || normalizedBody === ans)) {
+        } else {
+          // Reject
           chatService.setConsentResponse(from, false);
-          const client = whatsappWeb.getClient();
           await client.sendMessage(from, {
             text: 'Entendido. Sin el consentimiento no podemos continuar con la conversación. Si cambia de opinión, puede iniciar una nueva conversación.'
           });
-          logger.info(`❌ Usuario ${from} rechazó el consentimiento (texto)`);
 
           io.emit('bot-response', {
             to: from,
-            response: 'Rechazó consentimiento (texto)',
+            response: 'Rechazó consentimiento',
             chatType
           });
-
-          return;
         }
 
-        // Si no entiende la respuesta, pedir que responda claramente
-        logger.info('⏳ Respuesta no reconocida, esperando confirmación de consentimiento');
-        const client = whatsappWeb.getClient();
-        await client.sendMessage(from, {
-          text: 'Por favor, responda:\n\n✅ "1" o "Aceptar" para continuar\n❌ "2" o "No acepto" para rechazar'
-        });
-
-        return;
+        return; // No procesar más este mensaje
       }
     }
 
     // Notificar a la interfaz web
     io.emit('message-received', { from, body, type, chatType });
 
-    // Solo procesar mensajes de texto por ahora
+    // ===========================================
+    // NUEVO: Usar messageProcessor para todos los mensajes
+    // ===========================================
+    // Esto implementa todos los puntos de control:
+    // - Punto 1: Verifica bot_active
+    // - Punto 2: Desactivación por asesor
+    // - Punto 3: Fallback obligatorio
+    // - Punto 4: Control de horario (4:30 PM)
+    // - Punto 5: Flujo general
+    // - Y GUARDA LOS MENSAJES en conversation.messages
+
     if (type === 'chat' || type === 'conversation') {
-      logger.info('🔄 Generando respuesta...');
+      logger.info('🔄 Procesando mensaje con messageProcessor...');
 
-      // Generar respuesta con IA
-      const response = await chatService.generateTextResponse(from, body);
+      // Usar messageProcessor que ya maneja todo:
+      // - consentimiento
+      // - escalación
+      // - horario
+      // - GUARDADO DE MENSAJES
+      const response = await messageProcessor.processIncomingMessage(from, body);
 
-      // Si la respuesta es null (usuario rechazó consentimiento), no responder
-      if (response === null) {
-        logger.info('⏭️ Sin respuesta (consentimiento no aceptado)');
+      // Si response es null, no se debe enviar nada (ya se envió internamente)
+      if (!response) {
+        logger.debug('⏭️ Sin respuesta externa (ya procesada internamente)');
         return;
       }
 
-      // Si la respuesta tiene tipo 'consent', enviar como texto con instrucciones
-      if (response?.type === 'consent') {
-        logger.info('📋 Enviando mensaje de consentimiento (texto)');
-
-        const client = whatsappWeb.getClient();
-
-        // Enviar mensaje como texto simple (objeto con propiedad text)
-        await client.sendMessage(from, { text: response.text });
-
-        logger.info(`✅ Mensaje de consentimiento enviado a ${from} [${chatType}]`);
-
-        // Notificar a la interfaz web
-        io.emit('bot-response', {
-          to: from,
-          response: '[Mensaje de consentimiento]',
-          chatType
-        });
-
-        return;
-      }
-
+      // Si hay respuesta, enviarla
       logger.info(`✅ Respuesta generada: ${response.substring(0, 50)}...`);
       logger.info(`📤 Enviando respuesta a ${from} [${chatType}]...`);
 
-      // Enviar respuesta usando Baileys API
       try {
         const client = whatsappWeb.getClient();
         await client.sendMessage(from, { text: response });
@@ -314,7 +313,7 @@ whatsappWeb.on('message', async (message) => {
       }
 
       // Notificar a la interfaz web
-      io.emit('bot-response', { to: from, response, chatType });
+      io.emit('bot-response', { to: from, response: response, chatType });
     } else {
       logger.warn(`⚠️ Tipo de mensaje no soportado: ${type}`);
     }
@@ -323,13 +322,19 @@ whatsappWeb.on('message', async (message) => {
     logger.error('❌ Error procesando mensaje:', error);
     logger.error('Stack trace:', error.stack);
 
-    // Enviar mensaje de error al usuario
+    // Enviar mensaje de error al usuario (si tenemos el número)
     try {
       const client = whatsappWeb.getClient();
-      await client.sendMessage(from, {
-        text: 'Disculpa, tuve un problema procesando tu mensaje. Por favor intenta de nuevo.'
-      });
-      logger.info('Mensaje de error enviado');
+
+      // Obtener el número de teléfono del mensaje
+      const userPhone = messages[0]?.key?.remoteJid || messages[0]?.key?.participant;
+
+      if (userPhone) {
+        await client.sendMessage(userPhone, {
+          text: 'Disculpa, tuve un problema procesando tu mensaje. Por favor intenta de nuevo.'
+        });
+        logger.info(`Mensaje de error enviado a ${userPhone}`);
+      }
     } catch (e) {
       logger.error('❌❌ Error enviando mensaje de error:', e);
     }

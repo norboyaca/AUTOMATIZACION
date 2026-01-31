@@ -58,9 +58,12 @@ class BaileysProvider extends EventEmitter {
       this.hasExistingSession = authFiles.length > 0;
 
       if (this.hasExistingSession) {
-        logger.info(`📁 Sesión existente detectada (${authFiles.length} archivos), intentando restaurar...`);
+        logger.info(`📁 Sesión existente detectada (${authFiles.length} archivos): ${authFiles.join(', ')}`);
+        logger.info(`📂 Ruta de autenticación: ${this.authPath}`);
+        logger.info(`♻️  Intentando restaurar sesión sin QR...`);
       } else {
-        logger.info('📝 No hay sesión previa, se generará nuevo QR');
+        logger.info('📝 No hay sesión previa en baileys_auth');
+        logger.info('📱 Se generará nuevo código QR para escanear');
       }
 
       // Cargar estado de autenticación
@@ -197,7 +200,19 @@ class BaileysProvider extends EventEmitter {
    * Maneja cuando el bot está listo
    */
   async _handleReady() {
-    logger.info('✅ ¡Conectado a WhatsApp con Baileys!');
+    this.isReady = true;
+    this.isConnecting = false;
+    this.status = 'connected';
+
+    // Mensaje específico según si restauró sesión o es nueva
+    if (this.hasExistingSession && !this.qrEmitted) {
+      logger.info('✅ ¡Sesión RESTAURADA automáticamente sin escanear QR!');
+      logger.info('💾 La sesión se recuperó desde los archivos guardados en baileys_auth/');
+    } else if (this.qrEmitted) {
+      logger.info('✅ ¡Conectado a WhatsApp con Baileys (nueva sesión)!');
+    } else {
+      logger.info('✅ ¡Conectado a WhatsApp con Baileys!');
+    }
 
     try {
       const user = this.sock.user;
