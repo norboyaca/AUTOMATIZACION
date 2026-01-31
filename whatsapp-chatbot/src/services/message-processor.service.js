@@ -20,10 +20,18 @@ const chatService = require('./chat.service');
 const whatsappProvider = require('../providers/whatsapp');
 const timeSimulation = require('./time-simulation.service');
 
+// ✅ NUEVO: Socket.IO para emitir eventos de escalación al dashboard
+let io = null;
+
+function setSocketIO(socketIOInstance) {
+  io = socketIOInstance;
+  logger.info('✅ Socket.IO inicializado en message-processor');
+}
+
 // ===========================================
 // MENSAJAGES DEL SISTEMA
 // ===========================================
-const NO_INFO_MESSAGE = 'Estamos verificando esa información. Un asesor te contestará en breve.';
+const NO_INFO_MESSAGE = 'Entiendo, sumercé. 👨‍💼\n\nUn asesor de NORBOY le atenderá en breve.\nPor favor, espere un momento mientras conectamos.';
 
 // ===========================================
 // CONFIGURACIÓN DE HORARIO DE ATENCIÓN
@@ -185,6 +193,20 @@ Por favor, espere un momento mientras conectamos.`;
       // Enviar mensaje de escalación
       await whatsappProvider.sendMessage(userId, escalationMsg);
 
+      // ✅ NUEVO: Emitir evento de escalación al dashboard
+      if (io) {
+        io.emit('escalation-detected', {
+          userId: userId,
+          phoneNumber: conversation.phoneNumber,
+          reason: escalation.reason,
+          priority: escalation.priority,
+          message: message,
+          detectedKeyword: escalation.detectedKeyword,
+          timestamp: Date.now()
+        });
+        logger.info(`📢 Evento 'escalation-detected' emitido al dashboard para ${userId}`);
+      }
+
       logger.info(`✅ Mensaje de escalación enviado a ${userId}`);
 
       return null;
@@ -248,6 +270,20 @@ Por favor, espere un momento mientras conectamos.`;
 
       // Enviar mensaje de escalación
       await whatsappProvider.sendMessage(userId, responseText);
+
+      // ✅ NUEVO: Emitir evento de escalación al dashboard
+      if (io) {
+        io.emit('escalation-detected', {
+          userId: userId,
+          phoneNumber: conversation.phoneNumber,
+          reason: escalationReason,
+          priority: response.escalation?.priority || 'medium',
+          message: message,
+          type: response.type,
+          timestamp: Date.now()
+        });
+        logger.info(`📢 Evento 'escalation-detected' emitido al dashboard para ${userId}`);
+      }
 
       logger.info(`✅ Mensaje de escalación enviado a ${userId}: "${responseText}"`);
 
@@ -475,5 +511,6 @@ module.exports = {
   isOutOfHours,
   getOutOfHoursMessage,
   getMessages,
-  getStats
+  getStats,
+  setSocketIO  // ✅ NUEVO: Para inicializar Socket.IO
 };

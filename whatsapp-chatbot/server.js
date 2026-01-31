@@ -39,6 +39,9 @@ const server = http.createServer(app);
 // Configurar Socket.IO
 const io = new Server(server);
 
+// ✅ NUEVO: Inicializar messageProcessor con Socket.IO para emitir eventos de escalación
+messageProcessor.setSocketIO(io);
+
 // ===========================================
 // SOCKET.IO - COMUNICACIÓN EN TIEMPO REAL
 // ===========================================
@@ -141,16 +144,34 @@ whatsappWeb.on('message', async (message) => {
           // Generar respuesta para el mensaje pendiente
           const response = await chatService.generateTextResponse(from, pendingMessage, { skipConsent: true });
 
-          if (response && !response?.type) {
-            const responseText = typeof response === 'string' ? response : response.text || '';
-            await client.sendMessage(from, { text: responseText });
-            logger.info(`✅ Respuesta enviada para mensaje pendiente`);
+          // Procesar respuesta (puede ser string, objeto de escalación, o null)
+          if (response) {
+            let responseText = '';
 
-            io.emit('bot-response', {
-              to: from,
-              response: `[Aceptó consentimiento y respondió]: ${responseText.substring(0, 50)}...`,
-              chatType
-            });
+            // Si es un string, usarlo directamente
+            if (typeof response === 'string') {
+              responseText = response;
+            }
+            // Si es un objeto con propiedad 'text' (escalamiento u otro)
+            else if (response.text) {
+              responseText = response.text;
+            }
+
+            // Enviar la respuesta si hay texto
+            if (responseText) {
+              await client.sendMessage(from, { text: responseText });
+              logger.info(`✅ Respuesta enviada para mensaje pendiente: "${responseText.substring(0, 50)}..."`);
+
+              io.emit('bot-response', {
+                to: from,
+                response: `[Aceptó consentimiento y respondió]: ${responseText.substring(0, 50)}...`,
+                chatType
+              });
+            } else {
+              logger.warn(`⚠️ Respuesta vacía para mensaje pendiente`);
+            }
+          } else {
+            logger.warn(`⚠️ Sin respuesta para mensaje pendiente`);
           }
         } else {
           await client.sendMessage(from, {
@@ -229,16 +250,34 @@ whatsappWeb.on('message', async (message) => {
             // Generar respuesta para el mensaje pendiente con skipConsent
             const response = await chatService.generateTextResponse(from, pendingMessage, { skipConsent: true });
 
-            if (response && !response?.type) {
-              const responseText = typeof response === 'string' ? response : response.text || '';
-              await client.sendMessage(from, { text: responseText });
-              logger.info(`✅ Respuesta enviada para mensaje pendiente`);
+            // Procesar respuesta (puede ser string, objeto de escalación, o null)
+            if (response) {
+              let responseText = '';
 
-              io.emit('bot-response', {
-                to: from,
-                response: `[Aceptó consentimiento y respondió]: ${responseText.substring(0, 50)}...`,
-                chatType
-              });
+              // Si es un string, usarlo directamente
+              if (typeof response === 'string') {
+                responseText = response;
+              }
+              // Si es un objeto con propiedad 'text' (escalamiento u otro)
+              else if (response.text) {
+                responseText = response.text;
+              }
+
+              // Enviar la respuesta si hay texto
+              if (responseText) {
+                await client.sendMessage(from, { text: responseText });
+                logger.info(`✅ Respuesta enviada para mensaje pendiente: "${responseText.substring(0, 50)}..."`);
+
+                io.emit('bot-response', {
+                  to: from,
+                  response: `[Aceptó consentimiento y respondió]: ${responseText.substring(0, 50)}...`,
+                  chatType
+                });
+              } else {
+                logger.warn(`⚠️ Respuesta vacía para mensaje pendiente`);
+              }
+            } else {
+              logger.warn(`⚠️ Sin respuesta para mensaje pendiente`);
             }
           } else {
             await client.sendMessage(from, {
@@ -327,7 +366,7 @@ whatsappWeb.on('message', async (message) => {
       const client = whatsappWeb.getClient();
 
       // Obtener el número de teléfono del mensaje
-      const userPhone = messages[0]?.key?.remoteJid || messages[0]?.key?.participant;
+      const userPhone = from || message?.key?.remoteJid;
 
       if (userPhone) {
         await client.sendMessage(userPhone, {

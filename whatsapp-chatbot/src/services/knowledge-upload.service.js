@@ -88,21 +88,26 @@ async function processPdfFile(filePath, originalName) {
 
 /**
  * Extrae chunks de texto para búsqueda
+ *
+ * ✅ MEJORADO: Limpieza mejor de caracteres especiales y formato
  */
 function extractChunks(text) {
   const chunks = [];
 
+  // ✅ NUEVO: Limpiar caracteres problemáticos del PDF antes de procesar
+  const cleanedText = cleanPdfText(text);
+
   // Dividir por párrafos o secciones
-  const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 50);
+  const paragraphs = cleanedText.split(/\n\n+/).filter(p => p.trim().length > 50);
 
   for (const para of paragraphs) {
-    // Limpiar el texto
-    const cleaned = para.trim().replace(/\s+/g, ' ');
+    // Limpiar el texto (normalizar espacios)
+    const normalized = para.trim().replace(/\s+/g, ' ');
 
-    if (cleaned.length > 0) {
+    if (normalized.length > 0) {
       chunks.push({
-        text: cleaned,
-        keywords: extractKeywords(cleaned)
+        text: normalized,
+        keywords: extractKeywords(normalized)
       });
     }
   }
@@ -111,7 +116,7 @@ function extractChunks(text) {
   const qaPattern = /(?:pregunta|p)[:\s]*(.+?)(?:respuesta|r)[:\s]*(.+?)(?=(?:pregunta|p)[:\s]|$)/gis;
   let match;
 
-  while ((match = qaPattern.exec(text)) !== null) {
+  while ((match = qaPattern.exec(cleanedText)) !== null) {
     chunks.push({
       text: `${match[1].trim()}\n${match[2].trim()}`,
       keywords: extractKeywords(match[1] + ' ' + match[2]),
@@ -119,7 +124,57 @@ function extractChunks(text) {
     });
   }
 
+  logger.info(`📄 Extraídos ${chunks.length} chunks del texto`);
   return chunks;
+}
+
+/**
+ * ✅ NUEVO: Limpia caracteres problemáticos de PDFs
+ *
+ * Los PDFs extraídos con pdf-parse a veces tienen caracteres
+ * codificados incorrectamente. Esta función los normaliza.
+ */
+function cleanPdfText(text) {
+  // Reemplazos comunes de caracteres mal codificados
+  const replacements = [
+    // Caracteres acentuados comunes mal codificados
+    [/ǭ/g, 'ó'],
+    [/ǧ/g, 'í'],
+    [/ǯ/g, 'ú'],
+    [/ń/g, 'ñ'],
+    [/š/g, 'á'],
+    [/ě/g, 'é'],
+    [/č/g, 'í'],
+
+    // Caracteres de reemplazo
+    [/'/g, 'ó'],
+    [/%/g, 'ó'],
+    [/‚/g, ''],
+    [/'/g, ''],
+    [/"/g, '"'],
+    [/"/g, '"'],
+    [/–/g, '-'],
+    [/—/g, '-'],
+
+    // Múltiples espacios
+    [/\s+/g, ' '],
+
+    // Líneas que no terminan con punto (probables cortes de PDF)
+    [/([a-z])\n([a-z])/g, '$1 $2']
+  ];
+
+  let cleaned = text;
+
+  for (const [pattern, replacement] of replacements) {
+    cleaned = cleaned.replace(pattern, replacement);
+  }
+
+  // Normalizar espacios al final
+  cleaned = cleaned.trim().replace(/\s+/g, ' ');
+
+  logger.debug(`🧹 Texto limpio: ${text.substring(0, 50)}... → ${cleaned.substring(0, 50)}...`);
+
+  return cleaned;
 }
 
 /**
@@ -218,6 +273,8 @@ function deleteFile(fileId) {
 
 /**
  * Busca en todos los archivos cargados
+ *
+ * ✅ MEJORADO: Búsqueda más flexible e inteligente
  */
 function searchInFiles(query) {
   const results = [];
@@ -230,10 +287,13 @@ function searchInFiles(query) {
   // Remover espacios extras y normalizar
   const queryNormalized = query.trim().replace(/\s+/g, ' ');
 
+  // Remover acentos para búsqueda más flexible
+  const queryNoAccents = removeAccents(queryLower);
+
   // Extraer palabras clave
   const queryKeywords = extractKeywords(query);
 
-  logger.debug(`🔍 Buscando: "${query}" (normalizado: "${queryNormalized}")`);
+  logger.debug(`🔍 Buscando: "${query}" (normalizado: "${queryNormalized}", sin acentos: "${queryNoAccents}")`);
 
   for (const file of knowledgeIndex.files) {
     const dataPath = path.join(KNOWLEDGE_DIR, `${file.id}_data.json`);
@@ -249,37 +309,48 @@ function searchInFiles(query) {
 
         // Coincidencia directa exacta - probar múltiples variaciones
         const chunkText = chunk.text;
+        const chunkTextLower = chunkText.toLowerCase();
+        const chunkTextNoAccents = removeAccents(chunkTextLower);
 
-        // Búsqueda exacta (case-sensitive)
+        // Búsqueda exacta (case-sensitive) - mayor peso
         if (chunkText.includes(query)) {
-          score += 20; // Mayor peso para coincidencia exacta
+          score += 30;
         }
 
         // Búsqueda con diferentes variaciones de mayúsculas
-        if (chunkText.includes(queryLower)) {
-          score += 12;
+        if (chunkTextLower.includes(queryLower)) {
+          score += 20;
         }
         if (chunkText.includes(queryUpper)) {
-          score += 12;
+          score += 15;
         }
         if (chunkText.includes(queryCapitalized)) {
-          score += 12;
+          score += 15;
         }
 
-        // Búsqueda normalizada (ambas minúsculas)
-        if (chunkText.toLowerCase().includes(queryLower)) {
-          score += 10;
+        // ✅ NUEVO: Búsqueda sin acentos (más flexible)
+        if (chunkTextNoAccents.includes(queryNoAccents)) {
+          score += 12;
         }
 
         // Coincidencia de palabras clave - aumentar peso
         for (const keyword of queryKeywords) {
+          const keywordLower = keyword.toLowerCase();
+          const keywordNoAccents = removeAccents(keywordLower);
+
           // Buscar en palabras clave del chunk
           if (chunk.keywords.includes(keyword)) {
-            score += 4;
+            score += 8;
+          }
+          if (chunk.keywords.includes(keywordNoAccents)) {
+            score += 5;
           }
           // Buscar en texto del chunk
-          if (chunkText.toLowerCase().includes(keyword)) {
-            score += 2;
+          if (chunkTextLower.includes(keywordLower)) {
+            score += 4;
+          }
+          if (chunkTextNoAccents.includes(keywordNoAccents)) {
+            score += 3;
           }
         }
 
@@ -301,8 +372,73 @@ function searchInFiles(query) {
 
   logger.debug(`🎯 Resultados encontrados: ${results.length}`);
 
+  // ✅ NUEVO: Si no hay resultados exactos pero hay palabras clave, intentar búsqueda más laxa
+  if (results.length === 0 && queryKeywords.length > 0) {
+    logger.info(`🔄 Sin resultados exactos, intentando búsqueda laxa por palabras clave...`);
+
+    for (const file of knowledgeIndex.files) {
+      const dataPath = path.join(KNOWLEDGE_DIR, `${file.id}_data.json`);
+
+      if (!fs.existsSync(dataPath)) continue;
+
+      try {
+        const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+
+        for (const chunk of data.chunks) {
+          const chunkTextLower = chunk.text.toLowerCase();
+          const chunkTextNoAccents = removeAccents(chunkTextLower);
+
+          // Verificar si al menos una palabra clave está presente (incluso parcial)
+          let partialScore = 0;
+          for (const keyword of queryKeywords) {
+            const keywordNoAccents = removeAccents(keyword.toLowerCase());
+
+            // Búsqueda parcial de palabra clave (al menos 4 caracteres)
+            if (keyword.length >= 4) {
+              for (let i = 0; i <= keyword.length - 4; i++) {
+                const partial = keyword.substring(i, i + 4);
+                if (chunkTextNoAccents.includes(partial) || chunkTextLower.includes(partial)) {
+                  partialScore += 1;
+                  break; // Contar la palabra clave solo una vez
+                }
+              }
+            }
+          }
+
+          if (partialScore > 0) {
+            logger.info(`  ✅ Encontrado coincidencia parcial: score=${partialScore}`);
+            results.push({
+              text: chunk.text,
+              score: partialScore,
+              source: file.originalName,
+              isQA: chunk.isQA || false,
+              isPartial: true // Marcar como coincidencia parcial
+            });
+          }
+        }
+      } catch (error) {
+        logger.warn(`Error en búsqueda laxa de ${file.originalName}:`, error.message);
+      }
+    }
+  }
+
   // Ordenar por relevancia y retornar top 5
-  return results.sort((a, b) => b.score - a.score).slice(0, 5);
+  const sorted = results.sort((a, b) => b.score - a.score);
+
+  logger.info(`📊 Total resultados (incluyendo parciales): ${sorted.length}`);
+
+  return sorted.slice(0, 5);
+}
+
+/**
+ * ✅ NUEVO: Elimina acentos de una cadena para búsqueda más flexible
+ */
+function removeAccents(text) {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Eliminar diacríticos
+    .replace(/ñ/g, 'n') // Reemplazar ñ
+    .replace(/Ñ/g, 'N'); // Reemplazar Ñ
 }
 
 /**

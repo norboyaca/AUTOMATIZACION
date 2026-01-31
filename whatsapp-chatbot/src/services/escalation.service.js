@@ -53,8 +53,9 @@ const escalationRules = {
     'urgente', 'emergencia'
   ],
 
-  // Máximo número de intentos antes de escalar
-  maxRetries: 3,
+  // ❌ ELIMINADO: Ya no se usa límite de intentos
+  // La IA siempre intenta responder primero
+  // maxRetries: 3,
 
   // Horario laboral (PUNTO DE CONTROL 4)
   workingHours: {
@@ -90,16 +91,17 @@ function evaluateEscalation(userId, message, interactionCount = 0) {
   const conversationStateService = require('./conversation-state.service');
   const conversation = conversationStateService.getConversation(userId);
 
-  // ✅ NUEVO: Si fue reactivada manualmente, resetear flag Y ignorar regla de múltiples intentos
+  // ✅ NUEVO: Si fue reactivada manualmente, ignorar regla de múltiples intentos
+  // (Ya no se usa la regla de múltiples intentos, pero mantenemos el flag por si acaso)
   if (conversation && conversation.manuallyReactivated) {
-    logger.info(`🔄 Conversación ${userId} fue reactivada manualmente. Reseteando flag y permitiendo nuevo ciclo limpio.`);
+    logger.info(`🔄 Conversación ${userId} fue reactivada manualmente. Reseteando flag.`);
 
     // Resetear el flag para que solo se aplique una vez
     conversation.manuallyReactivated = false;
 
-    // NO escalar por múltiples intentos después de reactivación manual
-    logger.info(`   ✅ Regla de múltiples intentos IGNORADA por reactivación manual`);
-    logger.info(`   ✅ Usuario puede escribir ${escalationRules.maxRetries}+ mensajes más antes de nueva escalación`);
+    // No escalar (la regla de múltiples intentos ya no existe)
+    logger.info(`   ✅ Flag de reactivación manual reseteado`);
+    logger.info(`   ✅ La IA intentará responder normalmente`);
 
     return {
       needsHuman: false,
@@ -143,19 +145,30 @@ function evaluateEscalation(userId, message, interactionCount = 0) {
     };
   }
 
-  // 3. Múltiples intentos sin resolución (usar interactionCount)
-  if (interactionCount >= escalationRules.maxRetries) {
-    logger.info(`🔄 Múltiples intentos para ${userId}: ${interactionCount}+`);
+  // ===========================================
+  // ❌ ELIMINADO: Regla de múltiples intentos
+  // ===========================================
+  // La IA SIEMPRE debe intentar responder primero.
+  // Solo se escala si:
+  // 1. El usuario lo solicita explícitamente
+  // 2. Es un tópico complejo/sensible
+  // 3. La IA indica que no tiene información (baja confianza)
+  //
+  // No tiene sentido escalar automáticamente después de N mensajes,
+  // ya que la IA moderna puede manejar conversaciones largas perfectamente.
 
-    return {
-      needsHuman: true,
-      reason: 'multiple_retries',
-      priority: 'medium',
-      message: `Usuario realizó ${interactionCount}+ interacciones sin resolución satisfactoria.`
-    };
-  }
+  // 3. Múltiples intentos sin resolución (usar interactionCount) - ELIMINADO
+  // if (interactionCount >= escalationRules.maxRetries) {
+  //   logger.info(`🔄 Múltiples intentos para ${userId}: ${interactionCount}+`);
+  //   return {
+  //     needsHuman: true,
+  //     reason: 'multiple_retries',
+  //     priority: 'medium',
+  //     message: `Usuario realizó ${interactionCount}+ interacciones sin resolución satisfactoria.`
+  //   };
+  // }
 
-  // 4. Verificar si está fuera de horario laboral
+  // 3. Verificar si está fuera de horario laboral
   const isWithinHours = isWithinWorkingHours();
 
   if (!isWithinHours) {

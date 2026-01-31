@@ -170,9 +170,9 @@ const generateTextResponse = async (userId, message, options = {}) => {
       return humanizeResponse(localAnswer.answer);
     }
 
-    // 6. Último recurso: respuesta genérica con sugerencias
-    logger.info('📙 Respuesta: Genérica');
-    const response = getGenericResponse(message);
+    // 6. Último recurso: respuesta genérica (ahora asíncrono)
+    logger.info('📙 Respuesta: Genérica (último intento con IA)');
+    const response = await getGenericResponse(message);
 
     // Actualizar último mensaje de la conversación
     conversationStateService.updateLastMessage(userId, message);
@@ -187,6 +187,8 @@ const generateTextResponse = async (userId, message, options = {}) => {
 
 /**
  * Genera respuesta usando IA (Groq/OpenAI)
+ *
+ * ✅ MEJORADO: Evalúa calidad de fragmentos encontrados antes de decidir escalar
  */
 const generateWithAI = async (userId, message, options = {}) => {
   // Obtener contexto de la base de conocimiento original
@@ -197,18 +199,40 @@ const generateWithAI = async (userId, message, options = {}) => {
   const hasDocuments = files.length > 0;
 
   let relevantContext = baseContext;
+  let searchResults = [];
+  let contextQuality = 'none'; // 'high', 'medium', 'low', 'none'
 
   if (hasDocuments) {
     logger.info(`📚 Procesando ${files.length} documento(s) subido(s)`);
 
     // SIEMPRE usar búsqueda inteligente para encontrar fragmentos relevantes
-    const searchResults = knowledgeUploadService.searchInFiles(message);
+    searchResults = knowledgeUploadService.searchInFiles(message);
 
     if (searchResults.length > 0) {
+      // ✅ NUEVO: Evaluar calidad de los resultados
+      const topScore = searchResults[0].score;
+      const avgScore = searchResults.reduce((sum, r) => sum + r.score, 0) / searchResults.length;
+
+      // Determinar calidad del contexto basado en scores
+      if (topScore >= 20) {
+        contextQuality = 'high';
+        logger.info(`✅ Contexto de ALTA calidad detectado (top score: ${topScore})`);
+      } else if (topScore >= 10) {
+        contextQuality = 'medium';
+        logger.info(`📊 Contexto de calidad MEDIA detectado (top score: ${topScore})`);
+      } else {
+        contextQuality = 'low';
+        logger.info(`⚠️ Contexto de BAJA calidad detectado (top score: ${topScore})`);
+      }
+
       // Usar fragmentos encontrados (más eficiente y preciso)
-      logger.info(`🎯 Encontrados ${searchResults.length} fragmentos relevantes`);
+      logger.info(`🎯 Encontrados ${searchResults.length} fragmentos relevantes (avg score: ${avgScore.toFixed(1)})`);
+
+      // ✅ NUEVO: Aumentar cantidad de contexto según calidad
+      const contextCount = contextQuality === 'high' ? 5 : contextQuality === 'medium' ? 4 : 3;
+
       const contextFromSearch = searchResults
-        .slice(0, 3)
+        .slice(0, contextCount)
         .map(r => `[Fuente: ${r.source}]\n${r.text}`)
         .join('\n\n---\n\n');
 
@@ -218,6 +242,7 @@ const generateWithAI = async (userId, message, options = {}) => {
     } else {
       // Si no hay coincidencias, pasar TODO el contenido (como último recurso)
       logger.info('📄 Sin coincidencias exactas, usando contenido completo de documentos');
+      contextQuality = 'none';
       let allUploadedContent = '';
 
       for (const file of files) {
@@ -238,7 +263,7 @@ const generateWithAI = async (userId, message, options = {}) => {
     }
   }
 
-  const messages = buildMessages(message, [], relevantContext, options);
+  const messages = buildMessages(message, [], relevantContext, options, { contextQuality, searchResults });
 
   // Aumentar tokens cuando hay contexto de documentos
   const maxTokens = hasDocuments ? 400 : 150;
@@ -254,20 +279,65 @@ const generateWithAI = async (userId, message, options = {}) => {
   // DETECTAR RESPUESTA DE BAJA CONFIANZA
   // ===========================================
   // Si la IA indica que no tiene información, activar escalación
+  //
+  // ✅ IMPORTANTE: Excluir el mensaje de escalación del sistema para evitar bucle infinito
+  const ESCALATION_MESSAGE_PATTERNS = [
+    'entiendo, sumercé',
+    'un asesor de norboy le atenderá',
+    'por favor, espere un momento mientras conectamos'
+  ];
+
+  // Verificar primero si la respuesta es el mensaje de escalación (para evitar bucle)
+  const isEscalationMessage = ESCALATION_MESSAGE_PATTERNS.some(pattern =>
+    cleanedResponse.toLowerCase().includes(pattern)
+  );
+
+  if (isEscalationMessage) {
+    logger.warn(`⚠️ La IA respondió con el mensaje de escalación para ${userId}`);
+    logger.warn(`   Esto indica que la IA NO encontró información relevante`);
+    logger.warn(`   Respuesta: "${cleanedResponse.substring(0, 100)}..."`);
+    logger.warn(`   Calidad del contexto: ${contextQuality}, Fragmentos encontrados: ${searchResults.length}`);
+
+    // ✅ NUEVO: Si la calidad del contexto es alta o media, intentar respuesta alternativa
+    if (contextQuality === 'high' || contextQuality === 'medium') {
+      logger.info(`🔄 Intentando respuesta alternativa con contexto de calidad ${contextQuality.toUpperCase()}`);
+
+      // Generar respuesta usando el mejor fragmento encontrado
+      const topFragment = searchResults[0].text;
+      const fallbackResponse = `Según la información disponible sobre el proceso electoral:\n\n${topFragment.substring(0, 300)}...\n\nPara más detalles específicos, un asesor puede atenderte.`;
+
+      logger.info(`✅ Respuesta alternativa generada usando fragmento top`);
+      return fallbackResponse;
+    }
+
+    // Retornar el mensaje de escalación directamente
+    return {
+      type: 'escalation_no_info',
+      text: NO_INFO_MESSAGE,
+      needsHuman: true,
+      escalation: {
+        reason: 'ai_no_information',
+        priority: 'medium',
+        detectedKeyword: 'escalation_message_response',
+        originalResponse: cleanedResponse.substring(0, 200),
+        contextQuality: contextQuality,
+        fragmentsFound: searchResults.length
+      }
+    };
+  }
+
+  // Patrones de baja confianza (EXCLUYENDO el mensaje de escalación del sistema)
   const lowConfidencePatterns = [
     'no tengo información',
     'no cuento con información',
     'no dispongo de información',
-    'no puedo responder',
     'no se encuentra información',
     'no mencionas',
     'no especificas',
     'lo siento pero no',
-    'no tengo información disponible',  // ✅ AGREGADO
-    'información sobre créditos',       // ✅ AGREGADO - específico para este caso
-    'no puedo ayudar con',             // ✅ AGREGADO
-    'no cuento con detalles',          // ✅ AGREGADO
-    'solo puedo ayudar'                // ✅ AGREGADO - cuando la IA limita su ayuda
+    'no tengo información disponible',
+    'no cuento con detalles',
+    'estamos verificando esa información'
   ];
 
   const normalizedResponse = cleanedResponse.toLowerCase().trim();
@@ -278,7 +348,18 @@ const generateWithAI = async (userId, message, options = {}) => {
   if (hasLowConfidence) {
     logger.warn(`⚠️ IA indica falta de información para ${userId}`);
     logger.warn(`   Respuesta: "${cleanedResponse.substring(0, 100)}..."`);
-    logger.warn(`   Patrón detectado: Escalando a asesor humano`);
+    logger.warn(`   Patrón detectado: "${lowConfidencePatterns.find(p => normalizedResponse.includes(p))}"`);
+    logger.warn(`   Calidad del contexto: ${contextQuality}, Fragmentos encontrados: ${searchResults.length}`);
+
+    // ✅ NUEVO: Si la calidad del contexto es buena, intentar con el mejor fragmento
+    if (contextQuality === 'high' || (contextQuality === 'medium' && searchResults.length >= 3)) {
+      logger.info(`🔄 Recuperando: usando mejor fragmento encontrado (score: ${searchResults[0].score})`);
+
+      const topFragment = searchResults[0].text;
+      const fallbackResponse = `${topFragment.substring(0, 500)}...\n\nSi necesitas más detalles, un asesor puede ayudarte.`;
+
+      return fallbackResponse;
+    }
 
     // Retornar objeto especial de escalación
     return {
@@ -289,7 +370,9 @@ const generateWithAI = async (userId, message, options = {}) => {
         reason: 'ai_no_information',
         priority: 'medium',
         detectedKeyword: 'low_confidence_response',
-        originalResponse: cleanedResponse.substring(0, 200) // Guardar respuesta original para referencia
+        originalResponse: cleanedResponse.substring(0, 200),
+        contextQuality: contextQuality,
+        fragmentsFound: searchResults.length
       }
     };
   }
@@ -349,25 +432,94 @@ Escríbanos su pregunta, estamos para servirle 👍`;
 /**
  * Mensaje cuando la IA no tiene información suficiente
  */
-const NO_INFO_MESSAGE = 'Estamos verificando esa información. Un asesor te contestará en breve.';
+const NO_INFO_MESSAGE = 'Entiendo, sumercé. 👨‍💼\n\nUn asesor de NORBOY le atenderá en breve.\nPor favor, espere un momento mientras conectamos.';
 
 /**
  * Respuesta genérica cuando no hay match
+ *
+ * ✅ IMPORTANTE: Esta función se llama como ÚLTIMO recurso.
+ * Debe intentar usar la IA con cualquier contexto disponible antes de escalar.
  */
-const getGenericResponse = (originalMessage) => {
-  logger.warn(`⚠️ Sin información en base de conocimientos para: "${originalMessage.substring(0, 50)}..."`);
+const getGenericResponse = async (originalMessage) => {
+  logger.warn(`⚠️ Sin información en base de conocimientos local para: "${originalMessage.substring(0, 50)}..."`);
 
-  // En lugar de devolver texto, devolver objeto de escalación
-  return {
-    type: 'escalation_no_info',
-    text: NO_INFO_MESSAGE,
-    needsHuman: true,
-    escalation: {
-      reason: 'no_knowledge_match',
-      priority: 'medium',
-      message: 'No se encontró información en base de conocimientos'
+  // ✅ NUEVO: Intentar una última vez con la IA usando un prompt más permisivo
+  // Esto permite que la IA use su conocimiento general cuando no hay documentos específicos
+  try {
+    logger.info(`🔄 Último intento: IA sin contexto restrictivo`);
+
+    const fallbackMessages = [
+      {
+        role: 'system',
+        content: `Eres un asistente virtual de NORBOY, una cooperativa especializada de ahorro y crédito.
+
+INSTRUCCIONES:
+1. Responde de manera amable y profesional usando "sumercé" para dirigirte al usuario
+2. Si la pregunta es sobre el proceso de elección de delegados 2026-2029, indica que un asesor le ayudará
+3. Si la pregunta es sobre temas generales de cooperativas, puedes dar una respuesta general
+4. Si no puedes responder, indica claramente que un asesor le atenderá
+
+IMPORTANTE: NO inventes información específica que no sepas. Es mejor admitir que no sabes que inventar datos.`
+      },
+      {
+        role: 'user',
+        content: originalMessage
+      }
+    ];
+
+    const aiResponse = await aiProvider.chat(fallbackMessages, {
+      maxTokens: 150,
+      temperature: 0.7
+    });
+
+    const cleanedResponse = cleanQuestionMarks(aiResponse);
+
+    // Verificar si la respuesta indica que no puede ayudar
+    const cannotHelpPatterns = [
+      'no puedo responder',
+      'no tengo información',
+      'no dispongo de información',
+      'un asesor te contestará',
+      'un asesor le atenderá'
+    ];
+
+    const cannotHelp = cannotHelpPatterns.some(pattern =>
+      cleanedResponse.toLowerCase().includes(pattern)
+    );
+
+    if (cannotHelp) {
+      logger.warn(`⚠️ IA indica que no puede ayudar (fallback)`);
+      // Escalar al asesor
+      return {
+        type: 'escalation_no_info',
+        text: NO_INFO_MESSAGE,
+        needsHuman: true,
+        escalation: {
+          reason: 'no_knowledge_match',
+          priority: 'medium',
+          message: 'No se encontró información en base de conocimientos'
+        }
+      };
     }
-  };
+
+    logger.info(`✅ Respuesta generada (fallback): "${cleanedResponse.substring(0, 50)}..."`);
+    return cleanedResponse;
+
+  } catch (error) {
+    logger.error(`❌ Error incluso en fallback de IA:`, error.message);
+
+    // Último recurso: escalar al asesor
+    return {
+      type: 'escalation_no_info',
+      text: NO_INFO_MESSAGE,
+      needsHuman: true,
+      escalation: {
+        reason: 'ai_fallback_failed',
+        priority: 'high',
+        message: 'Error en sistema de IA'
+      }
+    };
+  }
 };
 
 /**
@@ -545,9 +697,13 @@ Lo atenderemos con gusto:
 
 /**
  * Construye mensajes para IA
+ *
+ * ✅ MEJORADO: Prompt más flexible que permite respuestas inteligentes
+ * ✅ NUEVO: Ajusta el prompt según la calidad del contexto encontrado
  */
-const buildMessages = (userMessage, history = [], context = '', options = {}) => {
+const buildMessages = (userMessage, history = [], context = '', options = {}, contextInfo = {}) => {
   const messages = [];
+  const { contextQuality = 'none', searchResults = [] } = contextInfo;
 
   const systemPrompt = options.systemPrompt || config.openai.systemPrompts.default;
 
@@ -557,9 +713,63 @@ const buildMessages = (userMessage, history = [], context = '', options = {}) =>
   });
 
   if (context) {
+    // ✅ NUEVO: Prompt ajustado dinámicamente según calidad del contexto
+    let promptContext = '';
+
+    if (contextQuality === 'high' || contextQuality === 'medium') {
+      // Contexto de buena calidad: ser más permisivo
+      promptContext = `📚 INFORMACIÓN DE DOCUMENTOS (CALIDAD: ${contextQuality.toUpperCase()}):
+Se encontraron ${searchResults.length} fragmentos relevantes en los documentos.
+
+${context}
+
+INSTRUCCIONES ESPECIALES (contexto de calidad ${contextQuality.toUpperCase()}):
+1. ✅ TIENES INFORMACIÓN RELEVANTE DISPONIBLE - ÚSALA
+2. Responde usando la información de los documentos proporcionados arriba
+3. Si no encuentras la fecha/hora EXACTA, PUEDES:
+   - Explicar el proceso general
+   - Mencionar qué etapas hay
+   - Indicar cómo será la elección
+   - Decir "según el cronograma del proceso" sin dar fecha específica
+4. Solo escala al asesor si la pregunta es COMPLETAMENTE AJENA a NORBOY
+5. Responde siempre de manera amable usando "sumercé"
+
+EJEMPLOS DE RESPUESTAS APROPIADAS:
+- "La votación se realizará según el cronograma oficial del proceso..."
+- "El proceso de elección contempla varias etapas..."
+- "Según la información disponible, los delegados se eligen mediante..."`;
+    } else {
+      // Contexto de baja calidad: ser más cauteloso
+      promptContext = `📚 INFORMACIÓN DE DOCUMENTOS DISPONIBLE:\n${context}\n\nINSTRUCCIONES:
+1. PRIORIDAD: Usa PRIMERO la información de los documentos proporcionados arriba
+2. Si encuentras información relevante en los documentos, responde usando esa información
+3. PUEDES complementar con tu conocimiento general sobre cooperativas si es necesario
+4. Si la pregunta NO está relacionada con NORBOY o cooperativas, indica amablemente que un asesor le ayudará
+5. Si NO encuentras ABSOLUTAMENTE NINGUNA información relevante después de revisar TODO el contexto, di: "Estamos verificando esa información. Un asesor te contestará en breve."
+6. Responde siempre de manera amable usando "sumercé" para dirigirte al usuario
+
+IMPORTANTE:
+- NO inventes datos específicos que no estén en los documentos (fechas exactas, montos, nombres específicos, etc.)
+- PUEDES dar información general sobre el proceso aunque no tengas la fecha exacta
+- PUEDES explicar cómo será el proceso aunque no sepas el día específico
+- Si el documento menciona un cronograma o período pero no una fecha exacta, usa esa información general`;
+    }
+
     messages.push({
       role: 'system',
-      content: `INFO RELEVANTE:\n${context}\n\nResponde BREVE usando esta info si aplica.`
+      content: promptContext
+    });
+  } else {
+    // Si no hay contexto de documentos, permitir respuestas más generales sobre NORBOY
+    messages.push({
+      role: 'system',
+      content: `📋 BASE DE CONOCIMIENTO:\nNo hay documentos específicos cargados.\n\nINSTRUCCIONES:
+1. Responde preguntas generales sobre NORBOY (cooperativa, proceso electoral, delegados)
+2. Si la pregunta requiere información específica (fechas, montos, detalles), di: "Estamos verificando esa información. Un asesor te contestará en breve."
+3. Si la pregunta es sobre temas completamente ajenos a NORBOY, indica amablemente que un asesor le ayudará
+4. Responde siempre de manera amable usando "sumercé" para dirigirte al usuario
+
+NO respondas sobre temas ajenos a la cooperativa (ciencia, historia, geografía, clima, etc.).`
     });
   }
 

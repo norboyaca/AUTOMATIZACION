@@ -393,7 +393,11 @@ function assignAdvisor(userId, advisorData = {}) {
   conversation.takenAt = Date.now();
   conversation.lastInteraction = Date.now();
 
+  // ✅ CORRECCIÓN: Resetear contador de interacciones cuando el asesor toma la conversación
+  // Esto evita que se escale nuevamente por "multiple_retries" después de que el asesor responda
+  conversation.interactionCount = 0;
   logger.info(`✅ Asesor ${advisorData.name || advisorData.id} tomó conversación de ${userId}`);
+  logger.info(`   ✅ interactionCount reseteado a 0`);
 
   return conversation;
 }
