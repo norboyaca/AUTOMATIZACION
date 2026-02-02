@@ -31,7 +31,7 @@ function setSocketIO(socketIOInstance) {
 // ===========================================
 // MENSAJAGES DEL SISTEMA
 // ===========================================
-const NO_INFO_MESSAGE = 'Entiendo, sumercé. 👨‍💼\n\nUn asesor de NORBOY le atenderá en breve.\nPor favor, espere un momento mientras conectamos.';
+const NO_INFO_MESSAGE = 'Comprendo, sumercé. 👩‍💼\n\nEl asesor de NORBOY encargado de este tema le atenderá en breve...';
 
 // ===========================================
 // CONFIGURACIÓN DE HORARIO DE ATENCIÓN
@@ -138,7 +138,7 @@ async function processIncomingMessage(userId, message) {
 
       // Guardar mensajes
       await saveMessage(userId, message, 'user');
-      await saveMessage(userId, outOfHoursMsg, 'bot');
+      await saveMessage(userId, outOfHoursMsg, 'bot', 'out_of_hours');
 
       logger.info(`✅ Mensaje fuera de horario enviado a ${userId}`);
 
@@ -168,10 +168,9 @@ async function processIncomingMessage(userId, message) {
       }
 
       // Mensaje de escalación
-      const escalationMsg = `Entiendo, sumercé. 👨‍💼
+      const escalationMsg = `Comprendo, sumercé. 👩‍💼
 
-Un asesor de NORBOY le atenderá en breve.
-Por favor, espere un momento mientras conectamos.`;
+El asesor de NORBOY encargado de este tema le atenderá en breve...`;
 
       // Actualizar estado de la conversación
       conversation.status = 'pending_advisor';
@@ -188,7 +187,7 @@ Por favor, espere un momento mientras conectamos.`;
 
       // Guardar mensajes
       await saveMessage(userId, message, 'user');
-      await saveMessage(userId, escalationMsg, 'bot');
+      await saveMessage(userId, escalationMsg, 'bot', 'escalation');
 
       // Enviar mensaje de escalación
       await whatsappProvider.sendMessage(userId, escalationMsg);
@@ -266,7 +265,13 @@ Por favor, espere un momento mientras conectamos.`;
 
       // Guardar mensajes
       await saveMessage(userId, message, 'user');
-      await saveMessage(userId, responseText, 'bot');
+
+      // ✅ CORRECCIÓN: Pasar el objeto response completo si tiene type especial
+      if (typeof response === 'object' && response.type) {
+        await saveMessage(userId, response, 'bot', response.type);
+      } else {
+        await saveMessage(userId, responseText, 'bot', 'text');
+      }
 
       // Enviar mensaje de escalación
       await whatsappProvider.sendMessage(userId, responseText);
@@ -333,7 +338,7 @@ Por favor, espere un momento mientras conectamos.`;
 
       // Guardar mensajes
       await saveMessage(userId, message, 'user');
-      await saveMessage(userId, fallbackMsg, 'bot');
+      await saveMessage(userId, fallbackMsg, 'bot', 'escalation_fallback');
 
       logger.info(`🚨 Usuario ${userId} escalado a asesor (fallback)`);
 
@@ -347,7 +352,16 @@ Por favor, espere un momento mientras conectamos.`;
 
     // Guardar mensajes
     await saveMessage(userId, message, 'user');
-    await saveMessage(userId, responseText, 'bot');
+
+    // ✅ CORRECCIÓN: Pasar el objeto response completo si tiene type especial
+    // Esto preserva el type 'consent', 'system', 'escalation', etc.
+    if (typeof response === 'object' && response.type) {
+      // Es un objeto con type especial (consent, system, escalation, etc.)
+      await saveMessage(userId, response, 'bot', response.type);
+    } else {
+      // Es una respuesta de texto normal
+      await saveMessage(userId, responseText, 'bot', 'text');
+    }
 
     return responseText;
 
@@ -419,17 +433,18 @@ function isOutOfHours() {
  * @returns {string} Mensaje de fuera de horario
  */
 function getOutOfHoursMessage() {
-  return "Nuestro horario de atención ha finalizado. Su mensaje será atendido el siguiente día hábil. Gracias por su comprensión.";
+  return "Nuestro horario de atención es:\n\n📅 Lunes a Viernes: 8:00 AM - 4:30 PM\n📅 Sábados: 9:00 AM - 12:00 PM\n❌ Domingos: Cerrado\n\nSu mensaje será atendido en el siguiente horario hábil. Gracias por su comprensión.";
 }
 
 /**
  * Guarda un mensaje en el historial
  *
  * @param {string} userId - ID del usuario
- * @param {string} message - Contenido del mensaje
- * @param {string} sender - 'user' | 'bot' | 'admin'
+ * @param {string|Object} message - Contenido del mensaje (objeto si tiene type especial)
+ * @param {string} sender - 'user' | 'bot' | 'admin' | 'system'
+ * @param {string} messageType - 'text' | 'consent' | 'system' | 'escalation' (opcional)
  */
-async function saveMessage(userId, message, sender) {
+async function saveMessage(userId, message, sender, messageType = 'text') {
   try {
     // Obtener conversación
     const conversation = conversationStateService.getConversation(userId);
@@ -438,14 +453,31 @@ async function saveMessage(userId, message, sender) {
       return;
     }
 
+    // ✅ CORRECCIÓN: Extraer type del mensaje si es un objeto
+    let messageText = message;
+    let messageActualType = messageType;
+
+    if (typeof message === 'object' && message !== null) {
+      // Si es un objeto con propiedad 'type' (ej: consent, escalation, system)
+      if (message.type) {
+        messageActualType = message.type;
+      }
+      // Extraer el texto del mensaje
+      if (message.text) {
+        messageText = message.text;
+      } else if (message.message) {
+        messageText = message.message;
+      }
+    }
+
     // Crear objeto de mensaje
     const messageRecord = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       conversationId: userId,
       sender: sender,
-      message: message,
+      message: messageText,
       timestamp: Date.now(),
-      type: 'text'
+      type: messageActualType  // ✅ CORREGIDO: Usar el type correcto
     };
 
     // Guardar en el array de mensajes de la conversación
@@ -455,10 +487,21 @@ async function saveMessage(userId, message, sender) {
     conversation.messages.push(messageRecord);
 
     // Actualizar último mensaje
-    conversationStateService.updateLastMessage(userId, message);
+    conversationStateService.updateLastMessage(userId, messageText);
     conversation.lastInteraction = Date.now();
 
-    logger.debug(`💾 Mensaje guardado: [${sender}] ${message.substring(0, 30)}...`);
+    logger.debug(`💾 Mensaje guardado: [${sender}] type=${messageActualType} "${messageText.substring(0, 30)}..."`);
+
+    // ✅ NUEVO: Emitir evento Socket.IO para actualizar dashboard en tiempo real
+    if (io) {
+      io.emit('new-message', {
+        userId: userId,
+        phoneNumber: conversation.phoneNumber,
+        message: messageRecord,
+        timestamp: Date.now()
+      });
+      logger.debug(`📡 Evento 'new-message' emitido para ${userId}`);
+    }
   } catch (error) {
     logger.error('Error guardando mensaje:', error);
   }

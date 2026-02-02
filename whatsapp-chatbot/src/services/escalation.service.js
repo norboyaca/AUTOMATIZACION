@@ -59,11 +59,23 @@ const escalationRules = {
 
   // Horario laboral (PUNTO DE CONTROL 4)
   workingHours: {
+    // Lunes a Viernes
     start: 8,  // 8:00 AM
     end: 16,   // 4:00 PM (se usa con endMinute para el cálculo)
     endMinute: 30,  // 4:30 PM - Horario FINAL de atención
     timezone: 'America/Bogota',
-    weekdays: [1, 2, 3, 4, 5] // Lun-Vie (0=Domingo, 6=Sábado)
+    weekdays: [1, 2, 3, 4, 5], // Lun-Vie (0=Domingo, 6=Sábado)
+    // Sábado (horario diferente)
+    saturday: {
+      start: 9,  // 9:00 AM
+      end: 12,   // 12:00 PM (medio día)
+      endMinute: 0,   // 12:00 PM exacto
+      enabled: true   // Sí se atiende sábado
+    },
+    // Domingo
+    sunday: {
+      enabled: false  // No se atiende domingo
+    }
   },
 
   // Tiempo mínimo entre mensajes para considerar "reintento"
@@ -193,7 +205,12 @@ function evaluateEscalation(userId, message, interactionCount = 0) {
 
 /**
  * Verifica si estamos dentro del horario laboral
- * PUNTO DE CONTROL 4: Horario hasta las 4:30 PM
+ * PUNTO DE CONTROL 4: Horario diferenciado por día
+ *
+ * Horarios:
+ * - Lunes a Viernes: 8:00 AM - 4:30 PM
+ * - Sábados: 9:00 AM - 12:00 PM
+ * - Domingos: No se atiende
  *
  * @returns {boolean}
  */
@@ -206,9 +223,38 @@ function isWithinWorkingHours() {
     const minute = now.getMinutes();
     const day = now.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
 
-    const { start, end, endMinute, weekdays } = escalationRules.workingHours;
+    const { start, end, endMinute, weekdays, saturday, sunday } = escalationRules.workingHours;
 
-    // Verificar si es día laboral
+    const currentTimeDecimal = hour + (minute / 60);
+
+    // Domingo: No se atiende
+    if (day === 0) {
+      if (!sunday.enabled) {
+        logger.debug(`Hoy es domingo (día ${day}) - No se atiende`);
+        return false;
+      }
+      // Si en el futuro se habilita domingo, agregar lógica aquí
+    }
+
+    // Sábado: Horario especial 9:00 AM - 12:00 PM
+    if (day === 6) {
+      if (!saturday.enabled) {
+        logger.debug(`Hoy es sábado (día ${day}) - No se atiende`);
+        return false;
+      }
+
+      const satStart = saturday.start;
+      const satEnd = saturday.end;
+      const satEndTimeDecimal = satEnd + (saturday.endMinute / 60);
+
+      const isSaturdayWorkHour = currentTimeDecimal >= satStart && currentTimeDecimal < satEndTimeDecimal;
+
+      logger.debug(`Sábado - Horario check: ${hour}:${minute.toString().padStart(2, '0')} está en rango ${satStart}:00-${satEnd}:${saturday.endMinute.toString().padStart(2, '0')}? ${isSaturdayWorkHour}`);
+
+      return isSaturdayWorkHour;
+    }
+
+    // Lunes a Viernes: 8:00 AM - 4:30 PM
     const isWorkday = weekdays.includes(day);
 
     if (!isWorkday) {
@@ -216,15 +262,10 @@ function isWithinWorkingHours() {
       return false;
     }
 
-    // PUNTO DE CONTROL 4: Verificar horario con minutos
-    // Convertir a decimal para comparación: 16.5 = 4:30 PM
-    const currentTimeDecimal = hour + (minute / 60);
     const endTimeDecimal = end + (endMinute / 60);
-
-    // Estamos dentro del horario si: start <= current < end:endMinute
     const isWorkHour = currentTimeDecimal >= start && currentTimeDecimal < endTimeDecimal;
 
-    logger.debug(`Horario check: ${hour}:${minute.toString().padStart(2, '0')} está en rango ${start}:00-${end}:${endMinute.toString().padStart(2, '0')}? ${isWorkHour}`);
+    logger.debug(`Lunes a Viernes - Horario check: ${hour}:${minute.toString().padStart(2, '0')} está en rango ${start}:00-${end}:${endMinute.toString().padStart(2, '0')}? ${isWorkHour}`);
 
     return isWorkHour;
   } catch (error) {
@@ -237,31 +278,66 @@ function isWithinWorkingHours() {
 /**
  * Obtiene el próximo horario de apertura
  *
+ * Horarios:
+ * - Lunes a Viernes: 8:00 AM - 4:30 PM
+ * - Sábados: 9:00 AM - 12:00 PM
+ * - Domingos: Cerrado
+ *
  * @returns {Object} - { date, formatted }
  */
 function getNextOpeningTime() {
   const now = new Date();
-  const { start, weekdays } = escalationRules.workingHours;
-
-  // Si hoy es día laboral pero ya pasó el horario, próximo es mañana
-  // Si hoy no es día laboral, encontrar el próximo lunes
-
-  let nextOpening = new Date(now);
-  nextOpening.setHours(start, 0, 0, 0); // Establecer hora de apertura
+  const { start, weekdays, saturday, sunday } = escalationRules.workingHours;
 
   const currentDay = now.getDay();
   const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentTimeDecimal = currentHour + (currentMinute / 60);
 
-  // Si estamos antes de la hora de apertura en un día laboral
-  if (weekdays.includes(currentDay) && currentHour < start) {
-    // Ya está en hoy
-  } else {
-    // Buscar próximo día laboral
-    let daysToAdd = 1;
-    while (!weekdays.includes((currentDay + daysToAdd) % 7)) {
-      daysToAdd++;
+  let nextOpening = new Date(now);
+
+  // Definir horarios según día
+  const schedule = {
+    1: { start: 8, end: 16.5, name: 'lunes' },      // Lunes
+    2: { start: 8, end: 16.5, name: 'martes' },     // Martes
+    3: { start: 8, end: 16.5, name: 'miércoles' },  // Miércoles
+    4: { start: 8, end: 16.5, name: 'jueves' },     // Jueves
+    5: { start: 8, end: 16.5, name: 'viernes' },    // Viernes
+    6: saturday.enabled ? { start: 9, end: 12, name: 'sábado' } : null,  // Sábado
+    0: sunday.enabled ? { start: 0, end: 0, name: 'domingo' } : null      // Domingo
+  };
+
+  // Si estamos dentro del horario actual de hoy, retornar null
+  const todaySchedule = schedule[currentDay];
+  if (todaySchedule && currentTimeDecimal >= todaySchedule.start && currentTimeDecimal < todaySchedule.end) {
+    // Estamos dentro del horario de hoy
+    return {
+      date: now,
+      formatted: 'Ahora (dentro del horario de atención)',
+      isOpen: true
+    };
+  }
+
+  // Buscar próximo día laboral
+  let daysToAdd = 1;
+  let foundSchedule = null;
+
+  while (daysToAdd <= 7) { // Máximo buscar 7 días adelante
+    const targetDay = (currentDay + daysToAdd) % 7;
+    const targetSchedule = schedule[targetDay];
+
+    if (targetSchedule) {
+      foundSchedule = targetSchedule;
+
+      // Calcular la fecha de apertura
+      nextOpening = new Date(now);
+      nextOpening.setDate(now.getDate() + daysToAdd);
+      nextOpening.setHours(targetSchedule.start, 0, 0, 0);
+
+      break;
     }
-    nextOpening.setDate(now.getDate() + daysToAdd);
+
+    daysToAdd++;
   }
 
   const formatted = nextOpening.toLocaleString('es-CO', {
@@ -276,7 +352,9 @@ function getNextOpeningTime() {
 
   return {
     date: nextOpening,
-    formatted
+    formatted: formatted,
+    isOpen: false,
+    schedule: foundSchedule ? foundSchedule.name : null
   };
 }
 

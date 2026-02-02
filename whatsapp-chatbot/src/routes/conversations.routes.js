@@ -442,41 +442,63 @@ router.get('/:userId/bot-status', requireAuth, async (req, res) => {
 /**
  * GET /api/conversations/:userId/messages
  *
- * Obtiene el historial de mensajes de una conversación
+ * Obtiene el historial COMPLETO de mensajes de una conversación activa
  *
- * Query params:
- * - limit: número máximo de mensajes a devolver (default: 4, últimos 4 mensajes)
- * - full: true para cargar historial completo (solo para debugging)
+ * ✅ CAMBIADO: Ahora devuelve TODOS los mensajes por defecto
+ * - No se limita a 4 mensajes
+ * - Solo devuelve mensajes de la conversación activa actual (no días anteriores)
+ * - Query params opcionles:
+ *   - limit: para fines especiales de debugging
+ *   - full: true para cargar historial completo (ahora es el default)
  */
 router.get('/:userId/messages', requireAuth, async (req, res) => {
   try {
     const { userId } = req.params;
-    const limit = req.query.full ? 'all' : parseInt(req.query.limit || '4', 10);
-
-    const advisorMessages = advisorControlService.getAdvisorMessages(userId);
     const conversation = conversationStateService.getConversation(userId);
 
-    // Combinar mensajes del asesor con el historial general
-    const allMessages = conversation && conversation.messages
-      ? [...conversation.messages, ...advisorMessages]
-      : advisorMessages;
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        error: 'Conversación no encontrada'
+      });
+    }
 
-    // Ordenar por timestamp
+    // ✅ CAMBIADO: Por defecto cargar TODOS los mensajes (ilimitado)
+    // Solo se puede limitar explícitamente con query param para debugging
+    const explicitLimit = req.query.limit ? parseInt(req.query.limit, 10) : null;
+
+    // ===========================================
+    // ✅ CORRECCIÓN PROBLEMA 1 & 2: No combinar advisorMessages
+    // ===========================================
+    // ANTES: Se combinaba conversation.messages + advisorMessages
+    //        Esto causaba duplicación porque advisorMessages también
+    //        estaba guardado en conversation.messages
+    //
+    // AHORA: Solo usar conversation.messages que YA incluye todos:
+    //        - Mensajes de usuario (sender='user')
+    //        - Mensajes del bot (sender='bot')
+    //        - Mensajes de asesores (sender='admin')
+
+    const allMessages = conversation.messages || [];
+
+    // Ordenar por timestamp (cronológicamente)
     allMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-    // LIMITAR: Solo devolver los últimos N mensajes (default: 4)
-    const limitedMessages = limit === 'all'
-      ? allMessages
-      : allMessages.slice(-limit);
+    // ✅ CAMBIADO: Por defecto devolver TODOS los mensajes
+    const messagesToReturn = explicitLimit
+      ? allMessages.slice(-explicitLimit)  // Solo si se pide explícitamente
+      : allMessages;  // Por defecto: todos los mensajes
 
-    logger.debug(`Mensajes devueltos para ${userId}: ${limitedMessages.length}/${allMessages.length}`);
+    logger.info(`📜 Mensajes cargados para ${userId}: ${messagesToReturn.length}/${allMessages.length} mensajes`);
 
     res.json({
       success: true,
-      messages: limitedMessages,
-      total: allMessages.length, // Total de mensajes existentes
-      returned: limitedMessages.length, // Cantidad devuelta
-      isLimited: limit !== 'all'
+      messages: messagesToReturn,
+      total: allMessages.length,
+      returned: messagesToReturn.length,
+      isLimited: explicitLimit !== null,
+      conversationStart: conversation.cycleStart,
+      status: conversation.status
     });
 
   } catch (error) {

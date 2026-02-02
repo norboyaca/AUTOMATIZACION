@@ -21,7 +21,8 @@ let simulatedTime = null;
 // CONTROL DE VERIFICACIÓN DE HORARIO
 // ===========================================
 // Permite activar/desactivar la verificación de horario de atención
-let scheduleCheckEnabled = true;
+// ✅ DESACTIVADO POR DEFECTO - Se puede activar manualmente vía API
+let scheduleCheckEnabled = false;
 
 /**
  * Obtiene la hora actual (real o simulada)

@@ -263,7 +263,10 @@ const generateWithAI = async (userId, message, options = {}) => {
     }
   }
 
-  const messages = buildMessages(message, [], relevantContext, options, { contextQuality, searchResults });
+  // ✅ NUEVO: Obtener historial de conversación del día para dar contexto a la IA
+  const conversationHistory = await getConversationHistory(userId);
+
+  const messages = buildMessages(message, conversationHistory, relevantContext, options, { contextQuality, searchResults });
 
   // Aumentar tokens cuando hay contexto de documentos
   const maxTokens = hasDocuments ? 400 : 150;
@@ -282,9 +285,8 @@ const generateWithAI = async (userId, message, options = {}) => {
   //
   // ✅ IMPORTANTE: Excluir el mensaje de escalación del sistema para evitar bucle infinito
   const ESCALATION_MESSAGE_PATTERNS = [
-    'entiendo, sumercé',
-    'un asesor de norboy le atenderá',
-    'por favor, espere un momento mientras conectamos'
+    'comprendo, sumercé',
+    'el asesor de norboy encargado de este tema le atenderá'
   ];
 
   // Verificar primero si la respuesta es el mensaje de escalación (para evitar bucle)
@@ -432,7 +434,7 @@ Escríbanos su pregunta, estamos para servirle 👍`;
 /**
  * Mensaje cuando la IA no tiene información suficiente
  */
-const NO_INFO_MESSAGE = 'Entiendo, sumercé. 👨‍💼\n\nUn asesor de NORBOY le atenderá en breve.\nPor favor, espere un momento mientras conectamos.';
+const NO_INFO_MESSAGE = 'Comprendo, sumercé. 👩‍💼\n\nEl asesor de NORBOY encargado de este tema le atenderá en breve...';
 
 /**
  * Respuesta genérica cuando no hay match
@@ -668,10 +670,9 @@ const cleanQuestionMarks = (text) => {
 const getEscalationMessage = (escalation) => {
   return {
     type: 'escalation',
-    text: `Entiendo, sumercé. 👨‍💼
+    text: `Comprendo, sumercé. 👩‍💼
 
-Un asesor de NORBOY le atenderá en breve.
-Por favor, espere un momento mientras conectamos.`,
+El asesor de NORBOY encargado de este tema le atenderá en breve...`,
     needsHuman: true,
     escalation
   };
@@ -686,7 +687,9 @@ const getOutOfHoursMessage = () => {
   return {
     type: 'out_of_hours',
     text: `Sumercé, nuestro horario de atención es:
-🕐 Lunes a Viernes: 8:00 AM - 6:00 PM
+📅 Lunes a Viernes: 8:00 AM - 4:30 PM
+📅 Sábados: 9:00 AM - 12:00 PM
+❌ Domingos: Cerrado
 
 Lo atenderemos con gusto:
 📅 ${nextOpening.formatted}
@@ -783,10 +786,49 @@ NO respondas sobre temas ajenos a la cooperativa (ciencia, historia, geografía,
 };
 
 /**
- * Obtiene el historial de conversación
+ * Obtiene el historial de conversación del día actual
+ *
+ * @param {string} userId - ID del usuario
+ * @returns {Array} Historial de mensajes del día en formato OpenAI
  */
 const getConversationHistory = async (userId) => {
-  return [];
+  try {
+    // Obtener el servicio de estado de conversación
+    const conversationStateService = require('./conversation-state.service');
+    const conversation = conversationStateService.getConversation(userId);
+
+    if (!conversation || !conversation.messages || conversation.messages.length === 0) {
+      return [];
+    }
+
+    // Obtener mensajes de hoy (últimas 24 horas)
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const todayStart = now - oneDayMs;
+
+    // Filtrar mensajes de hoy y convertirlos al formato de OpenAI
+    const todayMessages = conversation.messages
+      .filter(msg => msg.timestamp >= todayStart)
+      .map(msg => {
+        // Mapear sender a role
+        let role = 'user';
+        if (msg.sender === 'bot' || msg.sender === 'admin') {
+          role = 'assistant';
+        }
+
+        return {
+          role: role,
+          content: msg.message
+        };
+      });
+
+    logger.debug(`📜 Historial cargado para ${userId}: ${todayMessages.length} mensajes de hoy`);
+
+    return todayMessages;
+  } catch (error) {
+    logger.error(`Error obteniendo historial de conversación para ${userId}:`, error);
+    return [];
+  }
 };
 
 /**

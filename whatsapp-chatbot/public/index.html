@@ -586,6 +586,7 @@
       max-width: 1400px;
       width: 100%;
       margin: 0 auto;
+      overflow-x: hidden; /* Previene scroll horizontal en el layout general */
     }
 
     /* Breadcrumb */
@@ -1275,7 +1276,8 @@
 
     .conversations-table {
       width: 100%;
-      min-width: 800px; /* Asegura ancho mínimo para no romper el diseño */
+      max-width: 100%;
+      table-layout: auto; /* Permite que la tabla se ajuste al contenido */
       border-collapse: collapse;
       background: white;
       border-radius: 12px;
@@ -1289,19 +1291,21 @@
     }
 
     .conversations-table th {
-      padding: 15px;
+      padding: 12px;
       text-align: left;
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      white-space: nowrap; /* Evita que el texto se rompa en múltiples líneas */
+      white-space: nowrap;
     }
 
     .conversations-table td {
-      padding: 15px;
+      padding: 12px;
       border-bottom: 1px solid var(--border-gray);
-      font-size: 14px;
+      font-size: 13px;
+      word-break: break-word;
+      overflow-wrap: break-word;
     }
 
     .conversations-table tbody tr {
@@ -1327,10 +1331,6 @@
         padding: 10px;
         font-size: 12px;
       }
-
-      .conversations-table {
-        min-width: 700px;
-      }
     }
 
     /* Móvil (max 480px) */
@@ -1339,10 +1339,6 @@
       .conversations-table td {
         padding: 8px;
         font-size: 11px;
-      }
-
-      .conversations-table {
-        min-width: 600px;
       }
 
       /* Ajustar botones en móvil */
@@ -1359,12 +1355,12 @@
     }
 
     .last-message {
-      max-width: 300px;
+      max-width: 200px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       color: var(--medium-gray);
-      font-size: 13px;
+      font-size: 12px;
     }
 
     .status-badge {
@@ -1580,8 +1576,8 @@
        =========================================== */
     .stats-cards {
       display: grid;
-      /* Escritorio: 5 columnas iguales */
-      grid-template-columns: repeat(5, 1fr);
+      /* Escritorio: 6 columnas iguales (Total, Activas, Expiradas, Aceptaron, Pendientes, Con asesor) */
+      grid-template-columns: repeat(6, 1fr);
       gap: 15px;
       margin-bottom: 30px;
     }
@@ -2412,12 +2408,12 @@ footer {
       <table class="conversations-table">
         <thead>
           <tr>
-            <th>Teléfono</th>
-            <th>Último Mensaje</th>
-            <th>Estado</th>
-            <th>Consentimiento</th>
-            <th>Tiempo Restante</th>
-            <th>Acciones</th>
+            <th style="width: 15%;">Teléfono</th>
+            <th style="width: 25%;">Último Mensaje</th>
+            <th style="width: 12%;">Estado</th>
+            <th style="width: 15%;">Consentimiento</th>
+            <th style="width: 13%;">Tiempo Restante</th>
+            <th style="width: 20%;">Acciones</th>
           </tr>
         </thead>
         <tbody id="conversations-table-body">
@@ -2542,7 +2538,88 @@ footer {
     /* ========================================
        FUNCIONES DEL DASHBOARD (NUEVO)
        ======================================== */
-    
+
+    /**
+     * ✅ CORRECCIÓN PROBLEMA 2 & 3: Normalizar número de teléfono
+     *
+     * Convierte cualquier formato de número de WhatsApp a formato limpio (solo dígitos).
+     * Maneja tanto números normales como wa_id internos de Meta.
+     *
+     * @param {string} phoneNumber - Número en cualquier formato
+     * @returns {string} Número limpio (solo dígitos)
+     *
+     * Ejemplos:
+     * - "whatsapp:+573001234567" → "3001234567"
+     * - "+573001234567" → "3001234567"
+     * - "573001234567" → "3001234567"
+     * - "3001234567" → "3001234567"
+     * - "573001234567@lid" → "3001234567"
+     * - "151771427143897@lid" → "151771427143897" (wa_id interno)
+     * - "151771427143897@s.whatsapp.net" → "151771427143897"
+     */
+    function normalizePhoneNumber(phoneNumber) {
+      if (!phoneNumber) return '';
+
+      // Convertir a string
+      let normalized = String(phoneNumber).trim();
+
+      // ===========================================
+      // ✅ CORRECCIÓN: Eliminar TODOS los sufijos de WhatsApp
+      // ===========================================
+      // Eliminar prefijos y sufijos comunes de WhatsApp/Meta:
+      // - "whatsapp:" al inicio
+      // - "@lid" al final (lead ID)
+      // - "@s.whatsapp.net" al final
+      // - "@c.us" al final
+
+      // Eliminar "whatsapp:" si existe al inicio
+      normalized = normalized.replace(/^whatsapp:/i, '');
+
+      // Eliminar sufijos de dominio de WhatsApp
+      normalized = normalized.replace(/@lid$/, '');        // Eliminar "@lid"
+      normalized = normalized.replace(/@s\.whatsapp\.net$/, '');  // Eliminar "@s.whatsapp.net"
+      normalized = normalized.replace(/@c\.us$/, '');     // Eliminar "@c.us"
+      normalized = normalized.replace(/@g\.us$/, '');     // Eliminar "@g.us"
+
+      // Eliminar el signo +
+      normalized = normalized.replace(/\+/g, '');
+
+      // ===========================================
+      // ✅ CORRECCIÓN: Manejar wa_id internos de Meta
+      // ===========================================
+      // Los wa_id pueden ser:
+      // - Números de 12 dígitos (país + número): "573001234567"
+      // - IDs internos de 15+ dígitos: "151771427143897"
+      //
+      // Para wa_id internos (15+ dígitos), extraer el número real del cliente
+      // tomando los últimos 10 dígitos que corresponden al número colombiano
+
+      // Eliminar cualquier caracter que no sea dígito primero
+      normalized = normalized.replace(/\D/g, '');
+
+      // Si tiene más de 13 dígitos, es probablemente un wa_id interno único
+      // Extraer los últimos 10 dígitos para obtener el número real del cliente
+      if (normalized.length > 13) {
+        // Tomar últimos 10 dígitos (número de celular en Colombia sin código de país)
+        const last10 = normalized.slice(-10);
+        // Si es válido (10 dígitos), retornarlo
+        if (last10.length === 10) {
+          return last10;
+        }
+        // Si no, retornar el valor completo (fallback)
+        return normalized;
+      }
+
+      // Para números de 12-13 dígitos o menos, intentar limpiar código de país
+      // Código de país Colombia: 57
+      // Si empieza con 57 y tiene 12+ dígitos, quitar el 57
+      if (normalized.startsWith('57') && normalized.length >= 12) {
+        normalized = normalized.substring(2);
+      }
+
+      return normalized;
+    }
+
     // Cambiar vista del sidebar
     function changeView(view) {
       // Actualizar items activos del sidebar
@@ -2710,47 +2787,98 @@ footer {
       socket.off('bot-response');
       socket.off('escalation-detected');
 
+      // ===========================================
+      // ✅ CORREGIDO: Listener unificado para evitar duplicación
+      // ===========================================
+      // Usamos UN solo listener 'new-message' que emite el backend
+      // Este se dispara tanto para mensajes de usuario como del bot y del asesor
+
       // Auto-refresh conversaciones cuando llega un nuevo mensaje
-      socket.on('message-received', (data) => {
-        console.log('💬 Mensaje recibido:', data);
+      socket.on('new-message', (data) => {
+        console.log('💬 Nuevo mensaje recibido (new-message):', data);
+
+        const msg = data.message;
+        const userId = data.userId;
 
         // Si estamos en la vista de conversaciones, actualizar la tabla
         const conversationsView = document.getElementById('conversations-view');
         if (conversationsView && conversationsView.style.display !== 'none') {
-          console.log('🔄 Auto-refreshing conversations...');
+          console.log('🔄 Actualizando conversaciones después de nuevo mensaje...');
           loadConversations();
         }
 
-        // Si el chat está abierto y es para este usuario, agregar el mensaje
-        if (currentChatUserId === data.from) {
-          addMessageToChat(data.from, data.body, 'user');
+        // ✅ NUEVO: Validar que el mensaje no esté ya renderizado para evitar duplicados
+        const messageId = msg.id || msg.messageId || null;
+
+        if (messageId && renderedMessageIds.has(messageId)) {
+          console.log(`⏭️ Mensaje ${messageId} ya está renderizado, skipping...`);
+          return; // No agregar si ya existe
+        }
+
+        // Si el modal de chat está abierto y es para este usuario, agregar el mensaje
+        if (currentChatUserId === userId) {
+          // Si muestra "Cargando mensajes..." o "No hay mensajes aún", limpiar primero
+          const messagesDiv = document.getElementById('chat-messages');
+          if (messagesDiv && (messagesDiv.innerHTML.includes('Cargando mensajes...') ||
+                             messagesDiv.innerHTML.includes('No hay mensajes aún'))) {
+            messagesDiv.innerHTML = '';
+          }
+
+          // Determinar el tipo de remitente
+          const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
+          const senderName = msg.senderName || msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario');
+
+          // ✅ NUEVO: Generar ID único temporal si el mensaje no tiene ID
+          const tempMessageId = messageId || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+          // Crear HTML del mensaje con data attribute para tracking
+          const messageHtml = `
+            <div class="chat-message ${senderClass}" data-message-id="${tempMessageId}">
+              <div class="message-sender">${senderName}</div>
+              <div class="message-bubble">
+                <div class="message-text">${msg.message}</div>
+              </div>
+              <div class="message-time">${msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}</div>
+            </div>
+          `;
+
+          // Agregar mensaje
+          if (messagesDiv) {
+            messagesDiv.innerHTML += messageHtml;
+
+            // ✅ NUEVO: Marcar mensaje como renderizado
+            renderedMessageIds.add(tempMessageId);
+
+            // Scroll al final automáticamente
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+          }
+
+          console.log(`✅ Mensaje agregado al chat para ${userId} (ID: ${tempMessageId})`);
         }
       });
 
-      // Actualizar conversaciones cuando el bot responde
-      socket.on('bot-response', (data) => {
-        console.log('🤖 Respuesta del bot:', data);
+      // ✅ ELIMINADO: Listener 'message-received' (reemplazado por 'new-message')
+      // socket.on('message-received', (data) => {
+      //   if (currentChatUserId === data.from) {
+      //     addMessageToChat(data.from, data.body, 'user');
+      //   }
+      // });
 
-        // Si estamos en la vista de conversaciones, actualizar la tabla
-        const conversationsView = document.getElementById('conversations-view');
-        if (conversationsView && conversationsView.style.display !== 'none') {
-          console.log('🔄 Auto-refreshing conversations...');
-          loadConversations();
-        }
-
-        // Si el chat está abierto y es para este usuario, agregar la respuesta
-        if (currentChatUserId === data.to) {
-          addMessageToChat(data.to, data.response, 'bot');
-        }
-      });
+      // ✅ ELIMINADO: Listener 'bot-response' (reemplazado por 'new-message')
+      // socket.on('bot-response', (data) => {
+      //   if (currentChatUserId === data.to) {
+      //     addMessageToChat(data.to, data.response, 'bot');
+      //   }
+      // });
 
       // ✅ NUEVO: Alerta de escalación a asesor
       socket.on('escalation-detected', (data) => {
         console.log('🚨 Escalación detectada:', data);
 
         // Mostrar notificación visual con sonido
+        // ✅ CORRECCIÓN PROBLEMA 3: Normalizar número de teléfono
         showAlert(
-          `🚨 ¡Escalación detectada!\n\nUsuario: ${data.phoneNumber}\nRazón: ${data.reason}\nMensaje: "${data.message}"`,
+          `🚨 ¡Escalación detectada!\n\nUsuario: ${normalizePhoneNumber(data.phoneNumber)}\nRazón: ${data.reason}\nMensaje: "${data.message}"`,
           'warning'
         );
 
@@ -2766,6 +2894,70 @@ footer {
         const conversationsView = document.getElementById('conversations-view');
         if (conversationsView && conversationsView.style.display !== 'none') {
           console.log('🔄 Actualizando conversaciones después de escalación...');
+          loadConversations();
+        }
+      });
+
+      // ✅ NUEVO: Actualización automática de mensajes en tiempo real
+      socket.on('new-message', (data) => {
+        console.log('💬 Nuevo mensaje recibido (new-message):', data);
+
+        const msg = data.message;
+        const userId = data.userId;
+
+        // ✅ NUEVO: Validar que el mensaje no esté ya renderizado para evitar duplicados
+        const messageId = msg.id || msg.messageId || null;
+
+        if (messageId && renderedMessageIds.has(messageId)) {
+          console.log(`⏭️ Mensaje ${messageId} ya está renderizado, skipping...`);
+          return; // No agregar si ya existe
+        }
+
+        // Si el modal de chat está abierto y es para este usuario, agregar el mensaje
+        if (currentChatUserId === userId) {
+          // Si muestra "Cargando mensajes..." o "No hay mensajes aún", limpiar primero
+          const messagesDiv = document.getElementById('chat-messages');
+          if (messagesDiv && (messagesDiv.innerHTML.includes('Cargando mensajes...') ||
+                             messagesDiv.innerHTML.includes('No hay mensajes aún'))) {
+            messagesDiv.innerHTML = '';
+          }
+
+          // Determinar el tipo de remitente
+          const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
+          const senderName = msg.senderName || msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario');
+
+          // ✅ NUEVO: Generar ID único temporal si el mensaje no tiene ID
+          const tempMessageId = messageId || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+          // Crear HTML del mensaje con data attribute para tracking
+          const messageHtml = `
+            <div class="chat-message ${senderClass}" data-message-id="${tempMessageId}">
+              <div class="message-sender">${senderName}</div>
+              <div class="message-bubble">
+                <div class="message-text">${msg.message}</div>
+              </div>
+              <div class="message-time">${msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}</div>
+            </div>
+          `;
+
+          // Agregar mensaje
+          if (messagesDiv) {
+            messagesDiv.innerHTML += messageHtml;
+
+            // ✅ NUEVO: Marcar mensaje como renderizado
+            renderedMessageIds.add(tempMessageId);
+
+            // Scroll al final automáticamente
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+          }
+
+          console.log(`✅ Mensaje agregado al chat para ${userId} (ID: ${tempMessageId})`);
+        }
+
+        // Si estamos en la vista de conversaciones, actualizar la tabla
+        const conversationsView = document.getElementById('conversations-view');
+        if (conversationsView && conversationsView.style.display !== 'none') {
+          console.log('🔄 Actualizando conversaciones después de nuevo mensaje...');
           loadConversations();
         }
       });
@@ -3318,11 +3510,22 @@ footer {
         const response = await authenticatedFetch('/api/conversations');
         const data = await response.json();
 
+        // ✅ NUEVO: Log informativo para debugging
+        console.log('📊 Conversaciones recibidas:', data.total);
+        console.log('   Estados:', data.conversations.map(c => c.status));
+
         // Ocultar loading
         loadingEl.style.display = 'none';
 
         if (data.success && data.conversations.length > 0) {
           contentEl.style.display = 'block';
+
+          // ✅ NUEVO: Mostrar contador de conversaciones
+          const statsInfo = document.getElementById('conversations-stats-info') || document.createElement('div');
+          statsInfo.id = 'conversations-stats-info';
+          statsInfo.style.cssText = 'text-align: center; color: var(--medium-gray); font-size: 0.9rem; padding: 10px; margin-bottom: 10px;';
+          statsInfo.textContent = `💬 Mostrando ${data.conversations.length} conversación(es)`;
+          tableBody.parentElement.parentElement.insertBefore(statsInfo, tableBody.parentElement);
 
           // Llenar tabla
           tableBody.innerHTML = data.conversations.map(conv => {
@@ -3359,7 +3562,7 @@ footer {
 
             return `
               <tr class="${rowClass}">
-                <td><span class="phone-number">${conv.phoneNumber}</span></td>
+                <td><span class="phone-number">${normalizePhoneNumber(conv.phoneNumber)}</span></td>
                 <td><span class="last-message" title="${conv.lastMessage || ''}">${shortMessage}</span></td>
                 <td><span class="status-badge ${statusInfo.class}">${statusInfo.text}</span></td>
                 <td><span class="consent-badge ${consentClass}">${consentText}</span></td>
@@ -3373,6 +3576,14 @@ footer {
           loadConversationsStats();
         } else {
           emptyEl.style.display = 'block';
+          // ✅ NUEVO: Mensaje más claro cuando no hay conversaciones
+          emptyEl.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px;">
+              <div style="font-size: 64px; margin-bottom: 15px;">💬</div>
+              <h3 style="color: var(--medium-gray);">No hay conversaciones activas</h3>
+              <p style="color: var(--medium-gray);">Las conversaciones aparecerán aquí cuando los usuarios envíen mensajes por WhatsApp.</p>
+            </div>
+          `;
         }
       } catch (error) {
         loadingEl.style.display = 'none';
@@ -3537,9 +3748,22 @@ footer {
      * Genera los botones de acción según el estado de la conversación
      */
     function getActionButtons(conv) {
+      // ✅ CAMBIADO: Botones base que SIEMPRE estarán disponibles
+      const baseButtons = `
+        <button class="view-chat-btn" onclick="openChat('${conv.userId}')">
+          💬 Ver Chat
+        </button>
+        <button class="reset-btn" onclick="resetConversation('${conv.userId}', '${normalizePhoneNumber(conv.phoneNumber)}')">
+          🔄 Reset
+        </button>
+      `;
+
+      // ✅ CAMBIADO: Botones adicionales según el estado
+      let additionalButtons = '';
+
       if (conv.status === 'pending_advisor') {
-        // Pendiente de asesor → Botón "Tomar"
-        return `
+        // Pendiente de asesor → Agregar botón "Tomar"
+        additionalButtons = `
           <button class="take-btn" onclick="takeConversation('${conv.userId}')">
             👥 Tomar
           </button>
@@ -3547,41 +3771,21 @@ footer {
       }
 
       if (conv.status === 'advisor_handled') {
-        // Atendido por asesor → Botones "Ver Chat", "Reactivar Bot", "Liberar" y "Reset"
-        return `
-          <button class="view-chat-btn" onclick="openChat('${conv.userId}')">
-            💬 Ver Chat
-          </button>
+        // Atendido por asesor → Agregar botones de control de asesor
+        additionalButtons = `
           <button class="reactivate-btn" onclick="quickReactivateBot('${conv.userId}')">
             🟢 Reactivar
           </button>
           <button class="release-btn" onclick="releaseConversation('${conv.userId}')">
             ↩️ Liberar
           </button>
-          <button class="reset-btn" onclick="resetConversation('${conv.userId}', '${conv.phoneNumber}')">
-            🔄 Reset
-          </button>
         `;
       }
 
-      if (conv.status === 'out_of_hours') {
-        // Fuera de horario → Solo "Ver Chat" y "Reset"
-        return `
-          <button class="view-chat-btn" onclick="openChat('${conv.userId}')">
-            💬 Ver Chat
-          </button>
-          <button class="reset-btn" onclick="resetConversation('${conv.userId}', '${conv.phoneNumber}')">
-            🔄 Reset
-          </button>
-        `;
-      }
+      // ✅ NOTA: 'out_of_hours' no necesita botones adicionales, solo los base
 
-      // Estados normales → Solo reset
-      return `
-        <button class="reset-btn" onclick="resetConversation('${conv.userId}', '${conv.phoneNumber}')">
-          🔄 Resetear
-        </button>
-      `;
+      // ✅ CAMBIADO: Siempre retornar botones base + adicionales
+      return baseButtons + additionalButtons;
     }
 
     /**
@@ -3676,8 +3880,14 @@ footer {
      */
     let currentChatUserId = null;
 
+    // ✅ NUEVO: Set para rastrear mensajes ya renderizados y evitar duplicados
+    let renderedMessageIds = new Set();
+
     async function openChat(userId) {
       currentChatUserId = userId;
+
+      // ✅ NUEVO: Limpiar Set de mensajes renderizados al abrir chat
+      renderedMessageIds.clear();
 
       // Mostrar modal
       const modal = document.getElementById('chat-modal');
@@ -3690,7 +3900,8 @@ footer {
       const botStatusText = document.getElementById('chat-bot-status-text');
 
       // Mostrar estado de carga
-      phoneSpan.textContent = userId.split('@')[0];
+      // ✅ CORRECCIÓN PROBLEMA 3: Normalizar número de teléfono
+      phoneSpan.textContent = normalizePhoneNumber(userId.split('@')[0]);
       messagesDiv.innerHTML = '<div style="text-align: center; color: var(--medium-gray); padding: 40px;">Cargando mensajes...</div>';
 
       // Cargar historial de mensajes
@@ -3699,14 +3910,22 @@ footer {
         const data = await response.json();
 
         if (data.success) {
+          // ✅ MEJORADO: Mostrar información sobre cuántos mensajes se cargaron
+          console.log(`📜 Mensajes cargados: ${data.returned}/${data.total} (completo: ${!data.isLimited})`);
+
           // Renderizar mensajes
           if (data.messages && data.messages.length > 0) {
             messagesDiv.innerHTML = data.messages.map(msg => {
               const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
               // Usar senderName si existe, si no usar el valor de sender
               const senderName = msg.senderName || msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario');
+
+              // ✅ NUEVO: Generar ID único para tracking y agregar al Set
+              const messageId = msg.id || msg.messageId || `loaded_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              renderedMessageIds.add(messageId);
+
               return `
-                <div class="chat-message ${senderClass}">
+                <div class="chat-message ${senderClass}" data-message-id="${messageId}">
                   <div class="message-sender">${senderName}</div>
                   <div class="message-bubble">
                     <div class="message-text">${msg.message}</div>
@@ -3715,6 +3934,23 @@ footer {
                 </div>
               `;
             }).join('');
+
+            // ✅ NUEVO: Mensaje informativo sobre la carga
+            if (data.total > 0) {
+              const infoDiv = document.createElement('div');
+              infoDiv.style.cssText = 'text-align: center; color: var(--medium-gray); font-size: 0.85rem; padding: 10px; opacity: 0.7;';
+              infoDiv.textContent = `💬 ${data.returned} mensajes cargados (historial completo)`;
+              messagesDiv.insertBefore(infoDiv, messagesDiv.firstChild);
+
+              // Remover el mensaje después de 3 segundos
+              setTimeout(() => {
+                if (infoDiv.parentNode === messagesDiv) {
+                  messagesDiv.removeChild(infoDiv);
+                }
+              }, 3000);
+            }
+
+            console.log(`✅ ${renderedMessageIds.size} mensajes marcados como renderizados`);
           } else {
             messagesDiv.innerHTML = '<div style="text-align: center; color: var(--medium-gray); padding: 40px;">No hay mensajes aún</div>';
           }
@@ -3762,6 +3998,10 @@ footer {
       const modal = document.getElementById('chat-modal');
       modal.classList.remove('active');
       currentChatUserId = null;
+
+      // ✅ NUEVO: Limpiar Set de mensajes renderizados al cerrar chat
+      renderedMessageIds.clear();
+      console.log('🧹 Set de mensajes renderizados limpiado');
     }
 
     /**
@@ -3777,6 +4017,10 @@ footer {
     /**
      * Envía un mensaje desde el dashboard
      * PUNTO DE CONTROL 2: Al enviar, el bot se DESACTIVA
+     *
+     * ✅ CORRECCIÓN PROBLEMA 1: Eliminar optimistic update duplicado
+     * - ANTES: Hacía optimistic update después del fetch → duplicaba con Socket.IO
+     * - AHORA: Solo envía al backend, Socket.IO agrega el mensaje automáticamente
      */
     async function sendChatMessage() {
       if (!currentChatUserId) return;
@@ -3787,12 +4031,18 @@ footer {
 
       if (!message) return;
 
-      // Deshabilitar botón
+      // Deshabilitar botón e indicar estado de envío
       sendBtn.disabled = true;
       sendBtn.textContent = 'Enviando...';
 
       try {
         const advisorData = getCurrentAdvisor();
+
+        // ===========================================
+        // ✅ CORRECCIÓN: NO hacer optimistic update
+        // ===========================================
+        // El mensaje se agregará automáticamente cuando llegue el evento Socket.IO
+        // Esto evita la duplicación por condición de carrera
 
         const result = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/send-message`, {
           method: 'POST',
@@ -3804,22 +4054,8 @@ footer {
         }).then(r => r.json());
 
         if (result.success) {
-          // Agregar mensaje al chat
-          const messagesDiv = document.getElementById('chat-messages');
-          messagesDiv.innerHTML += `
-            <div class="chat-message admin">
-              <div class="message-sender">Asesor</div>
-              <div class="message-bubble">
-                <div class="message-text">${message}</div>
-              </div>
-              <div class="message-time">${new Date().toLocaleTimeString()}</div>
-            </div>
-          `;
-
-          // Scroll al final
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-          // Limpiar input
+          // ✅ NO agregar mensaje aquí - Socket.IO lo hará automáticamente
+          // Solo limpiar input y mostrar confirmación
           input.value = '';
 
           // Actualizar estado del bot
@@ -3831,8 +4067,8 @@ footer {
           botStatusText.textContent = 'Bot Inactivo';
           reactivateBtn.style.display = 'inline-block';
 
-          // Mostrar notificación
-          showAlert('✅ Mensaje enviado. El bot ha sido desactivado para esta conversación.', 'warning');
+          // ✅ Cambiar notificación para ser más claro
+          console.log('✅ Mensaje enviado. Socket.IO agregará el mensaje automáticamente.');
 
           // Actualizar lista de conversaciones en segundo plano
           loadConversations();

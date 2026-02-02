@@ -16,6 +16,14 @@ const logger = require('../utils/logger');
 const conversationStateService = require('./conversation-state.service');
 const whatsappProvider = require('../providers/whatsapp');
 
+// ✅ NUEVO: Socket.IO para emitir eventos de nuevos mensajes
+let io = null;
+
+function setSocketIO(socketIOInstance) {
+  io = socketIOInstance;
+  logger.info('✅ Socket.IO inicializado en advisor-control');
+}
+
 // Historial de mensajes enviados por asesores
 // Map<userId, Array<{messageId, message, sender, senderId, timestamp}>>
 const advisorMessagesHistory = new Map();
@@ -67,9 +75,16 @@ async function sendAdvisorMessage(userId, advisorData, message) {
     conversation.botDeactivatedAt = Date.now();
     conversation.botDeactivatedBy = advisorData.id;
 
-    // Guardar en historial de mensajes del asesor
+    // ===========================================
+    // ✅ CORRECCIÓN PROBLEMA 1: Guardar mensaje en UN SOLO lugar
+    // ===========================================
+    // ANTES: Se guardaba en conversation.messages Y conversation.advisorMessages
+    //         Esto causaba duplicación cuando se combinaban en el endpoint
+    // AHORA: Solo se guarda en conversation.messages con sender='admin'
+    //         advisorMessages es un historial interno SOLO para estadísticas
+
     const messageRecord = {
-      messageId: `adv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `adv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       message: message,
       sender: 'admin',  // IMPORTANTE: 'admin' para que el HTML lo alinee a la derecha
       senderId: advisorData.id,
@@ -78,20 +93,17 @@ async function sendAdvisorMessage(userId, advisorData, message) {
       timestamp: Date.now()
     };
 
-    conversation.advisorMessages = conversation.advisorMessages || [];
-    conversation.advisorMessages.push(messageRecord);
-
-    // Actualizar última interacción
-    conversation.lastInteraction = Date.now();
-    conversation.lastMessage = message;
-
-    // NUEVO: También guardar en el historial general de mensajes (para el chat del dashboard)
+    // ✅ ÚNICO lugar de almacenamiento para frontend: conversation.messages
     if (!conversation.messages) {
       conversation.messages = [];
     }
     conversation.messages.push(messageRecord);
 
-    // Guardar en historial global
+    // Actualizar última interacción
+    conversation.lastInteraction = Date.now();
+    conversation.lastMessage = message;
+
+    // Historial interno SOLO para estadísticas (NO se expone al frontend)
     if (!advisorMessagesHistory.has(userId)) {
       advisorMessagesHistory.set(userId, []);
     }
@@ -108,6 +120,21 @@ async function sendAdvisorMessage(userId, advisorData, message) {
 
     // Enviar mensaje por WhatsApp
     await whatsappProvider.sendMessage(userId, message);
+
+    // ===========================================
+    // ✅ CORRECCIÓN PROBLEMA 1 & 2: Emitir Socket.IO con datos correctos
+    // ===========================================
+    // IMPORTANT: Emitir después de guardar para asegurar que el ID existe
+    // El mensaje YA está guardado en conversation.messages con ID único
+    if (io) {
+      io.emit('new-message', {
+        userId: userId,
+        phoneNumber: conversation.phoneNumber,  // ✅ Número real, no wa_id
+        message: messageRecord,  // ✅ Incluye ID generado por el backend
+        timestamp: Date.now()
+      });
+      logger.debug(`📡 Evento 'new-message' emitido para ${userId} (asesor, ID: ${messageRecord.id})`);
+    }
 
     logger.info(`✅ Mensaje de asesor enviado a ${userId}`);
 
@@ -210,14 +237,17 @@ function isBotActive(userId) {
 }
 
 /**
- * Obtiene el historial de mensajes de asesores para un usuario
+ * ✅ OBSOLETO: Los mensajes de asesores ahora están en conversation.messages
+ *
+ * Esta función se mantiene por compatibilidad pero siempre retorna array vacío.
+ * Los mensajes con sender='admin' ya están incluidos en conversation.messages.
  *
  * @param {string} userId - ID del usuario
- * @returns {Array} Lista de mensajes
+ * @returns {Array} Siempre array vacío
  */
 function getAdvisorMessages(userId) {
-  const conversation = conversationStateService.getConversation(userId);
-  return conversation && conversation.advisorMessages ? conversation.advisorMessages : [];
+  // ✅ CORRECCIÓN: Retornar vacío porque los mensajes ya están en conversation.messages
+  return [];
 }
 
 /**
@@ -345,5 +375,6 @@ module.exports = {
   getInactiveBotConversations,
   getStats,
   clearAdvisorMessages,
-  transferToAdvisor
+  transferToAdvisor,
+  setSocketIO  // ✅ NUEVO: Para inicializar Socket.IO
 };

@@ -105,10 +105,53 @@ function getOrCreateConversation(userId) {
 
 /**
  * Extrae el número de teléfono del userId de WhatsApp
+ * ✅ CORRECCIÓN PROBLEMA 2: Manejar diferentes formatos de wa_id
+ *
+ * userId puede tener diferentes formatos:
+ * - "573001234567@s.whatsapp.net" → "573001234567"
+ * - "151771427143897@s.whatsapp.net" → wa_id interno de Meta (15 dígitos)
+ *
+ * IMPORTANT: El wa_id de Meta a veces es un número interno largo.
+ * Para Colombia: wa_id suele ser de 12 dígitos (57 + número de 10 dígitos)
+ * Para otros países puede variar.
+ *
+ * Esta función hace lo siguiente:
+ * 1. Extrae la parte antes de @
+ * 2. Si tiene más de 12 dígitos, probablemente es un wa_id interno
+ * 3. Para wa_id internos largos, intentar extraer el número real
+ *
+ * @param {string} userId - ID de usuario de WhatsApp
+ * @returns {string} Número de teléfono extraído
  */
 function extractPhoneNumber(userId) {
-  // userId format: "573503267342@s.whatsapp.net" or "573503267342@c.us"
-  return userId.split('@')[0];
+  if (!userId) return '';
+
+  // Extraer parte antes del @
+  const beforeAt = userId.split('@')[0];
+
+  // Si tiene formato "whatsapp:XXX", limpiarlo primero
+  let cleaned = beforeAt.replace(/^whatsapp:/i, '');
+
+  // ===========================================
+  // ✅ CORRECCIÓN: Manejar wa_id interno de Meta
+  // ===========================================
+  // Los wa_id de Meta pueden ser:
+  // - 12 dígitos para Colombia: 573001234567 (código de país + número)
+  // - 15 dígitos para wa_id interno: 151771427143897 (ID único global)
+
+  // Si tiene más de 13 dígitos, es probablemente un wa_id interno largo
+  // En ese caso, intentar extraer el número real
+  if (cleaned.length > 13) {
+    logger.warn(`⚠️ Posible wa_id interno detectado: ${cleaned} (${cleaned.length} dígitos)`);
+    logger.warn(`   Usando el valor tal cual. Puede que necesite limpieza manual.`);
+    // Por ahora, retornar tal cual (no podemos adivinar el número real)
+    // El frontend se encargará de normalizar la visualización
+    return cleaned;
+  }
+
+  // Si tiene 12-13 dígitos, probablemente ya incluye el código de país
+  // Para Colombia: 57 + número de 10 dígitos = 12 dígitos
+  return cleaned;
 }
 
 /**
@@ -162,6 +205,8 @@ function checkAndUpdateCycle(userId) {
 
 /**
  * Reinicia una conversación (nuevo ciclo)
+ *
+ * ✅ NUEVO: Preserva mensajes del mismo día para mantener contexto
  */
 function resetConversation(userId) {
   if (!conversations.has(userId)) {
@@ -170,6 +215,17 @@ function resetConversation(userId) {
 
   const oldConversation = conversations.get(userId);
   const phoneNumber = oldConversation.phoneNumber;
+
+  // ✅ NUEVO: Preservar mensajes del día actual
+  const now = Date.now();
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const todayStart = now - oneDayMs;
+
+  // Filtrar mensajes de hoy
+  const todayMessages = (oldConversation.messages || [])
+    .filter(msg => msg.timestamp >= todayStart);
+
+  logger.info(`📜 Preservando ${todayMessages.length} mensajes de hoy para ${userId}`);
 
   const newConversation = {
     userId,
@@ -195,7 +251,7 @@ function resetConversation(userId) {
     advisorMessages: [],               // Limpiar historial de asesores
     botDeactivatedAt: null,            // Limpiar timestamp de desactivación
     botDeactivatedBy: null,            // Limpiar quién desactivó
-    messages: [],                      // Limpiar historial de mensajes
+    messages: todayMessages,           // ✅ NUEVO: Preservar mensajes de hoy
     // NUEVOS CAMPOS PARA EVITAR REPETICIÓN (resetear)
     escalationMessageSent: false,      // Resetear flag de escalación
     waitingForHuman: false,            // Resetear espera
@@ -204,7 +260,7 @@ function resetConversation(userId) {
   };
 
   conversations.set(userId, newConversation);
-  logger.info(`Conversación reiniciada: ${userId}`);
+  logger.info(`Conversación reiniciada: ${userId} (${todayMessages.length} mensajes preservados)`);
 
   return newConversation;
 }
@@ -464,6 +520,67 @@ function getAdvisorHandledConversations() {
   return all.filter(c => c.status === 'advisor_handled');
 }
 
+/**
+ * Obtiene mensajes de una conversación en un rango de fechas
+ *
+ * @param {string} userId - ID del usuario
+ * @param {Date} startDate - Fecha de inicio (opcional, default: inicio del día)
+ * @param {Date} endDate - Fecha de fin (opcional, default: ahora)
+ * @returns {Array} Lista de mensajes en el rango de fechas
+ */
+function getMessagesByDateRange(userId, startDate = null, endDate = null) {
+  const conversation = getConversation(userId);
+
+  if (!conversation || !conversation.messages || conversation.messages.length === 0) {
+    return [];
+  }
+
+  const now = Date.now();
+  const oneDayMs = 24 * 60 * 60 * 1000;
+
+  // Si no se proporciona startDate, usar inicio de hoy
+  const start = startDate ? startDate.getTime() : (now - oneDayMs);
+  // Si no se proporciona endDate, usar ahora
+  const end = endDate ? endDate.getTime() : now;
+
+  // Filtrar mensajes en el rango de fechas
+  const filteredMessages = conversation.messages
+    .filter(msg => msg.timestamp >= start && msg.timestamp <= end)
+    .sort((a, b) => a.timestamp - b.timestamp); // Ordenar cronológicamente
+
+  logger.debug(`📜 Mensajes filtrados para ${userId}: ${filteredMessages.length} en rango`);
+
+  return filteredMessages;
+}
+
+/**
+ * Limpia mensajes antiguos (de días anteriores)
+ *
+ * @param {string} userId - ID del usuario
+ * @param {number} daysToKeep - Días a preservar (default: 1 = solo hoy)
+ * @returns {number} Cantidad de mensajes eliminados
+ */
+function cleanOldMessages(userId, daysToKeep = 1) {
+  const conversation = getConversation(userId);
+
+  if (!conversation || !conversation.messages || conversation.messages.length === 0) {
+    return 0;
+  }
+
+  const now = Date.now();
+  const cutoffTime = now - (daysToKeep * 24 * 60 * 60 * 1000);
+
+  const initialCount = conversation.messages.length;
+  conversation.messages = conversation.messages.filter(msg => msg.timestamp >= cutoffTime);
+  const removedCount = initialCount - conversation.messages.length;
+
+  if (removedCount > 0) {
+    logger.info(`🧹 Limpiados ${removedCount} mensajes antiguos para ${userId}`);
+  }
+
+  return removedCount;
+}
+
 
 module.exports = {
   // Gestión de conversaciones
@@ -495,5 +612,9 @@ module.exports = {
   assignAdvisor,
   releaseFromAdvisor,
   getPendingConversations,
-  getAdvisorHandledConversations
+  getAdvisorHandledConversations,
+
+  // ✅ NUEVO: Gestión de mensajes por fecha
+  getMessagesByDateRange,
+  cleanOldMessages
 };

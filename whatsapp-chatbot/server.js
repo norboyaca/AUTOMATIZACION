@@ -20,6 +20,7 @@ const config = require('./src/config');
 const { requireAuth } = require('./src/middlewares/auth.middleware');
 const logger = require('./src/utils/logger');
 const messageProcessor = require('./src/services/message-processor.service');
+const advisorControlService = require('./src/services/advisor-control.service');
 
 // Seleccionar provider: baileys (recomendado) o web (whatsapp-web.js)
 const whatsappProvider = process.env.WHATSAPP_PROVIDER || 'baileys';
@@ -41,6 +42,9 @@ const io = new Server(server);
 
 // ✅ NUEVO: Inicializar messageProcessor con Socket.IO para emitir eventos de escalación
 messageProcessor.setSocketIO(io);
+
+// ✅ NUEVO: Inicializar advisorControl con Socket.IO para emitir eventos de nuevos mensajes
+advisorControlService.setSocketIO(io);
 
 // ===========================================
 // SOCKET.IO - COMUNICACIÓN EN TIEMPO REAL
