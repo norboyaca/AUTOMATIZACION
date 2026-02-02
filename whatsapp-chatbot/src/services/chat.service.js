@@ -560,10 +560,12 @@ https://www.whatsapp.com/legal
 ━━━━━━━━━━━━━━━━━━
 ⚠️ IMPORTANTE
 
-Para continuar debes ESCRIBIR el número 
-aceptas las políticas:
-1️⃣ ACEPTAR
-2️⃣ NO ACEPTAR`,
+¿Aceptas las políticas de tratamiento de datos personales?
+
+Por favor, digita:
+
+1. Si
+2. No`,
     useList: false // No usar lista por ahora, solo texto
   };
 };

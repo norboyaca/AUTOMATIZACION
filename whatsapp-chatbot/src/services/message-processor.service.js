@@ -67,6 +67,50 @@ async function processIncomingMessage(userId, message) {
     conversation.lastInteraction = Date.now();
     conversation.lastMessage = message;
 
+    // ===========================================
+    // VERIFICACIÓN DE CONSENTIMIENTO
+    // ===========================================
+    // Si el consentimiento está solicitado, verificar la respuesta del usuario
+    if (conversation.consentMessageSent === true && conversation.consentStatus === 'pending') {
+      const normalizedMessage = message.toLowerCase().trim();
+      logger.info(`📋 Verificando respuesta de consentimiento: "${normalizedMessage}"`);
+
+      // Verificar si acepta
+      if (normalizedMessage === 'si' || normalizedMessage === 'sí' ||
+          normalizedMessage === '1' || normalizedMessage.includes('acept')) {
+        logger.info(`✅ Usuario ${userId} ACEPTÓ el consentimiento`);
+        chatService.setConsentResponse(userId, true);
+        conversation.consentStatus = 'accepted';
+        conversation.consentMessageSent = false;
+
+        // Enviar confirmación
+        const confirmationMsg = `¡Perfecto, sumercé! 👍\n\nAhora puedo asesorarte.\n\n¿En qué puedo ayudarte?`;
+        await whatsappProvider.sendMessage(userId, confirmationMsg);
+        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, confirmationMsg, 'bot', 'system');
+
+        return null; // No procesar más este mensaje
+      }
+
+      // Verificar si rechaza
+      if (normalizedMessage === 'no' || normalizedMessage === '2' ||
+          normalizedMessage.includes('rechaz')) {
+        logger.info(`❌ Usuario ${userId} RECHAZÓ el consentimiento`);
+        chatService.setConsentResponse(userId, false);
+        conversation.consentStatus = 'rejected';
+        conversation.consentMessageSent = false;
+        conversation.bot_active = false; // Desactivar bot
+
+        // Enviar mensaje de rechazo
+        const rejectionMsg = `Entendido, sumercé. Su decisión ha sido registrada.\n\nSi cambia de opinión, puede escribirnos nuevamente.`;
+        await whatsappProvider.sendMessage(userId, rejectionMsg);
+        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, rejectionMsg, 'bot', 'system');
+
+        return null; // No procesar más este mensaje
+      }
+    }
+
     // ✅ NUEVO: Log del estado actual al recibir mensaje
     logger.debug(`🔍 Estado INICIAL de conversación ${userId}:`);
     logger.debug(`   bot_active: ${conversation.bot_active}`);
