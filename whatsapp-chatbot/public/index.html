@@ -752,24 +752,27 @@
 
     .chat-modal-content {
       background: white;
-      border-radius: 12px; /* Reducido 12%: 14px → 12px */
+      border-radius: 12px;
       width: 90%;
-      max-width: 620px; /* Reducido 12%: 700px → 620px */
-      max-height: 95vh;
+      max-width: 620px;
+      height: 85vh; /* Altura fija relativa al viewport */
+      max-height: 700px; /* Máximo absoluto */
       display: flex;
       flex-direction: column;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden; /* Prevenir desbordamiento del contenedor */
     }
 
     .chat-modal-header {
-      padding: 12px 16px; /* Reducido 12%: 14px → 12px, 18px → 16px */
+      padding: 12px 16px;
       border-bottom: 1px solid var(--border-gray);
       display: flex;
       justify-content: space-between;
       align-items: center;
       background: linear-gradient(135deg, var(--primary-green) 0%, var(--secondary-green) 100%);
-      border-radius: 12px 12px 0 0; /* Ajustado */
+      border-radius: 12px 12px 0 0;
       color: white;
+      flex-shrink: 0; /* No se reduce, permanece fijo */
     }
 
     .chat-modal-header h3 {
@@ -807,10 +810,13 @@
     .chat-modal-body {
       flex: 1;
       overflow-y: auto;
-      padding: 12px; /* Reducido 12%: 14px → 12px */
+      overflow-x: hidden;
+      padding: 12px;
       background: #f5f5f5;
-      min-height: 490px; /* Reducido 12%: 560px → 490px */
-      max-height: calc(95vh - 176px); /* Reducido 12%: 200px → 176px */
+      min-height: 0; /* Importante: permite que flex-shrink funcione */
+      /* Scroll suave */
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
     }
 
     .chat-message {
@@ -886,10 +892,11 @@
     }
 
     .chat-modal-footer {
-      padding: 11px 14px; /* Reducido 12%: 12px → 11px, 16px → 14px */
+      padding: 11px 14px;
       border-top: 1px solid var(--border-gray);
       background: white;
-      border-radius: 0 0 12px 12px; /* Ajustado */
+      border-radius: 0 0 12px 12px;
+      flex-shrink: 0; /* No se reduce, permanece fijo */
     }
 
     .chat-input-container {
@@ -1088,8 +1095,9 @@
 
       .chat-modal-body {
         padding: 12px;
-        min-height: calc(100vh - 150px);
-        max-height: calc(100vh - 150px);
+        min-height: 0;
+        flex: 1;
+        overflow-y: auto;
       }
 
       .chat-message {
@@ -1458,6 +1466,20 @@
       color: #c62828;
     }
 
+    /* Badge de IA Desactivada */
+    .ia-disabled-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 8px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+      color: #c62828;
+      margin-left: 6px;
+      vertical-align: middle;
+      border: 1px solid #ef9a9a;
+    }
+
     .time-remaining {
       font-size: 10px; /* Reducido 12%: 11px → 10px */
       color: var(--medium-gray);
@@ -1703,9 +1725,9 @@
           <span class="nav-item-text">Documentos</span>
         </a>
         
-        <a href="#" class="nav-item" onclick="changeView('stats'); return false;">
-          <span class="nav-item-icon">📊</span>
-          <span class="nav-item-text">Estadísticas</span>
+        <a href="#" class="nav-item" onclick="changeView('number-control'); return false;">
+          <span class="nav-item-icon">🔢</span>
+          <span class="nav-item-text">Control de Números</span>
         </a>
         <a href="#" class="nav-item" onclick="changeView('settings'); return false;">
           <span class="nav-item-icon">⚙️</span>
@@ -2409,12 +2431,13 @@ footer {
       <table class="conversations-table">
         <thead>
           <tr>
-            <th style="width: 15%;">Teléfono</th>
-            <th style="width: 25%;">Último Mensaje</th>
-            <th style="width: 12%;">Estado</th>
-            <th style="width: 15%;">Consentimiento</th>
-            <th style="width: 13%;">Tiempo Restante</th>
-            <th style="width: 20%;">Acciones</th>
+            <th style="width: 12%;">Nombre</th>
+            <th style="width: 13%;">Teléfono</th>
+            <th style="width: 22%;">Último Mensaje</th>
+            <th style="width: 11%;">Estado</th>
+            <th style="width: 12%;">Consentimiento</th>
+            <th style="width: 11%;">Tiempo Restante</th>
+            <th style="width: 19%;">Acciones</th>
           </tr>
         </thead>
         <tbody id="conversations-table-body">
@@ -2428,6 +2451,156 @@ footer {
     <div style="font-size: 64px; margin-bottom: 15px;">💬</div>
     <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay conversaciones activas</h3>
     <p style="color: var(--medium-gray);">Las conversaciones aparecerán aquí cuando los usuarios interactúen con el bot.</p>
+  </div>
+</div>
+
+<!-- ========================================
+     VISTA DE CONTROL DE NÚMEROS
+     ======================================== -->
+<div id="number-control-view" style="display: none;">
+
+  <!-- Header con título -->
+  <div style="margin-bottom: 20px;">
+    <h2 style="color: var(--primary-green); margin: 0;">🔢 Control de Números</h2>
+    <p style="color: var(--medium-gray); margin: 5px 0 0 0; font-size: 0.9em;">
+      Gestiona los números a los que la IA NO debe responder automáticamente
+    </p>
+  </div>
+
+  <!-- Estadísticas -->
+  <div class="stats-cards" style="margin-bottom: 20px;">
+    <div class="stat-card">
+      <div class="stat-number" id="nc-stat-total-conversations">0</div>
+      <div class="stat-label">Total Conversaciones</div>
+    </div>
+    <div class="stat-card" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);">
+      <div class="stat-number" id="nc-stat-ia-inactive">0</div>
+      <div class="stat-label">🔴 IA Desactivada</div>
+    </div>
+    <div class="stat-card" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);">
+      <div class="stat-number" id="nc-stat-ia-active">0</div>
+      <div class="stat-label">🟢 IA Activa</div>
+    </div>
+  </div>
+
+  <!-- Información importante -->
+  <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin-bottom: 20px; border-radius: 0 8px 8px 0;">
+    <strong>⚠️ Importante:</strong>
+    <ul style="margin: 10px 0 0 0; padding-left: 20px; color: var(--dark-gray);">
+      <li>Los números con IA desactivada <strong>pueden seguir escribiendo</strong> mensajes.</li>
+      <li>Solo se desactiva la <strong>respuesta automática de la IA</strong>.</li>
+      <li>Los asesores pueden ver y responder manualmente desde "Conversaciones".</li>
+    </ul>
+  </div>
+
+  <!-- TABS de navegación -->
+  <div class="tabs" id="nc-tabs">
+    <button class="tab active" onclick="switchNCTab('all')" id="nc-tab-all">
+      📋 Todos los Números
+    </button>
+    <button class="tab" onclick="switchNCTab('disabled')" id="nc-tab-disabled">
+      🔴 IA Desactivada
+    </button>
+  </div>
+
+  <!-- Loading -->
+  <div id="number-control-loading" style="display: none; text-align: center; padding: 40px;">
+    <div class="loading-spinner"></div>
+    <p style="margin-top: 15px; color: var(--medium-gray);">Cargando números...</p>
+  </div>
+
+  <!-- ========================================
+       TAB 1: TODOS LOS NÚMEROS
+       ======================================== -->
+  <div id="nc-tab-content-all" class="tab-content" style="display: block;">
+    <div id="nc-all-content" style="display: none;">
+      <div class="table-responsive">
+        <table class="conversations-table">
+          <thead>
+            <tr>
+              <th style="width: 18%;">Nombre</th>
+              <th style="width: 18%;">Teléfono</th>
+              <th style="width: 25%;">Última Interacción</th>
+              <th style="width: 15%;">Estado IA</th>
+              <th style="width: 24%;">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="nc-all-table-body">
+            <!-- Se llena dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="nc-all-empty" style="display: none; text-align: center; padding: 60px 20px;">
+      <div style="font-size: 64px; margin-bottom: 15px;">📱</div>
+      <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay conversaciones aún</h3>
+      <p style="color: var(--medium-gray);">Los números aparecerán aquí cuando interactúen con el chatbot.</p>
+    </div>
+  </div>
+
+  <!-- ========================================
+       TAB 2: IA DESACTIVADA
+       ======================================== -->
+  <div id="nc-tab-content-disabled" class="tab-content" style="display: none;">
+    <div id="nc-disabled-content" style="display: none;">
+      <div class="table-responsive">
+        <table class="conversations-table">
+          <thead>
+            <tr>
+              <th style="width: 20%;">Nombre</th>
+              <th style="width: 18%;">Teléfono</th>
+              <th style="width: 22%;">Fecha Desactivación</th>
+              <th style="width: 25%;">Motivo</th>
+              <th style="width: 15%;">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="nc-disabled-table-body">
+            <!-- Se llena dinámicamente -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="nc-disabled-empty" style="display: none; text-align: center; padding: 60px 20px;">
+      <div style="font-size: 64px; margin-bottom: 15px;">✅</div>
+      <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay números con IA desactivada</h3>
+      <p style="color: var(--medium-gray);">Todos los números tienen la IA activa.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para agregar motivo al desactivar IA -->
+<div class="modal-overlay" id="disable-ia-modal">
+  <div class="modal-container" style="max-width: 450px;">
+    <div class="modal-header">
+      <h3 class="modal-title">🔴 Desactivar IA</h3>
+      <button class="modal-close" onclick="closeDisableIAModal()">&times;</button>
+    </div>
+
+    <div style="padding: 10px 0;">
+      <p style="color: var(--medium-gray); margin-bottom: 15px; font-size: 0.9em;">
+        La IA dejará de responder automáticamente a este número.
+      </p>
+
+      <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+        <strong>Número:</strong> <span id="disable-ia-phone" style="font-family: monospace;"></span>
+      </div>
+
+      <div class="login-form-group">
+        <label>📝 Motivo (opcional)</label>
+        <textarea id="disable-ia-reason" rows="3" placeholder="Ej: Cliente VIP, Requiere atención especial..." style="width: 100%; padding: 12px 15px; border: 2px solid var(--border-gray); border-radius: 10px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="upload-btn" onclick="closeDisableIAModal()" style="background: var(--medium-gray); flex: 1;">
+          Cancelar
+        </button>
+        <button class="upload-btn" onclick="confirmDisableIA()" style="background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%); flex: 1;">
+          🔴 Desactivar IA
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2633,7 +2806,7 @@ footer {
       const viewNames = {
         'home': 'Inicio',
         'conversations': 'Conversaciones',
-        'stats': 'Estadísticas',
+        'number-control': 'Control de Números',
         'settings': 'Configuración',
         'documents': 'Documentos'
       };
@@ -2643,6 +2816,7 @@ footer {
 
       // Ocultar todas las vistas especiales primero
       hideConversationsView();
+      hideNumberControlView();
 
       // Mostrar/ocultar botón de subir según la vista
       const uploadBtn = document.getElementById('header-upload-btn');
@@ -2656,6 +2830,11 @@ footer {
       // Mostrar vista de conversaciones si corresponde
       if (view === 'conversations') {
         showConversationsView();
+      }
+
+      // Mostrar vista de control de números si corresponde
+      if (view === 'number-control') {
+        showNumberControlView();
       }
     }
     
@@ -3561,9 +3740,15 @@ footer {
             // Botones según estado
             const actionButtons = getActionButtons(conv);
 
+            // Badge de IA Desactivada (si está en control de números con IA desactivada)
+            const iaBadge = (conv.iaControlled && !conv.iaActive)
+              ? '<span class="ia-disabled-badge" title="La IA no responde automáticamente a este número">🔴 IA Desactivada</span>'
+              : '';
+
             return `
               <tr class="${rowClass}">
-                <td><span class="phone-number">${normalizePhoneNumber(conv.phoneNumber)}</span></td>
+                <td><strong>${conv.registeredName || 'Sin nombre'}</strong></td>
+                <td><span class="phone-number">${normalizePhoneNumber(conv.phoneNumber)}</span>${iaBadge}</td>
                 <td><span class="last-message" title="${conv.lastMessage || ''}">${shortMessage}</span></td>
                 <td><span class="status-badge ${statusInfo.class}">${statusInfo.text}</span></td>
                 <td><span class="consent-badge ${consentClass}">${consentText}</span></td>
@@ -3739,6 +3924,334 @@ footer {
 
       // Ocultar vista de conversaciones
       document.getElementById('conversations-view').style.display = 'none';
+    }
+
+    /* ========================================
+       FUNCIONES DE CONTROL DE NÚMEROS
+       ======================================== */
+
+    // Tab activo actual en Control de Números
+    let currentNCTab = 'all';
+    // Número seleccionado para desactivar IA
+    let selectedPhoneToDisable = null;
+
+    // Mostrar vista de control de números
+    function showNumberControlView() {
+      // Ocultar contenido original
+      document.querySelector('.container').style.display = 'none';
+
+      // Mostrar vista de control de números
+      document.getElementById('number-control-view').style.display = 'block';
+
+      // Cargar datos según tab activo
+      loadNumberControlData();
+    }
+
+    // Ocultar vista de control de números
+    function hideNumberControlView() {
+      const ncView = document.getElementById('number-control-view');
+      if (ncView) {
+        ncView.style.display = 'none';
+      }
+    }
+
+    // Cambiar entre tabs
+    function switchNCTab(tab) {
+      currentNCTab = tab;
+
+      // Actualizar botones de tab
+      document.querySelectorAll('#nc-tabs .tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(`nc-tab-${tab}`).classList.add('active');
+
+      // Ocultar todos los contenidos
+      document.querySelectorAll('#number-control-view .tab-content').forEach(c => c.style.display = 'none');
+
+      // Mostrar contenido del tab seleccionado
+      document.getElementById(`nc-tab-content-${tab}`).style.display = 'block';
+
+      // Recargar datos del tab
+      loadNumberControlData();
+    }
+
+    // Cargar datos según el tab activo
+    async function loadNumberControlData() {
+      const loadingEl = document.getElementById('number-control-loading');
+      loadingEl.style.display = 'block';
+
+      try {
+        if (currentNCTab === 'all') {
+          await loadAllNumbers();
+        } else {
+          await loadDisabledNumbers();
+        }
+      } catch (error) {
+        console.error('Error cargando datos:', error);
+      } finally {
+        loadingEl.style.display = 'none';
+      }
+    }
+
+    // TAB 1: Cargar TODOS los números desde conversaciones
+    async function loadAllNumbers() {
+      const contentEl = document.getElementById('nc-all-content');
+      const emptyEl = document.getElementById('nc-all-empty');
+      const tableBody = document.getElementById('nc-all-table-body');
+
+      contentEl.style.display = 'none';
+      emptyEl.style.display = 'none';
+
+      try {
+        // Obtener todas las conversaciones (ya incluye info de control de IA)
+        const response = await authenticatedFetch('/api/conversations');
+        const data = await response.json();
+
+        if (data.success && data.conversations.length > 0) {
+          contentEl.style.display = 'block';
+
+          // Contar estadísticas
+          let iaActiveCount = 0;
+          let iaInactiveCount = 0;
+
+          data.conversations.forEach(conv => {
+            if (conv.iaControlled && !conv.iaActive) {
+              iaInactiveCount++;
+            } else {
+              iaActiveCount++;
+            }
+          });
+
+          // Actualizar estadísticas
+          document.getElementById('nc-stat-total-conversations').textContent = data.conversations.length;
+          document.getElementById('nc-stat-ia-inactive').textContent = iaInactiveCount;
+          document.getElementById('nc-stat-ia-active').textContent = iaActiveCount;
+
+          // Llenar tabla
+          tableBody.innerHTML = data.conversations.map(conv => {
+            const isIADisabled = conv.iaControlled && !conv.iaActive;
+            const statusClass = isIADisabled ? 'expired' : 'active';
+            const statusText = isIADisabled ? '🔴 IA Desactivada' : '🟢 IA Activa';
+
+            const lastInteraction = new Date(conv.lastInteraction).toLocaleDateString('es-CO', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+
+            const actionBtn = isIADisabled
+              ? `<button class="take-btn" onclick="activateIAForNumber('${conv.phoneNumber}')" style="font-size: 11px; padding: 6px 12px;">🟢 Activar IA</button>`
+              : `<button class="reset-btn" onclick="openDisableIAModal('${conv.phoneNumber}', '${conv.registeredName || ''}')" style="font-size: 11px; padding: 6px 12px;">🔴 Desactivar IA</button>`;
+
+            return `
+              <tr>
+                <td><strong>${conv.registeredName || 'Sin nombre'}</strong></td>
+                <td><span class="phone-number">${normalizePhoneNumber(conv.phoneNumber)}</span></td>
+                <td><span style="font-size: 0.9em; color: var(--medium-gray);">${lastInteraction}</span></td>
+                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                <td>${actionBtn}</td>
+              </tr>
+            `;
+          }).join('');
+        } else {
+          emptyEl.style.display = 'block';
+          // Actualizar estadísticas a 0
+          document.getElementById('nc-stat-total-conversations').textContent = '0';
+          document.getElementById('nc-stat-ia-inactive').textContent = '0';
+          document.getElementById('nc-stat-ia-active').textContent = '0';
+        }
+      } catch (error) {
+        emptyEl.innerHTML = `
+          <div style="text-align: center; padding: 60px 20px;">
+            <div style="font-size: 64px; margin-bottom: 15px;">⚠️</div>
+            <h3 style="color: var(--medium-gray);">Error al cargar números</h3>
+            <p style="color: var(--medium-gray);">${error.message}</p>
+          </div>
+        `;
+        emptyEl.style.display = 'block';
+      }
+    }
+
+    // TAB 2: Cargar solo números con IA desactivada
+    async function loadDisabledNumbers() {
+      const contentEl = document.getElementById('nc-disabled-content');
+      const emptyEl = document.getElementById('nc-disabled-empty');
+      const tableBody = document.getElementById('nc-disabled-table-body');
+
+      contentEl.style.display = 'none';
+      emptyEl.style.display = 'none';
+
+      try {
+        const response = await authenticatedFetch('/api/conversations/number-control');
+        const data = await response.json();
+
+        if (data.success) {
+          // Filtrar solo los que tienen IA desactivada
+          const disabledNumbers = data.numbers.filter(n => !n.iaActive);
+
+          if (disabledNumbers.length > 0) {
+            contentEl.style.display = 'block';
+
+            tableBody.innerHTML = disabledNumbers.map(record => {
+              const disabledDate = record.updatedAt
+                ? new Date(record.updatedAt).toLocaleDateString('es-CO', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : new Date(record.registeredAt).toLocaleDateString('es-CO', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+
+              return `
+                <tr>
+                  <td><strong>${record.name || 'Sin nombre'}</strong></td>
+                  <td><span class="phone-number">${record.phoneNumber}</span></td>
+                  <td><span style="font-size: 0.9em;">${disabledDate}</span></td>
+                  <td><span style="color: var(--medium-gray);">${record.reason || '-'}</span></td>
+                  <td>
+                    <button class="take-btn" onclick="activateIAForNumber('${record.phoneNumber}')" style="font-size: 11px; padding: 6px 12px;">
+                      🟢 Activar IA
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          } else {
+            emptyEl.style.display = 'block';
+          }
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (error) {
+        emptyEl.innerHTML = `
+          <div style="text-align: center; padding: 60px 20px;">
+            <div style="font-size: 64px; margin-bottom: 15px;">⚠️</div>
+            <h3 style="color: var(--medium-gray);">Error al cargar números</h3>
+            <p style="color: var(--medium-gray);">${error.message}</p>
+          </div>
+        `;
+        emptyEl.style.display = 'block';
+      }
+    }
+
+    // Abrir modal para desactivar IA con motivo
+    function openDisableIAModal(phoneNumber, name) {
+      selectedPhoneToDisable = phoneNumber;
+      document.getElementById('disable-ia-phone').textContent = phoneNumber + (name ? ` (${name})` : '');
+      document.getElementById('disable-ia-reason').value = '';
+      document.getElementById('disable-ia-modal').classList.add('active');
+    }
+
+    // Cerrar modal de desactivar IA
+    function closeDisableIAModal() {
+      document.getElementById('disable-ia-modal').classList.remove('active');
+      selectedPhoneToDisable = null;
+    }
+
+    // Confirmar desactivación de IA
+    async function confirmDisableIA() {
+      if (!selectedPhoneToDisable) return;
+
+      const reason = document.getElementById('disable-ia-reason').value.trim();
+
+      try {
+        // Primero registrar el número si no existe
+        const response = await authenticatedFetch('/api/conversations/number-control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phoneNumber: selectedPhoneToDisable,
+            reason: reason,
+            name: ''
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success || data.error?.includes('ya existe')) {
+          // Si ya existe, actualizar estado
+          if (data.error?.includes('ya existe')) {
+            await authenticatedFetch(`/api/conversations/number-control/${encodeURIComponent(selectedPhoneToDisable)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ iaActive: false, reason: reason })
+            });
+          }
+
+          closeDisableIAModal();
+          showAlert('🔴 IA desactivada para este número', 'success');
+          loadNumberControlData();
+        } else {
+          alert('Error: ' + (data.error || 'Error desconocido'));
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    // Activar IA para un número
+    async function activateIAForNumber(phoneNumber) {
+      if (!confirm(`¿Activar la IA para el número ${phoneNumber}?\n\nEl bot volverá a responder automáticamente.`)) {
+        return;
+      }
+
+      try {
+        const response = await authenticatedFetch(`/api/conversations/number-control/${encodeURIComponent(phoneNumber)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ iaActive: true })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showAlert('🟢 IA activada para este número', 'success');
+          loadNumberControlData();
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    }
+
+    // Mantener compatibilidad con funciones antiguas (por si acaso)
+    async function toggleIAStatus(phoneNumber, iaActive) {
+      if (iaActive) {
+        await activateIAForNumber(phoneNumber);
+      } else {
+        openDisableIAModal(phoneNumber, '');
+      }
+    }
+
+    async function deleteControlledNumber(phoneNumber) {
+      if (!confirm(`¿Eliminar el número ${phoneNumber} del control?\n\nLa IA volverá a responder automáticamente a este número.`)) {
+        return;
+      }
+
+      try {
+        const response = await authenticatedFetch(`/api/conversations/number-control/${encodeURIComponent(phoneNumber)}`, {
+          method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showAlert('🗑️ Número eliminado. La IA volverá a responder normalmente.', 'success');
+          loadNumberControlData();
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
     }
 
     /* ========================================

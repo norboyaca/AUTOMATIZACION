@@ -19,6 +19,7 @@ const escalationService = require('./escalation.service');
 const chatService = require('./chat.service');
 const whatsappProvider = require('../providers/whatsapp');
 const timeSimulation = require('./time-simulation.service');
+const numberControlService = require('./number-control.service');
 
 // ✅ NUEVO: Socket.IO para emitir eventos de escalación al dashboard
 let io = null;
@@ -66,6 +67,29 @@ async function processIncomingMessage(userId, message) {
     // Actualizar última interacción
     conversation.lastInteraction = Date.now();
     conversation.lastMessage = message;
+
+    // ===========================================
+    // PUNTO DE CONTROL 0: CONTROL DE NÚMEROS (IA DESACTIVADA)
+    // ===========================================
+    // IMPORTANTE: Esta validación se ejecuta ANTES de cualquier procesamiento de IA
+    // Si el número está en la lista de control con IA desactivada:
+    // - NO se genera respuesta con el modelo
+    // - NO se consumen tokens
+    // - NO se envía mensaje automático
+    // El mensaje del usuario SÍ se guarda para que el asesor pueda verlo
+    const iaCheck = numberControlService.shouldIARespond(userId);
+
+    if (!iaCheck.shouldRespond) {
+      logger.info(`🔴 CONTROL DE NÚMEROS: IA desactivada para ${userId}`);
+      logger.info(`   Nombre: ${iaCheck.record?.name || 'Sin nombre'}`);
+      logger.info(`   Motivo: ${iaCheck.reason}`);
+
+      // Guardar mensaje del usuario (para que el asesor pueda verlo)
+      await saveMessage(userId, message, 'user');
+
+      // NO responder automáticamente
+      return null;
+    }
 
     // ===========================================
     // VERIFICACIÓN DE CONSENTIMIENTO

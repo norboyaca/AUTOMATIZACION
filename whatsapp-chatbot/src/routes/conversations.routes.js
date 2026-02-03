@@ -19,6 +19,7 @@ const conversationStateService = require('../services/conversation-state.service
 const chatService = require('../services/chat.service');
 const advisorControlService = require('../services/advisor-control.service');
 const timeSimulation = require('../services/time-simulation.service');
+const numberControlService = require('../services/number-control.service');
 const { requireAuth } = require('../middlewares/auth.middleware');
 const logger = require('../utils/logger');
 
@@ -51,6 +52,22 @@ router.get('/', requireAuth, (req, res) => {
 
     // Ordenar por última interacción (más reciente primero)
     conversations.sort((a, b) => b.lastInteraction - a.lastInteraction);
+
+    // Enriquecer con información del control de números
+    conversations = conversations.map(conv => {
+      const iaCheck = numberControlService.shouldIARespond(conv.phoneNumber);
+      const controlRecord = numberControlService.getControlledNumber(conv.phoneNumber);
+
+      return {
+        ...conv,
+        // Nombre del registro de control o "Sin nombre"
+        registeredName: controlRecord?.name || 'Sin nombre',
+        // Estado de IA según control de números
+        iaControlled: controlRecord !== null,
+        iaActive: iaCheck.shouldRespond,
+        iaControlReason: controlRecord?.reason || null
+      };
+    });
 
     res.json({
       success: true,
@@ -710,6 +727,182 @@ router.get('/schedule-check-status', requireAuth, (req, res) => {
 
   } catch (error) {
     logger.error('Error obteniendo estado de verificación de horario:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ===========================================
+// ENDPOINTS PARA CONTROL DE NÚMEROS (IA DESACTIVADA)
+// ===========================================
+
+/**
+ * GET /api/conversations/number-control
+ *
+ * Lista todos los números con control de IA
+ */
+router.get('/number-control', requireAuth, (req, res) => {
+  try {
+    const numbers = numberControlService.getAllControlledNumbers();
+    const stats = numberControlService.getStats();
+
+    res.json({
+      success: true,
+      numbers,
+      total: numbers.length,
+      stats
+    });
+  } catch (error) {
+    logger.error('Error obteniendo números controlados:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/conversations/number-control
+ *
+ * Registra un nuevo número para desactivar la IA
+ *
+ * Body:
+ * {
+ *   "phoneNumber": "3001234567",  // Obligatorio
+ *   "name": "Juan Pérez",         // Opcional
+ *   "reason": "Cliente VIP"       // Opcional
+ * }
+ */
+router.post('/number-control', requireAuth, (req, res) => {
+  try {
+    const { phoneNumber, name, reason } = req.body;
+
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'El número de teléfono es obligatorio'
+      });
+    }
+
+    const record = numberControlService.addControlledNumber({
+      phoneNumber,
+      name,
+      reason,
+      registeredBy: req.body.registeredBy || 'Asesor'
+    });
+
+    res.json({
+      success: true,
+      message: 'Número registrado. La IA no responderá a este número.',
+      record
+    });
+  } catch (error) {
+    logger.error('Error registrando número:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * PUT /api/conversations/number-control/:phoneNumber
+ *
+ * Actualiza los datos de un número controlado
+ *
+ * Body:
+ * {
+ *   "name": "Nuevo nombre",
+ *   "reason": "Nuevo motivo",
+ *   "iaActive": true/false
+ * }
+ */
+router.put('/number-control/:phoneNumber', requireAuth, (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+    const { name, reason, iaActive, updatedBy } = req.body;
+
+    const record = numberControlService.updateControlledNumber(phoneNumber, {
+      name,
+      reason,
+      iaActive,
+      updatedBy: updatedBy || 'Asesor'
+    });
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        error: 'Número no encontrado'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: iaActive ? 'IA activada para este número' : 'IA desactivada para este número',
+      record
+    });
+  } catch (error) {
+    logger.error('Error actualizando número:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/conversations/number-control/:phoneNumber
+ *
+ * Elimina un número del control (la IA volverá a responder)
+ */
+router.delete('/number-control/:phoneNumber', requireAuth, (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+
+    const deleted = numberControlService.removeControlledNumber(phoneNumber);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        error: 'Número no encontrado'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Número eliminado del control. La IA volverá a responder normalmente.'
+    });
+  } catch (error) {
+    logger.error('Error eliminando número:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/conversations/number-control/:phoneNumber/check
+ *
+ * Verifica si la IA debe responder a un número
+ */
+router.get('/number-control/:phoneNumber/check', requireAuth, (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+
+    const result = numberControlService.shouldIARespond(phoneNumber);
+    const name = numberControlService.getNameByPhone(phoneNumber);
+
+    res.json({
+      success: true,
+      phoneNumber,
+      name,
+      ...result
+    });
+  } catch (error) {
+    logger.error('Error verificando número:', error);
     res.status(500).json({
       success: false,
       error: error.message
