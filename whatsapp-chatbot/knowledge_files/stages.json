@@ -1,0 +1,23 @@
+[
+  {
+    "id": "stage_1",
+    "name": "Elegimos Juntos 2026-2029",
+    "order": 1,
+    "createdAt": 1770152137912,
+    "updatedAt": 1770152230048
+  },
+  {
+    "id": "stage_2",
+    "name": "Créditos Para emprendores",
+    "order": 2,
+    "createdAt": 1770152137912,
+    "updatedAt": 1770153543700
+  },
+  {
+    "id": "stage_3",
+    "name": "Etapa 3",
+    "order": 3,
+    "createdAt": 1770152137912,
+    "updatedAt": 1770152137912
+  }
+]

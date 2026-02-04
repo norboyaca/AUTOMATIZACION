@@ -194,11 +194,35 @@ function extractKeywords(text) {
 
 /**
  * Sube y procesa un archivo
+ * ✅ MEJORADO: Ahora acepta stageId para asociar a una etapa y guarda en carpetas
  */
-async function uploadFile(file) {
+async function uploadFile(file, stageId = null) {
   const ext = path.extname(file.originalname).toLowerCase();
   const fileName = `${Date.now()}_${file.originalname}`;
-  const filePath = path.join(KNOWLEDGE_DIR, fileName);
+
+  // ✅ NUEVO: Determinar directorio de destino
+  let targetDir = KNOWLEDGE_DIR;
+
+  // ✅ CORREGIDO: Si hay stageId, usar la carpeta de la etapa
+  // ⚠️ IMPORTANTE: NO asignar etapa por defecto - el documento debe asociarse
+  // ÚNICAMENTE a la etapa que el usuario seleccionó en el frontend
+  if (stageId) {
+    try {
+      const stagesService = require('./stages.service');
+      targetDir = stagesService.getStageFolder(stageId);
+      logger.info(`📁 Usando carpeta de etapa: ${targetDir} (stageId: ${stageId})`);
+    } catch (e) {
+      logger.warn('No se pudo obtener carpeta de etapa, usando directorio general:', e.message);
+      targetDir = KNOWLEDGE_DIR;
+    }
+  } else {
+    // ⚠️ CORREGIDO: Si no se proporciona stageId, NO asignar etapa por defecto
+    // Guardar en la carpeta raíz sin asociación a etapa específica
+    logger.warn('⚠️ No se proporcionó stageId - el documento se guardará sin asociación a etapa');
+    logger.warn('   El frontend debe enviar siempre el stageId de la etapa activa');
+  }
+
+  const filePath = path.join(targetDir, fileName);
 
   // Guardar archivo
   fs.writeFileSync(filePath, file.buffer);
@@ -214,6 +238,9 @@ async function uploadFile(file) {
     throw new Error('Tipo de archivo no soportado. Use PDF o TXT.');
   }
 
+  // ✅ NUEVO: Guardar ruta relativa desde knowledge_files
+  const relativePath = path.relative(KNOWLEDGE_DIR, filePath).replace(/\\/g, '/');
+
   // Agregar al índice
   const fileEntry = {
     id: Date.now().toString(),
@@ -222,17 +249,20 @@ async function uploadFile(file) {
     type: ext.replace('.', ''),
     size: file.size,
     chunksCount: processedData.chunks.length,
-    uploadDate: processedData.uploadDate
+    uploadDate: processedData.uploadDate,
+    // ✅ NUEVO: Asociación con etapa y ruta relativa
+    stageId: stageId || null,
+    relativePath: relativePath // Ruta relativa desde knowledge_files
   };
 
   knowledgeIndex.files.push(fileEntry);
   saveIndex();
 
-  // Guardar datos procesados
-  const dataPath = path.join(KNOWLEDGE_DIR, `${fileEntry.id}_data.json`);
+  // Guardar datos procesados en la misma carpeta
+  const dataPath = path.join(targetDir, `${fileEntry.id}_data.json`);
   fs.writeFileSync(dataPath, JSON.stringify(processedData, null, 2));
 
-  logger.info(`Archivo cargado: ${file.originalname} (${processedData.chunks.length} chunks)`);
+  logger.info(`Archivo cargado: ${file.originalname} (${processedData.chunks.length} chunks) [Etapa: ${stageId || 'Sin asignar'}] [Ruta: ${relativePath}]`);
 
   return fileEntry;
 }
@@ -245,7 +275,18 @@ function getUploadedFiles() {
 }
 
 /**
+ * ✅ NUEVO: Obtiene archivos filtrados por etapa
+ */
+function getFilesByStage(stageId) {
+  if (!stageId) {
+    return knowledgeIndex.files;
+  }
+  return knowledgeIndex.files.filter(f => f.stageId === stageId);
+}
+
+/**
  * Elimina un archivo
+ * ✅ MEJORADO: Soporta archivos en subcarpetas de etapas
  */
 function deleteFile(fileId) {
   const fileIndex = knowledgeIndex.files.findIndex(f => f.id === fileId);
@@ -256,10 +297,29 @@ function deleteFile(fileId) {
 
   const file = knowledgeIndex.files[fileIndex];
 
-  // Eliminar archivos físicos
-  const filePath = path.join(KNOWLEDGE_DIR, file.fileName);
-  const dataPath = path.join(KNOWLEDGE_DIR, `${file.id}_data.json`);
+  // ✅ MEJORADO: Determinar rutas de los archivos físicos
+  let filePath, dataPath;
 
+  if (file.relativePath) {
+    // Usar ruta relativa
+    filePath = path.join(KNOWLEDGE_DIR, file.relativePath);
+    dataPath = path.join(KNOWLEDGE_DIR, path.dirname(file.relativePath), `${file.id}_data.json`);
+  } else {
+    // Compatibilidad con archivos antiguos
+    filePath = path.join(KNOWLEDGE_DIR, file.fileName);
+
+    // Si no existe y tiene stageId, buscar en carpeta de etapa
+    if (!fs.existsSync(filePath) && file.stageId) {
+      const stagesService = require('./stages.service');
+      const stageFolder = stagesService.getStageFolder(file.stageId);
+      filePath = path.join(stageFolder, file.fileName);
+      dataPath = path.join(stageFolder, `${file.id}_data.json`);
+    } else {
+      dataPath = path.join(KNOWLEDGE_DIR, `${file.id}_data.json`);
+    }
+  }
+
+  // Eliminar archivos físicos
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath);
 
@@ -296,7 +356,23 @@ function searchInFiles(query) {
   logger.debug(`🔍 Buscando: "${query}" (normalizado: "${queryNormalized}", sin acentos: "${queryNoAccents}")`);
 
   for (const file of knowledgeIndex.files) {
-    const dataPath = path.join(KNOWLEDGE_DIR, `${file.id}_data.json`);
+    // ✅ MEJORADO: Determinar ruta del archivo de datos
+    let dataPath;
+
+    if (file.relativePath) {
+      // Usar ruta relativa
+      dataPath = path.join(KNOWLEDGE_DIR, path.dirname(file.relativePath), `${file.id}_data.json`);
+    } else {
+      // Compatibilidad con archivos antiguos
+      dataPath = path.join(KNOWLEDGE_DIR, `${file.id}_data.json`);
+
+      // Si no existe y tiene stageId, buscar en carpeta de etapa
+      if (!fs.existsSync(dataPath) && file.stageId) {
+        const stagesService = require('./stages.service');
+        const stageFolder = stagesService.getStageFolder(file.stageId);
+        dataPath = path.join(stageFolder, `${file.id}_data.json`);
+      }
+    }
 
     if (!fs.existsSync(dataPath)) continue;
 
@@ -377,7 +453,28 @@ function searchInFiles(query) {
     logger.info(`🔄 Sin resultados exactos, intentando búsqueda laxa por palabras clave...`);
 
     for (const file of knowledgeIndex.files) {
-      const dataPath = path.join(KNOWLEDGE_DIR, `${file.id}_data.json`);
+      // ✅ CORREGIDO: Usar la misma lógica que la búsqueda principal
+      // para encontrar archivos en subcarpetas de etapas
+      let dataPath;
+
+      if (file.relativePath) {
+        // Usar ruta relativa
+        dataPath = path.join(KNOWLEDGE_DIR, path.dirname(file.relativePath), `${file.id}_data.json`);
+      } else {
+        // Compatibilidad con archivos antiguos
+        dataPath = path.join(KNOWLEDGE_DIR, `${file.id}_data.json`);
+
+        // Si no existe y tiene stageId, buscar en carpeta de etapa
+        if (!fs.existsSync(dataPath) && file.stageId) {
+          try {
+            const stagesService = require('./stages.service');
+            const stageFolder = stagesService.getStageFolder(file.stageId);
+            dataPath = path.join(stageFolder, `${file.id}_data.json`);
+          } catch (e) {
+            // Ignorar error y continuar
+          }
+        }
+      }
 
       if (!fs.existsSync(dataPath)) continue;
 
@@ -458,6 +555,7 @@ function getContextFromFiles(query, maxResults = 3) {
 module.exports = {
   uploadFile,
   getUploadedFiles,
+  getFilesByStage,
   deleteFile,
   searchInFiles,
   getContextFromFiles

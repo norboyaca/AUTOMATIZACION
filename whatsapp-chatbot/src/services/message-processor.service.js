@@ -55,14 +55,17 @@ const BUSINESS_HOURS = {
  *
  * @param {string} userId - ID del usuario de WhatsApp
  * @param {string} message - Mensaje recibido
+ * @param {Object} options - Opciones adicionales
+ * @param {string} options.pushName - Nombre del contacto de WhatsApp
  * @returns {Promise<string|null>} Respuesta a enviar o null si no se debe responder
  */
-async function processIncomingMessage(userId, message) {
+async function processIncomingMessage(userId, message, options = {}) {
   try {
+    const { pushName } = options;
     logger.info(`📨 Procesando mensaje de ${userId}: "${message.substring(0, 50)}..."`);
 
-    // Obtener o crear conversación
-    const conversation = conversationStateService.getOrCreateConversation(userId);
+    // ✅ CORREGIDO: Obtener o crear conversación CON el nombre de WhatsApp
+    const conversation = conversationStateService.getOrCreateConversation(userId, { whatsappName: pushName });
 
     // Actualizar última interacción
     conversation.lastInteraction = Date.now();

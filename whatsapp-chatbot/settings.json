@@ -1,11 +1,11 @@
 {
   "provider": "openai",
   "groq": {
-    "apiKey": "${GROQ_API_KEY}",
+    "apiKey": "",
     "model": "llama-3.3-70b-versatile"
   },
   "openai": {
-    "apiKey": "${OPENAI_API_KEY}",
+    "apiKey": "",
     "model": "gpt-4o-mini"
   }
 }

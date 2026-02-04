@@ -104,14 +104,35 @@ whatsappWeb.on('message', async (message) => {
     const from = message.from;
     const body = message.body;
     const type = message.type;
+    const pushName = message.pushName || null; // ✅ NUEVO: Nombre del contacto
 
     // Detectar tipo de chat
+    // ✅ CORREGIDO: Baileys usa @s.whatsapp.net para chats normales
     const chatType = from.includes('@lid') ? 'LID' :
                      from.includes('@g.us') ? 'Grupo' :
+                     from.includes('@s.whatsapp.net') ? 'Normal' :
                      from.includes('@c.us') ? 'Normal' : 'Desconocido';
 
     logger.info(`📩 Mensaje [${chatType}] de ${from}: ${body?.substring(0, 50)}...`);
     logger.info(`📝 Tipo de mensaje: ${type} | fromMe: ${message.fromMe}`);
+
+    // ===========================================
+    // ✅ NUEVO: IGNORAR MENSAJES DE GRUPOS
+    // ===========================================
+    // La IA NO debe responder en grupos de WhatsApp
+    // Esto evita respuestas no deseadas, consumo de tokens y spam
+    if (from.includes('@g.us')) {
+      logger.info(`🚫 Mensaje de GRUPO ignorado - La IA no responde en grupos`);
+      logger.info(`   Grupo: ${from}`);
+      return; // No procesar este mensaje
+    }
+    if (pushName) {
+      logger.info(`👤 Nombre del contacto: ${pushName}`);
+    }
+
+    // ✅ CORREGIDO: El nombre se guarda al crear/obtener la conversación
+    // dentro de processIncomingMessage, no aquí (antes fallaba porque
+    // la conversación aún no existía)
 
     // ===========================================
     // IGNORAR MENSAJES VACÍOS (eventos históricos de Baileys)
@@ -334,7 +355,8 @@ whatsappWeb.on('message', async (message) => {
       // - escalación
       // - horario
       // - GUARDADO DE MENSAJES
-      const response = await messageProcessor.processIncomingMessage(from, body);
+      // ✅ CORREGIDO: Pasar pushName para que se guarde el nombre del contacto
+      const response = await messageProcessor.processIncomingMessage(from, body, { pushName });
 
       // Si response es null, no se debe enviar nada (ya se envió internamente)
       if (!response) {

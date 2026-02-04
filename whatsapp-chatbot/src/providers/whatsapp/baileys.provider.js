@@ -277,6 +277,59 @@ class BaileysProvider extends EventEmitter {
     else if (msg.message.documentMessage) type = 'document';
     else if (msg.message.buttonsResponseMessage) type = 'button_response';
 
+    // ✅ MEJORADO: Extraer pushName/profileName (nombre del contacto en WhatsApp)
+    // El pushName viene en diferentes partes según el tipo de mensaje
+    let pushName = msg.pushName || null;
+
+    // ✅ NUEVO: Buscar profileName en notificaciones
+    if (!pushName && msg.pushName) {
+      pushName = msg.pushName;
+    }
+
+    // Si no hay pushName, intentar obtenerlo de otros campos
+    if (!pushName) {
+      // Para mensajes con contexto (reenviados, citados, etc.)
+      if (msg.message?.extendedTextMessage?.contextInfo?.participant) {
+        const participant = msg.message.extendedTextMessage.contextInfo.participant;
+        pushName = participant.split('@')[0] || null;
+      }
+
+      // Para mensajes de contacto
+      if (!pushName && msg.message?.contactMessage) {
+        const contact = msg.message.contactMessage;
+        if (contact.displayName) {
+          pushName = contact.displayName;
+        }
+      }
+
+      // Para mensajes con vCard
+      if (!pushName && msg.message?.contactsArrayMessage) {
+        const contacts = msg.message.contactsArrayMessage;
+        if (contacts.contacts && contacts.contacts.length > 0) {
+          pushName = contacts.contacts[0].displayName || null;
+        }
+      }
+
+      // ✅ NUEVO: Buscar en notificaciones de grupos
+      if (!pushName && msg.key?.participant) {
+        const participant = msg.key.participant;
+        pushName = participant.split('@')[0] || null;
+      }
+    }
+
+    // Limpiar el nombre (eliminar caracteres inválidos)
+    if (pushName) {
+      pushName = String(pushName).trim();
+      // Si es un número telefónico, no usarlo como nombre
+      if (/^\d+$/.test(pushName)) {
+        pushName = null;
+      }
+      // Si está vacío después de trim
+      if (pushName === '') {
+        pushName = null;
+      }
+    }
+
     return {
       from: from,
       to: msg.key.toJid || null,
@@ -291,6 +344,8 @@ class BaileysProvider extends EventEmitter {
         msg.message.audioMessage ||
         msg.message.documentMessage
       ),
+      // ✅ NUEVO: Nombre del contacto en WhatsApp
+      pushName: pushName,
       // Referencia al mensaje original para reply()
       _original: msg,
       // Para respuestas de botones

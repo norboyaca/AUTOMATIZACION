@@ -44,7 +44,95 @@
       "size": 1763,
       "chunksCount": 2,
       "uploadDate": "2026-01-30T17:59:07.156Z"
+    },
+    {
+      "id": "1770152517847",
+      "fileName": "1770152517787_ULTIMAS PREGUNTAS.txt",
+      "originalName": "ULTIMAS PREGUNTAS.txt",
+      "type": "txt",
+      "size": 1763,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-03T21:01:57.846Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770152517787_ULTIMAS PREGUNTAS.txt"
+    },
+    {
+      "id": "1770152517869",
+      "fileName": "1770152517858_Proceso DemocrÃ¡tico DEFINITIVO.txt",
+      "originalName": "Proceso DemocrÃ¡tico DEFINITIVO.txt",
+      "type": "txt",
+      "size": 8653,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-03T21:01:57.869Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770152517858_Proceso DemocrÃ¡tico DEFINITIVO.txt"
+    },
+    {
+      "id": "1770152518203",
+      "fileName": "1770152517882_RESOLUCION-No-001-ENE-13-DE-2026.pdf",
+      "originalName": "RESOLUCION-No-001-ENE-13-DE-2026.pdf",
+      "type": "pdf",
+      "size": 410633,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-03T21:01:58.203Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770152517882_RESOLUCION-No-001-ENE-13-DE-2026.pdf"
+    },
+    {
+      "id": "1770152518381",
+      "fileName": "1770152518224_REGLAMENTO-DE-ELECCION-DE-DELEGADOS-2026-2029.pdf",
+      "originalName": "REGLAMENTO-DE-ELECCION-DE-DELEGADOS-2026-2029.pdf",
+      "type": "pdf",
+      "size": 441963,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-03T21:01:58.380Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770152518224_REGLAMENTO-DE-ELECCION-DE-DELEGADOS-2026-2029.pdf"
+    },
+    {
+      "id": "1770152518485",
+      "fileName": "1770152518396_CRONOGRAMA-OFICIAL.pdf",
+      "originalName": "CRONOGRAMA-OFICIAL.pdf",
+      "type": "pdf",
+      "size": 320423,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-03T21:01:58.484Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770152518396_CRONOGRAMA-OFICIAL.pdf"
+    },
+    {
+      "id": "1770167980343",
+      "fileName": "1770167980324_ð§ Perfil del niÃ±o.txt",
+      "originalName": "ð§ Perfil del niÃ±o.txt",
+      "type": "txt",
+      "size": 1319,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-04T01:19:40.343Z",
+      "stageId": null,
+      "relativePath": "1770167980324_ð§ Perfil del niÃ±o.txt"
+    },
+    {
+      "id": "1770168591678",
+      "fileName": "1770168591662_ð§ Perfil del niÃ±o.txt",
+      "originalName": "ð§ Perfil del niÃ±o.txt",
+      "type": "txt",
+      "size": 1319,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-04T01:29:51.678Z",
+      "stageId": null,
+      "relativePath": "1770168591662_ð§ Perfil del niÃ±o.txt"
+    },
+    {
+      "id": "1770168801631",
+      "fileName": "1770168801617_ð§ Perfil del niÃ±o.txt",
+      "originalName": "ð§ Perfil del niÃ±o.txt",
+      "type": "txt",
+      "size": 1319,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-04T01:33:21.630Z",
+      "stageId": null,
+      "relativePath": "1770168801617_ð§ Perfil del niÃ±o.txt"
     }
   ],
-  "lastUpdate": "2026-01-30T17:59:07.156Z"
+  "lastUpdate": "2026-02-04T01:50:20.258Z"
 }

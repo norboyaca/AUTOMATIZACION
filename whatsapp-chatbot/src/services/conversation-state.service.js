@@ -49,7 +49,11 @@ const CYCLE_DURATION_MS = 60 * 60 * 1000;
  *   // NUEVOS CAMPOS PARA EVITAR REPETICIÓN:
  *   escalationMessageSent: false,      // ✅ Ya se envió mensaje de escalación
  *   waitingForHuman: false,            // ✅ Esperando respuesta de asesor (no responder más)
- *   lastEscalationMessageAt: null      // Timestamp del último mensaje de escalación
+ *   lastEscalationMessageAt: null,     // Timestamp del último mensaje de escalación
+ *
+ *   // ✅ NUEVO: NOMBRE DE WHATSAPP:
+ *   whatsappName: null,                // Nombre del contacto en WhatsApp (pushName)
+ *   whatsappNameUpdatedAt: null        // Timestamp de última actualización del nombre
  * }
  */
 
@@ -58,8 +62,18 @@ const conversations = new Map();
 
 /**
  * Obtiene o crea una conversación para un usuario
+ *
+ * ✅ CORREGIDO: Ahora acepta un objeto opcional con datos adicionales
+ * como whatsappName para incluirlo al momento de crear la conversación
+ *
+ * @param {string} userId - ID del usuario de WhatsApp
+ * @param {Object} options - Opciones adicionales
+ * @param {string} options.whatsappName - Nombre del contacto (pushName)
+ * @returns {Object} Conversación
  */
-function getOrCreateConversation(userId) {
+function getOrCreateConversation(userId, options = {}) {
+  const { whatsappName } = options;
+
   if (!conversations.has(userId)) {
     const phoneNumber = extractPhoneNumber(userId);
 
@@ -91,13 +105,29 @@ function getOrCreateConversation(userId) {
       // NUEVOS CAMPOS PARA EVITAR REPETICIÓN
       escalationMessageSent: false,      // No se ha enviado mensaje de escalación
       waitingForHuman: false,            // No está esperando asesor
-      lastEscalationMessageAt: null,      // Sin timestamp de escalación
+      lastEscalationMessageAt: null,     // Sin timestamp de escalación
       // ✅ NUEVO: Flag para controlar reactivación manual
-      manuallyReactivated: false         // Indica si fue reactivada manualmente por asesor
+      manuallyReactivated: false,        // Indica si fue reactivada manualmente por asesor
+      // ✅ CORREGIDO: Nombre de WhatsApp - ahora se incluye al crear
+      whatsappName: (whatsappName && whatsappName.trim()) ? whatsappName.trim() : null,
+      whatsappNameUpdatedAt: whatsappName ? Date.now() : null
     };
 
     conversations.set(userId, conversation);
-    logger.info(`Nueva conversación creada: ${userId}`);
+
+    if (whatsappName) {
+      logger.info(`✅ Nueva conversación creada: ${userId} con nombre: "${whatsappName}"`);
+    } else {
+      logger.info(`Nueva conversación creada: ${userId}`);
+    }
+  } else {
+    // ✅ CORREGIDO: Si la conversación ya existe pero no tiene nombre, actualizarlo
+    const conversation = conversations.get(userId);
+    if (whatsappName && whatsappName.trim() && !conversation.whatsappName) {
+      conversation.whatsappName = whatsappName.trim();
+      conversation.whatsappNameUpdatedAt = Date.now();
+      logger.info(`✅ Nombre actualizado para conversación existente ${userId}: "${whatsappName}"`);
+    }
   }
 
   return conversations.get(userId);
@@ -256,7 +286,10 @@ function resetConversation(userId) {
     escalationMessageSent: false,      // Resetear flag de escalación
     waitingForHuman: false,            // Resetear espera
     lastEscalationMessageAt: null,      // Resetear timestamp
-    manuallyReactivated: false          // ✅ NUEVO: Resetear flag de reactivación manual
+    manuallyReactivated: false,         // ✅ NUEVO: Resetear flag de reactivación manual
+    // ✅ CORREGIDO: PRESERVAR nombre de WhatsApp (NO se debe perder al resetear)
+    whatsappName: oldConversation.whatsappName || null,
+    whatsappNameUpdatedAt: oldConversation.whatsappNameUpdatedAt || null
   };
 
   conversations.set(userId, newConversation);
@@ -581,6 +614,55 @@ function cleanOldMessages(userId, daysToKeep = 1) {
   return removedCount;
 }
 
+// ===========================================
+// ✅ NUEVO: GESTIÓN DE NOMBRES DE WHATSAPP
+// ===========================================
+
+/**
+ * Actualiza el nombre de WhatsApp de una conversación
+ * Solo actualiza si no existe o si se fuerza la actualización
+ *
+ * @param {string} userId - ID del usuario
+ * @param {string} whatsappName - Nombre del contacto en WhatsApp
+ * @param {boolean} force - Forzar actualización incluso si ya existe
+ * @returns {Object|null} Conversación actualizada o null si no existe
+ */
+function updateWhatsappName(userId, whatsappName, force = false) {
+  const conversation = getConversation(userId);
+
+  if (!conversation) {
+    logger.warn(`⚠️ Conversación no encontrada para actualizar nombre: ${userId}`);
+    return null;
+  }
+
+  // ✅ MEJORADO: Solo actualizar si el nombre es válido (no null, undefined o vacío)
+  if (!whatsappName || whatsappName.trim() === '') {
+    logger.debug(`ℹ️ Nombre de WhatsApp inválido (null/vacío) para ${userId}, se ignora`);
+    return conversation;
+  }
+
+  // Si no hay nombre guardado, siempre actualizar
+  if (!conversation.whatsappName) {
+    conversation.whatsappName = whatsappName.trim();
+    conversation.whatsappNameUpdatedAt = Date.now();
+    logger.info(`✅ Nombre de WhatsApp guardado para ${userId}: "${whatsappName}"`);
+    return conversation;
+  }
+
+  // Si ya existe y no se fuerza, no sobrescribir
+  if (!force) {
+    logger.debug(`ℹ️ Nombre ya existe para ${userId}, no se sobrescribe: "${conversation.whatsappName}"`);
+    return conversation;
+  }
+
+  // Forzar actualización
+  const oldName = conversation.whatsappName;
+  conversation.whatsappName = whatsappName.trim();
+  conversation.whatsappNameUpdatedAt = Date.now();
+  logger.info(`🔄 Nombre de WhatsApp actualizado para ${userId}: "${oldName}" → "${whatsappName}"`);
+
+  return conversation;
+}
 
 module.exports = {
   // Gestión de conversaciones
@@ -616,5 +698,8 @@ module.exports = {
 
   // ✅ NUEVO: Gestión de mensajes por fecha
   getMessagesByDateRange,
-  cleanOldMessages
+  cleanOldMessages,
+
+  // ✅ NUEVO: Gestión de nombres de WhatsApp
+  updateWhatsappName
 };

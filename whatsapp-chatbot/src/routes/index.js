@@ -19,6 +19,7 @@ const { requireAuth } = require('../middlewares/auth.middleware');
 const chatService = require('../services/chat.service');
 const settingsService = require('../services/settings.service');
 const knowledgeUploadService = require('../services/knowledge-upload.service');
+const stagesService = require('../services/stages.service');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -180,13 +181,36 @@ router.post('/test-connection', requireAuth, async (req, res) => {
 // ===========================================
 
 // Subir archivo a la base de conocimiento
+// ✅ CORREGIDO: stageId es OBLIGATORIO
 router.post('/knowledge/upload', requireAuth, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No se recibió ningún archivo' });
     }
 
-    const result = await knowledgeUploadService.uploadFile(req.file);
+    // ✅ CORREGIDO: stageId es OBLIGATORIO - no permitir subida sin etapa
+    const stageId = req.body.stageId || req.query.stageId || null;
+
+    if (!stageId) {
+      logger.warn('⚠️ Intento de subir archivo sin stageId');
+      return res.status(400).json({
+        success: false,
+        error: 'Debe seleccionar una etapa antes de subir el documento'
+      });
+    }
+
+    // Verificar que la etapa existe
+    const stage = stagesService.getStageById(stageId);
+    if (!stage) {
+      logger.warn(`⚠️ Etapa no encontrada: ${stageId}`);
+      return res.status(400).json({
+        success: false,
+        error: 'La etapa seleccionada no existe'
+      });
+    }
+
+    logger.info(`📤 Subiendo archivo a etapa: ${stage.name} (${stageId})`);
+    const result = await knowledgeUploadService.uploadFile(req.file, stageId);
     res.json({ success: true, file: result });
 
   } catch (error) {
@@ -217,6 +241,60 @@ router.delete('/knowledge/files/:id', requireAuth, (req, res) => {
   }
 });
 
+// ✅ NUEVO: Descargar archivo de conocimiento
+router.get('/knowledge/download/:id', requireAuth, (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+
+    const fileId = req.params.id;
+    const files = knowledgeUploadService.getUploadedFiles();
+    const file = files.find(f => f.id === fileId);
+
+    if (!file) {
+      return res.status(404).json({ success: false, error: 'Archivo no encontrado' });
+    }
+
+    // ✅ MEJORADO: Usar ruta relativa si existe, sino buscar en ubicación principal
+    let filePath;
+    if (file.relativePath) {
+      // Usar ruta relativa para mantener compatibilidad con carpetas
+      filePath = path.join(process.cwd(), 'knowledge_files', file.relativePath);
+    } else {
+      // Compatibilidad con archivos antiguos (sin relativePath)
+      filePath = path.join(process.cwd(), 'knowledge_files', file.fileName);
+
+      // Si no existe en la ubicación principal, buscar en subcarpetas
+      if (!fs.existsSync(filePath) && file.stageId) {
+        const stagesService = require('../services/stages.service');
+        const stageFolder = stagesService.getStageFolder(file.stageId);
+        filePath = path.join(stageFolder, file.fileName);
+      }
+    }
+
+    // Verificar que el archivo existe físicamente
+    if (!fs.existsSync(filePath)) {
+      logger.error(`Archivo no encontrado en disco: ${filePath}`);
+      return res.status(404).json({ success: false, error: 'El archivo no existe en el servidor' });
+    }
+
+    // Enviar el archivo
+    res.download(filePath, file.originalName, (err) => {
+      if (err) {
+        logger.error('Error descargando archivo:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ success: false, error: 'Error al descargar el archivo' });
+        }
+      }
+    });
+
+    logger.info(`📥 Archivo descargado: ${file.originalName} (${file.size} bytes)`);
+  } catch (error) {
+    logger.error('Error en descarga:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Buscar en archivos de conocimiento
 router.post('/knowledge/search', requireAuth, (req, res) => {
   try {
@@ -229,6 +307,75 @@ router.post('/knowledge/search', requireAuth, (req, res) => {
     res.json({ success: true, results });
   } catch (error) {
     logger.error('Error buscando:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ===========================================
+// ✅ NUEVO: ENDPOINTS DE ETAPAS (STAGES)
+// ===========================================
+
+// GET /api/stages - Obtener todas las etapas
+router.get('/stages', requireAuth, (req, res) => {
+  try {
+    const stages = stagesService.getAllStages();
+    res.json({ success: true, stages });
+  } catch (error) {
+    logger.error('Error obteniendo etapas:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/stages - Crear nueva etapa
+router.post('/stages', requireAuth, (req, res) => {
+  try {
+    const { name } = req.body;
+    const stage = stagesService.createStage(name);
+    res.json({ success: true, stage });
+  } catch (error) {
+    logger.error('Error creando etapa:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PUT /api/stages/:id - Actualizar nombre de etapa
+router.put('/stages/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ success: false, error: 'El nombre es requerido' });
+    }
+
+    const stage = stagesService.updateStageName(id, name.trim());
+    res.json({ success: true, stage });
+  } catch (error) {
+    logger.error('Error actualizando etapa:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE /api/stages/:id - Eliminar etapa
+router.delete('/stages/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    stagesService.deleteStage(id);
+    res.json({ success: true, message: 'Etapa eliminada correctamente' });
+  } catch (error) {
+    logger.error('Error eliminando etapa:', error);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// ✅ NUEVO: Obtener archivos por etapa
+router.get('/knowledge/files/stage/:stageId', requireAuth, (req, res) => {
+  try {
+    const { stageId } = req.params;
+    const files = knowledgeUploadService.getFilesByStage(stageId);
+    res.json({ success: true, files });
+  } catch (error) {
+    logger.error('Error obteniendo archivos de etapa:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

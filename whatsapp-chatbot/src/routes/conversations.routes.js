@@ -58,10 +58,17 @@ router.get('/', requireAuth, (req, res) => {
       const iaCheck = numberControlService.shouldIARespond(conv.phoneNumber);
       const controlRecord = numberControlService.getControlledNumber(conv.phoneNumber);
 
+      // ✅ MEJORADO: Prioridad de nombres:
+      // 1. Nombre del registro de control (manual)
+      // 2. Nombre de WhatsApp (pushName)
+      // 3. "Sin nombre"
+      const displayName = controlRecord?.name || conv.whatsappName || 'Sin nombre';
+
       return {
         ...conv,
-        // Nombre del registro de control o "Sin nombre"
-        registeredName: controlRecord?.name || 'Sin nombre',
+        // Nombre con prioridad: manual > WhatsApp > Sin nombre
+        registeredName: displayName,
+        whatsappName: conv.whatsappName || null, // Para distinguir origen del nombre
         // Estado de IA según control de números
         iaControlled: controlRecord !== null,
         iaActive: iaCheck.shouldRespond,
@@ -748,10 +755,28 @@ router.get('/number-control', requireAuth, (req, res) => {
     const numbers = numberControlService.getAllControlledNumbers();
     const stats = numberControlService.getStats();
 
+    // ✅ NUEVO: Enriquecer con nombres de WhatsApp de conversaciones activas
+    const allConversations = conversationStateService.getAllConversations();
+    const conversationsMap = new Map(
+      allConversations.map(c => [c.phoneNumber, c.whatsappName])
+    );
+
+    const enrichedNumbers = numbers.map(record => {
+      const whatsappName = conversationsMap.get(record.phoneNumber);
+      // Si no hay nombre manual, usar el de WhatsApp
+      const displayName = record.name || whatsappName || 'Sin nombre';
+
+      return {
+        ...record,
+        whatsappName: whatsappName || null, // Nombre de WhatsApp (si existe)
+        displayName: displayName // Nombre a mostrar (con prioridad)
+      };
+    });
+
     res.json({
       success: true,
-      numbers,
-      total: numbers.length,
+      numbers: enrichedNumbers,
+      total: enrichedNumbers.length,
       stats
     });
   } catch (error) {
