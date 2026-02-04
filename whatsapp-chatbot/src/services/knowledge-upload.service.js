@@ -87,17 +87,126 @@ async function processPdfFile(filePath, originalName) {
 }
 
 /**
+ * ✅ NUEVO: Detecta si el texto tiene formato Q&A con emojis (1️⃣, 2️⃣, etc.)
+ */
+function hasEmojiQAFormat(text) {
+  // Buscar patrones como: 1️⃣ ¿Pregunta? o 1. ¿Pregunta?
+  return /[\d]+️⃣\s*[¿\?]/.test(text) || /[\d]+\.\s*[¿\?]/.test(text);
+}
+
+/**
+ * ✅ NUEVO: Parsea formato Q&A con emojis
+ * Formato: 1️⃣ ¿Pregunta?\n\nRespuesta:\n\nTexto
+ */
+function parseEmojiQAFormat(text) {
+  const chunks = [];
+
+  // Normalizar line endings (Windows \r\n → \n)
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Normalizar múltiples espacios a un solo espacio
+  const cleaned = normalized.replace(/[ \t]+/g, ' ').trim();
+
+  // Extraer preguntas usando un approach línea por línea
+  const lines = cleaned.split('\n');
+  let currentQuestion = null;
+  let currentAnswer = null;
+  let qaCount = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    // Detectar línea de pregunta (empieza con número + ¿)
+    const questionMatch = line.match(/^\d+[^\w\s]*\s*[¿\?](.+)$/);
+    if (questionMatch) {
+      // Guardar Q&A anterior si existe
+      if (currentQuestion && currentAnswer) {
+        const cleanedAnswer = currentAnswer
+          .replace(/\s*Estamos para servirle\.\s*$/gi, '')
+          .trim();
+
+        if (cleanedAnswer) {
+          chunks.push({
+            text: `Pregunta: ${currentQuestion}\nRespuesta: ${cleanedAnswer}`,
+            keywords: extractKeywords(currentQuestion + ' ' + cleanedAnswer),
+            isQA: true,
+            question: currentQuestion,
+            answer: cleanedAnswer
+          });
+          qaCount++;
+        }
+      }
+
+      currentQuestion = questionMatch[1].trim();
+      currentAnswer = null;
+      continue;
+    }
+
+    // Detectar línea "Respuesta:"
+    if (line.toLowerCase() === 'respuesta:') {
+      continue; // Solo es un marcador, la respuesta viene después
+    }
+
+    // Si ya hay pregunta y la línea tiene contenido, es parte de la respuesta
+    if (currentQuestion && line && !line.match(/^\d+[^\w\s]*\s*[¿\?]/)) {
+      if (currentAnswer) {
+        currentAnswer += ' ' + line;
+      } else {
+        currentAnswer = line;
+      }
+    }
+  }
+
+  // Guardar último Q&A
+  if (currentQuestion && currentAnswer) {
+    const cleanedAnswer = currentAnswer
+      .replace(/\s*Estamos para servirle\.\s*$/gi, '')
+      .trim();
+
+    if (cleanedAnswer) {
+      chunks.push({
+        text: `Pregunta: ${currentQuestion}\nRespuesta: ${cleanedAnswer}`,
+        keywords: extractKeywords(currentQuestion + ' ' + cleanedAnswer),
+        isQA: true,
+        question: currentQuestion,
+        answer: cleanedAnswer
+      });
+      qaCount++;
+    }
+  }
+
+  logger.info(`✅ Parseados ${qaCount} pares Q&A con formato emoji`);
+  return chunks;
+}
+
+/**
  * Extrae chunks de texto para búsqueda
  *
  * ✅ MEJORADO: Limpieza mejor de caracteres especiales y formato
+ * ✅ NUEVO: Soporte para formato Q&A con emojis
  */
 function extractChunks(text) {
+  // ✅ CRÍTICO: Normalizar line endings ANTES de cualquier procesamiento
+  const normalizedLineEndings = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Limpiar caracteres problemáticos del PDF antes de procesar
+  const cleanedText = cleanPdfText(normalizedLineEndings);
+
+  // ✅ NUEVO: Detectar y procesar formato Q&A con emojis
+  if (hasEmojiQAFormat(cleanedText)) {
+    logger.info('🎯 Detectado formato Q&A con emojis, usando parser especializado');
+    const qaChunks = parseEmojiQAFormat(cleanedText);
+
+    if (qaChunks.length > 0) {
+      logger.info(`📄 Extraídos ${qaChunks.length} chunks Q&A del texto`);
+      return qaChunks;
+    }
+  }
+
+  // Si no es formato Q&A con emojis, usar el método anterior
   const chunks = [];
 
-  // ✅ NUEVO: Limpiar caracteres problemáticos del PDF antes de procesar
-  const cleanedText = cleanPdfText(text);
-
-  // Dividir por párrafos o secciones
+  // Dividir por párrafos o secciones (ahora con \n normalizado)
   const paragraphs = cleanedText.split(/\n\n+/).filter(p => p.trim().length > 50);
 
   for (const para of paragraphs) {
@@ -112,13 +221,13 @@ function extractChunks(text) {
     }
   }
 
-  // También buscar patrones de pregunta-respuesta
+  // También buscar patrones de pregunta-respuesta (formato antiguo)
   const qaPattern = /(?:pregunta|p)[:\s]*(.+?)(?:respuesta|r)[:\s]*(.+?)(?=(?:pregunta|p)[:\s]|$)/gis;
   let match;
 
   while ((match = qaPattern.exec(cleanedText)) !== null) {
     chunks.push({
-      text: `${match[1].trim()}\n${match[2].trim()}`,
+      text: `Pregunta: ${match[1].trim()}\nRespuesta: ${match[2].trim()}`,
       keywords: extractKeywords(match[1] + ' ' + match[2]),
       isQA: true
     });
@@ -133,6 +242,9 @@ function extractChunks(text) {
  *
  * Los PDFs extraídos con pdf-parse a veces tienen caracteres
  * codificados incorrectamente. Esta función los normaliza.
+ *
+ * ⚠️ IMPORTANTE: NO eliminar saltos de línea, son necesarios
+ * para detectar la estructura Q&A.
  */
 function cleanPdfText(text) {
   // Reemplazos comunes de caracteres mal codificados
@@ -154,13 +266,7 @@ function cleanPdfText(text) {
     [/"/g, '"'],
     [/"/g, '"'],
     [/–/g, '-'],
-    [/—/g, '-'],
-
-    // Múltiples espacios
-    [/\s+/g, ' '],
-
-    // Líneas que no terminan con punto (probables cortes de PDF)
-    [/([a-z])\n([a-z])/g, '$1 $2']
+    [/—/g, '-']
   ];
 
   let cleaned = text;
@@ -169,8 +275,15 @@ function cleanPdfText(text) {
     cleaned = cleaned.replace(pattern, replacement);
   }
 
-  // Normalizar espacios al final
-  cleaned = cleaned.trim().replace(/\s+/g, ' ');
+  // ✅ CORREGIDO: Solo normalizar espacios en línea, NO saltos de línea
+  // Dividir por líneas, limpiar cada línea, y volver a unir
+  const lines = cleaned.split('\n');
+  const cleanedLines = lines.map(line => {
+    // Normalizar espacios y tabs DENTRO de cada línea
+    return line.replace(/[ \t]+/g, ' ').trim();
+  });
+
+  cleaned = cleanedLines.join('\n').trim();
 
   logger.debug(`🧹 Texto limpio: ${text.substring(0, 50)}... → ${cleaned.substring(0, 50)}...`);
 
@@ -258,11 +371,33 @@ async function uploadFile(file, stageId = null) {
   knowledgeIndex.files.push(fileEntry);
   saveIndex();
 
+  // ✅ NUEVO: Generar embeddings para los chunks (si no tienen)
+  try {
+    const embeddingsService = require('./embeddings.service');
+    const chunksWithEmbeddings = await embeddingsService.ensureEmbeddings(processedData.chunks);
+
+    // Actualizar datos procesados con embeddings
+    processedData.chunks = chunksWithEmbeddings;
+
+    logger.info(`🧠 Embeddings generados para ${chunksWithEmbeddings.length} chunks`);
+  } catch (error) {
+    logger.warn(`⚠️ No se pudieron generar embeddings: ${error.message}`);
+    logger.warn(`   El archivo se guardará sin embeddings (se generarán en la primera búsqueda)`);
+  }
+
   // Guardar datos procesados en la misma carpeta
   const dataPath = path.join(targetDir, `${fileEntry.id}_data.json`);
   fs.writeFileSync(dataPath, JSON.stringify(processedData, null, 2));
 
   logger.info(`Archivo cargado: ${file.originalname} (${processedData.chunks.length} chunks) [Etapa: ${stageId || 'Sin asignar'}] [Ruta: ${relativePath}]`);
+
+  // ✅ NUEVO: Invalidar caché de embeddings para que se recargue
+  try {
+    const embeddingsService = require('./embeddings.service');
+    embeddingsService.reloadChunks();
+  } catch (e) {
+    // Ignorar error si el servicio no está inicializado
+  }
 
   return fileEntry;
 }
@@ -552,11 +687,90 @@ function getContextFromFiles(query, maxResults = 3) {
     .join('\n\n---\n\n');
 }
 
+// ===========================================
+// ✅ NUEVAS FUNCIONES PARA EMBEDDINGS
+// ===========================================
+
+/**
+ * Obtiene los datos procesados de un archivo
+ *
+ * @param {Object} fileEntry - Entrada del archivo del índice
+ * @returns {Promise<Object|null>} Datos procesados con chunks
+ */
+async function getFileData(fileEntry) {
+  try {
+    let dataPath;
+
+    if (fileEntry.relativePath) {
+      // Usar ruta relativa
+      dataPath = path.join(KNOWLEDGE_DIR, path.dirname(fileEntry.relativePath), `${fileEntry.id}_data.json`);
+    } else if (fileEntry.stageId) {
+      // Buscar en carpeta de etapa
+      try {
+        const stagesService = require('./stages.service');
+        const stageFolder = stagesService.getStageFolder(fileEntry.stageId);
+        dataPath = path.join(stageFolder, `${fileEntry.id}_data.json`);
+      } catch (e) {
+        dataPath = path.join(KNOWLEDGE_DIR, `${fileEntry.id}_data.json`);
+      }
+    } else {
+      // Compatibilidad con archivos antiguos
+      dataPath = path.join(KNOWLEDGE_DIR, `${fileEntry.id}_data.json`);
+    }
+
+    if (!fs.existsSync(dataPath)) {
+      logger.warn(`⚠️ Archivo de datos no encontrado: ${dataPath}`);
+      return null;
+    }
+
+    const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    return data;
+  } catch (error) {
+    logger.error(`❌ Error leyendo datos de ${fileEntry.originalName}:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Guarda los datos procesados de un archivo (con embeddings)
+ *
+ * @param {Object} fileEntry - Entrada del archivo del índice
+ * @param {Object} data - Datos procesados con chunks
+ */
+async function saveFileData(fileEntry, data) {
+  try {
+    let dataPath;
+
+    if (fileEntry.relativePath) {
+      dataPath = path.join(KNOWLEDGE_DIR, path.dirname(fileEntry.relativePath), `${fileEntry.id}_data.json`);
+    } else if (fileEntry.stageId) {
+      try {
+        const stagesService = require('./stages.service');
+        const stageFolder = stagesService.getStageFolder(fileEntry.stageId);
+        dataPath = path.join(stageFolder, `${fileEntry.id}_data.json`);
+      } catch (e) {
+        dataPath = path.join(KNOWLEDGE_DIR, `${fileEntry.id}_data.json`);
+      }
+    } else {
+      dataPath = path.join(KNOWLEDGE_DIR, `${fileEntry.id}_data.json`);
+    }
+
+    fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
+    logger.info(`💾 Datos guardados: ${fileEntry.originalName}`);
+  } catch (error) {
+    logger.error(`❌ Error guardando datos de ${fileEntry.originalName}:`, error.message);
+    throw error;
+  }
+}
+
 module.exports = {
   uploadFile,
   getUploadedFiles,
   getFilesByStage,
   deleteFile,
   searchInFiles,
-  getContextFromFiles
+  getContextFromFiles,
+  processTxtFile,  // ✅ Exportado para script de reproceso
+  getFileData,     // ✅ NUEVO: Para embeddings
+  saveFileData,    // ✅ NUEVO: Para embeddings
 };

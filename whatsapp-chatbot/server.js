@@ -32,6 +32,9 @@ logger.info(`Usando WhatsApp provider: ${whatsappProvider}`);
 
 const chatService = require('./src/services/chat.service');
 
+// ✅ NUEVO: Servicio de embeddings para inicialización automática
+const embeddingsService = require('./src/services/embeddings.service');
+
 const PORT = config.server.port;
 
 // Crear servidor HTTP
@@ -503,6 +506,9 @@ server.listen(PORT, async () => {
   logger.info(`🚀 Servidor iniciado en http://localhost:${PORT}`);
   logger.info(`📱 Abre http://localhost:${PORT} para conectar WhatsApp`);
 
+  // ✅ NUEVO: Inicializar embeddings automáticamente en background
+  initializeEmbeddingsInBackground();
+
   // Inicializar WhatsApp Web
   try {
     await whatsappWeb.initialize();
@@ -510,6 +516,103 @@ server.listen(PORT, async () => {
     logger.error('Error inicializando WhatsApp:', error);
   }
 });
+
+// ===========================================
+// ✅ NUEVO: INICIALIZACIÓN DE EMBEDDINGS EN BACKGROUND
+// ===========================================
+
+/**
+ * Inicializa los embeddings de todos los documentos en background
+ * No bloquea el inicio del servidor, se ejecuta en segundo plano
+ */
+async function initializeEmbeddingsInBackground() {
+  try {
+    // Solo inicializar si USE_EMBEDDINGS no es 'false'
+    if (process.env.USE_EMBEDDINGS !== 'false') {
+      logger.info('🧠 Inicializando embeddings en background...');
+      logger.info('   (El bot ya está funcionando, esto se procesa en segundo plano)');
+
+      // Cargar chunks en memoria (lee JSON existentes, no genera embeddings nuevos)
+      await embeddingsService.loadAllChunks();
+
+      // Obtener estadísticas actuales
+      const stats = embeddingsService.getEmbeddingStats();
+      const totalChunks = stats.totalChunks;
+      const withEmbeddings = stats.withEmbeddings;
+      const withoutEmbeddings = stats.withoutEmbeddings;
+
+      logger.info(`📊 Estadísticas de embeddings:`);
+      logger.info(`   Total chunks: ${totalChunks}`);
+      logger.info(`   ✅ Con embeddings: ${withEmbeddings} (${totalChunks > 0 ? ((withEmbeddings/totalChunks)*100).toFixed(1) : 0}%)`);
+      logger.info(`   ❌ Sin embeddings: ${withoutEmbeddings} (${totalChunks > 0 ? ((withoutEmbeddings/totalChunks)*100).toFixed(1) : 0}%)`);
+
+      // Si hay chunks sin embeddings, generarlos
+      if (withoutEmbeddings > 0) {
+        logger.info(`🔄 Generando ${withoutEmbeddings} embeddings faltantes en background...`);
+        logger.info(`   (El bot sigue funcionando normalmente con keyword search mientras tanto)`);
+
+        // Generar embeddings faltantes (no bloquea el inicio)
+        const knowledgeUploadService = require('./src/services/knowledge-upload.service');
+        const files = knowledgeUploadService.getUploadedFiles();
+
+        let processedCount = 0;
+        let generatedCount = 0;
+
+        for (const file of files) {
+          try {
+            const data = await knowledgeUploadService.getFileData(file);
+
+            if (data && data.chunks) {
+              // Verificar cuántos chunks necesitan embeddings
+              const chunksNeedingEmbeddings = data.chunks.filter(c => !c.embeddingGenerated && !c.embedding);
+
+              if (chunksNeedingEmbeddings.length > 0) {
+                // Generar embeddings para los chunks que faltan
+                const chunksWithEmbeddings = await embeddingsService.ensureEmbeddings(data.chunks);
+
+                // Guardar si se generaron nuevos embeddings
+                await knowledgeUploadService.saveFileData(file, {
+                  ...data,
+                  chunks: chunksWithEmbeddings
+                });
+
+                generatedCount += chunksNeedingEmbeddings.length;
+              }
+
+              processedCount++;
+
+              // Log de progreso cada 3 archivos
+              if (processedCount % 3 === 0 || processedCount === files.length) {
+                logger.info(`   Progreso: ${processedCount}/${files.length} archivos procesados (${generatedCount} embeddings generados)...`);
+              }
+            }
+          } catch (error) {
+            logger.warn(`⚠️ Error procesando embeddings para ${file.originalName}: ${error.message}`);
+          }
+        }
+
+        logger.info(`✅ Embeddings inicializados: ${processedCount} archivos procesados, ${generatedCount} embeddings generados`);
+
+        // Recargar chunks con los nuevos embeddings
+        await embeddingsService.reloadChunks();
+
+        const finalStats = embeddingsService.getEmbeddingStats();
+        logger.info(`📊 Estadísticas finales:`);
+        logger.info(`   ✅ Con embeddings: ${finalStats.withEmbeddings}/${finalStats.totalChunks} (${((finalStats.withEmbeddings/finalStats.totalChunks)*100).toFixed(1)}%)`);
+        logger.info(`🎯 Búsqueda vectorial activa`);
+      } else {
+        logger.info('✅ Todos los chunks ya tienen embeddings');
+        logger.info('🎯 Búsqueda vectorial activa');
+      }
+    } else {
+      logger.info('ℹ️ Embeddings desactivados (USE_EMBEDDINGS=false)');
+      logger.info('   Usando keyword search (sistema anterior)');
+    }
+  } catch (error) {
+    logger.error('❌ Error inicializando embeddings:', error.message);
+    logger.warn('   El bot continuará funcionando sin embeddings (usando keyword search)');
+  }
+}
 
 // ===========================================
 // GRACEFUL SHUTDOWN

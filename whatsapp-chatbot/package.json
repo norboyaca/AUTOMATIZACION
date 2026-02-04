@@ -22,11 +22,13 @@
   "license": "MIT",
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "@xenova/transformers": "^2.17.2",
     "axios": "^1.6.0",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.3",
+    "link-preview-js": "^3.2.0",
     "multer": "^1.4.5-lts.1",
     "openai": "^4.20.0",
     "pdf-parse": "^1.1.1",
