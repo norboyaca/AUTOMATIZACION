@@ -3,12 +3,14 @@
  * ÍNDICE DE PROVEEDORES DE IA
  * ===========================================
  *
- * Sistema con múltiples proveedores:
- * 1. Groq (primario - rápido y gratuito)
- * 2. OpenAI (fallback)
+ * ✅ MODIFICADO: Sistema con prioridad fija:
+ * 1. ChatGPT (OpenAI) - SIEMPRE es el proveedor primario
+ * 2. Grok - Solo como fallback cuando ChatGPT falla
  *
- * Si Groq falla, intenta con OpenAI.
- * Si ambos fallan, el chat.service usa respuestas locales.
+ * Escenarios:
+ * - ChatGPT activo: Usar ChatGPT, si falla → usar Grok
+ * - ChatGPT desactivado: Usar Grok directamente
+ * - Ambos desactivados: Error, no generar respuesta
  */
 
 const GroqProvider = require('./groq.provider');
@@ -24,7 +26,37 @@ const logger = require('../../utils/logger');
 let groqProvider = null;
 let openaiProvider = null;
 
-// Inicializar Groq si hay API key
+/**
+ * ✅ NUEVO: Reinicializa los proveedores con las API keys actuales
+ * Se llama cuando cambia la configuración sin reiniciar el servidor
+ */
+const reinitializeProviders = () => {
+  const currentSettings = settingsService.getApiKeys();
+
+  // Reinicializar Groq
+  if (currentSettings.groq.apiKey) {
+    groqProvider = new GroqProvider({
+      apiKey: currentSettings.groq.apiKey,
+      model: currentSettings.groq.model || 'llama-3.3-70b-versatile'
+    });
+    logger.info('✅ Groq Provider reinicializado');
+  } else {
+    groqProvider = null;
+  }
+
+  // Reinicializar OpenAI
+  if (currentSettings.openai.apiKey) {
+    openaiProvider = new OpenAIProvider({
+      apiKey: currentSettings.openai.apiKey,
+      model: currentSettings.openai.model || 'gpt-4o-mini'
+    });
+    logger.info('✅ OpenAI Provider reinicializado');
+  } else {
+    openaiProvider = null;
+  }
+};
+
+// Inicializar proveedores al cargar el módulo
 if (process.env.GROQ_API_KEY) {
   groqProvider = new GroqProvider({
     apiKey: process.env.GROQ_API_KEY,
@@ -33,54 +65,108 @@ if (process.env.GROQ_API_KEY) {
   logger.info('Groq Provider disponible');
 }
 
-// Inicializar OpenAI si hay API key
 if (config.openai?.apiKey) {
   openaiProvider = new OpenAIProvider(config.openai);
   logger.info('OpenAI Provider disponible');
 }
 
 // ===========================================
-// FUNCIONES CON FALLBACK
+// FUNCIONES CON FALLBACK INTELIGENTE
 // ===========================================
 
 /**
- * Genera una respuesta de chat (SIN fallback automático)
- * Solo usa el proveedor activo configurado
+ * ✅ MODIFICADO: Genera una respuesta de chat con lógica de prioridad fija
+ *
+ * PRIORIDAD FIJA:
+ * 1️⃣ ChatGPT (OpenAI) SIEMPRE es el primario
+ * 2️⃣ Grok solo actúa como fallback
  */
 const chat = async (messages, options = {}) => {
-  // Obtener configuración actual
+  // Obtener configuración actual (se lee en cada llamada para cambios dinámicos)
   const currentSettings = settingsService.getApiKeys();
 
-  // Determinar qué proveedor usar según el configurado
-  const activeProvider = currentSettings.provider; // 'groq' o 'openai'
+  const chatGPTEnabled = currentSettings.openai.enabled && currentSettings.openai.apiKey;
+  const grokEnabled = currentSettings.groq.enabled && currentSettings.groq.apiKey;
 
-  // Verificar si el proveedor activo está habilitado y tiene API key
-  if (activeProvider === 'groq' && currentSettings.groq.apiKey && currentSettings.groq.enabled) {
-    if (groqProvider) {
-      try {
-        logger.debug('Usando Groq (proveedor activo)...');
-        return await groqProvider.chat(messages, options);
-      } catch (error) {
-        logger.error('Error con Groq:', error.message);
-        throw error; // NO hacer fallback, lanzar error directamente
-      }
-    }
+  logger.debug(`🤖 Estado proveedores: ChatGPT=${chatGPTEnabled ? 'ON' : 'OFF'}, Grok=${grokEnabled ? 'ON' : 'OFF'}`);
+
+  // ❌ Caso C: Ambos desactivados
+  if (!chatGPTEnabled && !grokEnabled) {
+    logger.error('❌ AMBOS proveedores de IA están desactivados');
+    throw new Error('No hay proveedores de IA disponibles. Active ChatGPT o Grok en la configuración.');
   }
 
-  if (activeProvider === 'openai' && currentSettings.openai.apiKey && currentSettings.openai.enabled) {
+  // ✅ Caso A: ChatGPT activo (primario)
+  if (chatGPTEnabled) {
+    // Asegurar que el provider existe
+    if (!openaiProvider && currentSettings.openai.apiKey) {
+      openaiProvider = new OpenAIProvider({
+        apiKey: currentSettings.openai.apiKey,
+        model: currentSettings.openai.model || 'gpt-4o-mini'
+      });
+    }
+
     if (openaiProvider) {
       try {
-        logger.debug('Usando OpenAI (proveedor activo)...');
-        return await openaiProvider.chat(messages, options);
+        logger.info('🤖 Usando ChatGPT (proveedor primario)...');
+        const response = await openaiProvider.chat(messages, options);
+        return response;
       } catch (error) {
-        logger.error('Error con OpenAI:', error.message);
-        throw error; // NO hacer fallback, lanzar error directamente
+        logger.warn(`⚠️ Error con ChatGPT: ${error.message}`);
+
+        // Intentar fallback a Grok si está habilitado
+        if (grokEnabled) {
+          logger.info('🔄 Fallback a Grok...');
+
+          // Asegurar que el provider existe
+          if (!groqProvider && currentSettings.groq.apiKey) {
+            groqProvider = new GroqProvider({
+              apiKey: currentSettings.groq.apiKey,
+              model: currentSettings.groq.model || 'llama-3.3-70b-versatile'
+            });
+          }
+
+          if (groqProvider) {
+            try {
+              const fallbackResponse = await groqProvider.chat(messages, options);
+              logger.info('✅ Respuesta obtenida desde Grok (fallback)');
+              return fallbackResponse;
+            } catch (fallbackError) {
+              logger.error(`❌ Error también con Grok: ${fallbackError.message}`);
+              throw new Error('Ambos proveedores de IA fallaron. ChatGPT: ' + error.message + ' | Grok: ' + fallbackError.message);
+            }
+          }
+        }
+
+        // Si no hay fallback disponible, lanzar el error original
+        throw error;
       }
     }
   }
 
-  // Si el proveedor activo no está disponible, lanzar error
-  throw new Error(`Proveedor ${activeProvider.toUpperCase()} no disponible o no está activado`);
+  // ✅ Caso B: ChatGPT desactivado, usar Grok directamente
+  if (grokEnabled) {
+    // Asegurar que el provider existe
+    if (!groqProvider && currentSettings.groq.apiKey) {
+      groqProvider = new GroqProvider({
+        apiKey: currentSettings.groq.apiKey,
+        model: currentSettings.groq.model || 'llama-3.3-70b-versatile'
+      });
+    }
+
+    if (groqProvider) {
+      try {
+        logger.info('🤖 Usando Grok (ChatGPT desactivado)...');
+        return await groqProvider.chat(messages, options);
+      } catch (error) {
+        logger.error(`❌ Error con Grok: ${error.message}`);
+        throw error;
+      }
+    }
+  }
+
+  // Si llegamos aquí, algo salió mal
+  throw new Error('No se pudo inicializar ningún proveedor de IA');
 };
 
 /**
@@ -122,6 +208,7 @@ module.exports = {
   analyzeImage,
   transcribeAudio,
   createEmbedding,
+  reinitializeProviders,
   groqProvider,
   openaiProvider
 };

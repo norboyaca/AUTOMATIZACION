@@ -2,10 +2,12 @@
   "provider": "openai",
   "groq": {
     "apiKey": "",
-    "model": "llama-3.3-70b-versatile"
+    "model": "llama-3.3-70b-versatile",
+    "enabled": true
   },
   "openai": {
     "apiKey": "",
-    "model": "gpt-4o-mini"
+    "model": "gpt-4o-mini",
+    "enabled": false
   }
 }

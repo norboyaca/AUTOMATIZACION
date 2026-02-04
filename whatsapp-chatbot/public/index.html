@@ -1442,6 +1442,65 @@
       }
     }
 
+    /* ✅ NUEVO: Badge de notificación para conversaciones pendientes */
+    .pending-badge {
+      background: #e53935;
+      color: white;
+      font-size: 11px;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 10px;
+      margin-left: 8px;
+      animation: badge-pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes badge-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+
+    /* ✅ NUEVO: Banner de notificación persistente */
+    .notification-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(90deg, #ff9800, #f57c00);
+      color: white;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      animation: slideDown 0.3s ease-out;
+    }
+
+    @keyframes slideDown {
+      from { transform: translateY(-100%); }
+      to { transform: translateY(0); }
+    }
+
+    .notification-banner .close-btn {
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 10px;
+    }
+
+    .notification-banner .action-btn {
+      background: white;
+      color: #f57c00;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+
     .consent-badge {
       display: inline-block;
       padding: 3px 7px; /* Reducido 12%: 8px → 7px */
@@ -1506,6 +1565,58 @@
       background: #e64a19;
       transform: translateY(-1px);
       box-shadow: 0 2px 8px rgba(255, 87, 34, 0.3);
+    }
+
+    /* ✅ NUEVO: Toggle Switch para proveedores de IA */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 26px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: 0.3s;
+      border-radius: 26px;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: 0.3s;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background-color: #4caf50;
+    }
+
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(24px);
+    }
+
+    .toggle-switch input:disabled + .toggle-slider {
+      background-color: #e0e0e0;
+      cursor: not-allowed;
     }
 
     /* NUEVOS BOTONES DE ACCIÓN */
@@ -1717,6 +1828,7 @@
         <a href="#" class="nav-item" onclick="changeView('conversations'); return false;">
           <span class="nav-item-icon">💬</span>
           <span class="nav-item-text">Conversaciones</span>
+          <span id="pending-advisor-badge" class="pending-badge" style="display: none;">0</span>
         </a>
 
         <div class="nav-section-title">Herramientas</div>
@@ -2275,8 +2387,53 @@ footer {
 
   <!-- Settings Tab -->
   <div id="tab-settings" class="tab-content">
+    <!-- ✅ NUEVO: Sección de Proveedor de IA con prioridad fija -->
+    <div class="settings-section" style="margin-bottom: 20px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 2px solid #4caf50;">
+      <h3>🤖 Proveedor de IA</h3>
+
+      <div id="ai-settings-alert" style="margin-bottom: 15px;"></div>
+
+      <p style="margin-bottom: 15px; color: #555; font-size: 0.95em;">
+        <strong>Prioridad fija:</strong> ChatGPT es siempre el primario. Grok actúa como respaldo si ChatGPT falla.
+      </p>
+
+      <div style="display: flex; flex-direction: column; gap: 15px;">
+        <!-- Toggle ChatGPT -->
+        <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">🤖</span>
+            <div>
+              <strong style="color: #1a237e;">ChatGPT (OpenAI)</strong>
+              <div style="font-size: 0.85em; color: #666;">Proveedor primario - GPT-4</div>
+            </div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="ai-chatgpt-toggle" onchange="updateAIProviderSettings()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <!-- Toggle Grok -->
+        <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 24px;">🚀</span>
+            <div>
+              <strong style="color: #ff6f00;">Grok (Groq)</strong>
+              <div style="font-size: 0.85em; color: #666;">Respaldo - Llama 3</div>
+            </div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="ai-grok-toggle" onchange="updateAIProviderSettings()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div id="ai-provider-status" style="margin-top: 15px; padding: 10px; border-radius: 6px; background: #f5f5f5; font-size: 0.9em;"></div>
+    </div>
+
     <div class="settings-section">
-      <h3>⚙️ Configuración de Providers</h3>
+      <h3>⚙️ Configuración de API Keys</h3>
 
       <div id="settings-alert"></div>
 
@@ -3160,7 +3317,11 @@ footer {
 
       // Auto-refresh conversaciones cuando llega un nuevo mensaje
       socket.on('new-message', (data) => {
-        console.log('💬 Nuevo mensaje recibido (new-message):', data);
+        console.log('💬 [SOCKET] Nuevo mensaje recibido:', data);
+        console.log('   → userId del mensaje:', data.userId);
+        console.log('   → Chat abierto para:', currentChatUserId);
+        console.log('   → Mensaje:', data.message?.message?.substring(0, 50));
+        console.log('   → Sender:', data.message?.sender);
 
         const msg = data.message;
         const userId = data.userId;
@@ -3182,6 +3343,7 @@ footer {
 
         // Si el modal de chat está abierto y es para este usuario, agregar el mensaje
         if (currentChatUserId === userId) {
+          console.log('✅ Chat coincide, agregando mensaje...');
           // Si muestra "Cargando mensajes..." o "No hay mensajes aún", limpiar primero
           const messagesDiv = document.getElementById('chat-messages');
           if (messagesDiv && (messagesDiv.innerHTML.includes('Cargando mensajes...') ||
@@ -3191,7 +3353,7 @@ footer {
 
           // Determinar el tipo de remitente
           const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
-          const senderName = msg.senderName || msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario');
+          const senderName = msg.senderName || (msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario'));
 
           // ✅ NUEVO: Generar ID único temporal si el mensaje no tiene ID
           const tempMessageId = messageId || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -3236,29 +3398,40 @@ footer {
       //   }
       // });
 
-      // ✅ NUEVO: Alerta de escalación a asesor
+      // ✅ MEJORADO: Alerta de escalación a asesor con notificación persistente
       socket.on('escalation-detected', (data) => {
         console.log('🚨 Escalación detectada:', data);
 
-        // Mostrar notificación visual con sonido
-        // ✅ CORRECCIÓN PROBLEMA 3: Normalizar número de teléfono
-        showAlert(
-          `🚨 ¡Escalación detectada!\n\nUsuario: ${normalizePhoneNumber(data.phoneNumber)}\nRazón: ${data.reason}\nMensaje: "${data.message}"`,
-          'warning'
-        );
+        // ✅ NUEVO: Mostrar banner de notificación persistente
+        showEscalationBanner(data);
+
+        // ✅ NUEVO: Actualizar badge contador
+        updatePendingBadge();
 
         // Reproducir sonido de alerta
         try {
           const audio = new Audio('/alert.mp3');
           audio.play().catch(e => console.log('No se pudo reproducir sonido:', e));
         } catch (e) {
-          console.log('Error reproduciondo sonido:', e);
+          console.log('Error reproduciendo sonido:', e);
         }
 
-        // Si estamos en la vista de conversaciones, actualizar la tabla
+        // Actualizar lista de conversaciones si está visible
         const conversationsView = document.getElementById('conversations-view');
         if (conversationsView && conversationsView.style.display !== 'none') {
           console.log('🔄 Actualizando conversaciones después de escalación...');
+          loadConversations();
+        }
+      });
+
+      // ✅ NUEVO: Listener para actualización de estado de conversación
+      socket.on('conversation-status-changed', (data) => {
+        console.log('📊 Estado de conversación cambiado:', data);
+        updatePendingBadge();
+
+        // Actualizar lista si está visible
+        const conversationsView = document.getElementById('conversations-view');
+        if (conversationsView && conversationsView.style.display !== 'none') {
           loadConversations();
         }
       });
@@ -3289,7 +3462,7 @@ footer {
 
           // Determinar el tipo de remitente
           const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
-          const senderName = msg.senderName || msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario');
+          const senderName = msg.senderName || (msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario'));
 
           // ✅ NUEVO: Generar ID único temporal si el mensaje no tiene ID
           const tempMessageId = messageId || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -3501,6 +3674,193 @@ footer {
       const alertDiv = document.getElementById('settings-alert');
       alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
       setTimeout(() => alertDiv.innerHTML = '', 5000);
+    }
+
+    // ✅ NUEVO: Mostrar banner de notificación de escalación
+    function showEscalationBanner(data) {
+      // Remover banner existente si hay
+      const existingBanner = document.querySelector('.notification-banner');
+      if (existingBanner) {
+        existingBanner.remove();
+      }
+
+      const banner = document.createElement('div');
+      banner.className = 'notification-banner';
+      banner.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 24px;">🚨</span>
+          <div>
+            <strong>¡Requiere atención humana!</strong>
+            <div style="font-size: 0.9em; opacity: 0.9;">
+              Usuario: ${normalizePhoneNumber(data.phoneNumber)} | Razón: ${data.reason}
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center;">
+          <button class="action-btn" onclick="goToConversation('${data.userId}')">Ver Chat</button>
+          <button class="close-btn" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+      `;
+
+      document.body.prepend(banner);
+
+      // Auto-ocultar después de 30 segundos
+      setTimeout(() => {
+        if (banner.parentNode) {
+          banner.remove();
+        }
+      }, 30000);
+    }
+
+    // ✅ NUEVO: Ir a una conversación específica
+    function goToConversation(userId) {
+      // Cerrar banner
+      const banner = document.querySelector('.notification-banner');
+      if (banner) banner.remove();
+
+      // Cambiar a vista de conversaciones
+      changeView('conversations');
+
+      // Abrir el chat de ese usuario después de cargar
+      setTimeout(() => {
+        openChat(userId);
+      }, 500);
+    }
+
+    // ✅ NUEVO: Actualizar badge de conversaciones pendientes
+    async function updatePendingBadge() {
+      try {
+        const response = await authenticatedFetch('/api/conversations');
+        const data = await response.json();
+
+        if (data.success && data.conversations) {
+          const pendingCount = data.conversations.filter(c =>
+            c.status === 'pending_advisor' || c.status === 'out_of_hours'
+          ).length;
+
+          const badge = document.getElementById('pending-advisor-badge');
+          if (badge) {
+            if (pendingCount > 0) {
+              badge.textContent = pendingCount;
+              badge.style.display = 'inline-block';
+            } else {
+              badge.style.display = 'none';
+            }
+          }
+
+          console.log(`📊 Conversaciones pendientes de asesor: ${pendingCount}`);
+        }
+      } catch (error) {
+        console.error('Error actualizando badge:', error);
+      }
+    }
+
+    // ✅ NUEVO: Cargar configuración de proveedores de IA
+    async function loadAIProviderSettings() {
+      try {
+        const response = await authenticatedFetch('/api/ai-settings');
+        const data = await response.json();
+
+        if (data.success) {
+          // Actualizar toggles
+          document.getElementById('ai-chatgpt-toggle').checked = data.settings.chatgpt.enabled;
+          document.getElementById('ai-grok-toggle').checked = data.settings.grok.enabled;
+
+          // Actualizar estado visual
+          updateAIProviderStatus(data.settings);
+        }
+      } catch (error) {
+        console.error('Error cargando configuración de IA:', error);
+      }
+    }
+
+    // ✅ NUEVO: Actualizar estado visual de proveedores
+    function updateAIProviderStatus(settings) {
+      const statusDiv = document.getElementById('ai-provider-status');
+      if (!statusDiv) return;
+
+      const chatgptOn = settings.chatgpt.enabled;
+      const grokOn = settings.grok.enabled;
+
+      let statusHtml = '';
+      let statusColor = '#4caf50';
+
+      if (chatgptOn && grokOn) {
+        statusHtml = '✅ <strong>ChatGPT activo</strong> con Grok como respaldo';
+        statusColor = '#4caf50';
+      } else if (chatgptOn && !grokOn) {
+        statusHtml = '✅ <strong>ChatGPT activo</strong> (sin respaldo)';
+        statusColor = '#ff9800';
+      } else if (!chatgptOn && grokOn) {
+        statusHtml = '⚠️ <strong>Grok activo</strong> (ChatGPT desactivado)';
+        statusColor = '#ff9800';
+      } else {
+        statusHtml = '❌ <strong>¡Advertencia!</strong> Ambos proveedores desactivados';
+        statusColor = '#f44336';
+      }
+
+      statusDiv.innerHTML = statusHtml;
+      statusDiv.style.borderLeft = `4px solid ${statusColor}`;
+    }
+
+    // ✅ NUEVO: Actualizar configuración de proveedores de IA
+    async function updateAIProviderSettings() {
+      const chatgptEnabled = document.getElementById('ai-chatgpt-toggle').checked;
+      const grokEnabled = document.getElementById('ai-grok-toggle').checked;
+
+      // Validación: no permitir desactivar ambos
+      if (!chatgptEnabled && !grokEnabled) {
+        showAIAlert('⚠️ Debe mantener al menos un proveedor activo', 'warning');
+        // Reactivar el último toggle que se desactivó
+        document.getElementById('ai-grok-toggle').checked = true;
+        return;
+      }
+
+      try {
+        const response = await authenticatedFetch('/api/ai-settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chatgpt: { enabled: chatgptEnabled },
+            grok: { enabled: grokEnabled }
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showAIAlert('✅ Configuración de IA actualizada', 'success');
+          updateAIProviderStatus(data.settings);
+
+          // También sincronizar con los checkboxes del panel de API keys
+          const openaiCheckbox = document.getElementById('openai-enabled');
+          const groqCheckbox = document.getElementById('groq-enabled');
+          if (openaiCheckbox) openaiCheckbox.checked = chatgptEnabled;
+          if (groqCheckbox) groqCheckbox.checked = grokEnabled;
+        } else {
+          showAIAlert('❌ Error: ' + data.error, 'error');
+          // Revertir cambios
+          loadAIProviderSettings();
+        }
+      } catch (error) {
+        showAIAlert('❌ Error de conexión: ' + error.message, 'error');
+        // Revertir cambios
+        loadAIProviderSettings();
+      }
+    }
+
+    // ✅ NUEVO: Mostrar alerta en sección de IA
+    function showAIAlert(message, type) {
+      const alertDiv = document.getElementById('ai-settings-alert');
+      if (alertDiv) {
+        const bgColor = type === 'success' ? '#e8f5e9' :
+                       type === 'warning' ? '#fff3e0' : '#ffebee';
+        const textColor = type === 'success' ? '#2e7d32' :
+                         type === 'warning' ? '#e65100' : '#c62828';
+
+        alertDiv.innerHTML = `<div style="padding: 10px; border-radius: 6px; background: ${bgColor}; color: ${textColor}; font-size: 0.9em;">${message}</div>`;
+        setTimeout(() => alertDiv.innerHTML = '', 4000);
+      }
     }
 
     // WhatsApp status updates (global function)
@@ -5179,7 +5539,7 @@ footer {
             messagesDiv.innerHTML = data.messages.map(msg => {
               const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
               // Usar senderName si existe, si no usar el valor de sender
-              const senderName = msg.senderName || msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario');
+              const senderName = msg.senderName || (msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario'));
 
               // ✅ NUEVO: Generar ID único para tracking y agregar al Set
               const messageId = msg.id || msg.messageId || `loaded_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -5489,6 +5849,10 @@ footer {
         initializeRealtimeListeners();
         // Initialize clock
         initializeClock();
+        // ✅ NUEVO: Actualizar badge de pendientes al iniciar
+        updatePendingBadge();
+        // ✅ NUEVO: Cargar configuración de proveedores de IA
+        loadAIProviderSettings();
       } else {
         // No token, show login
         document.getElementById('login-overlay').classList.remove('hidden');
@@ -5532,6 +5896,10 @@ footer {
           initializeDashboard();
           // Initialize realtime listeners for conversations
           initializeRealtimeListeners();
+          // ✅ NUEVO: Actualizar badge de pendientes
+          updatePendingBadge();
+          // ✅ NUEVO: Cargar configuración de IA
+          loadAIProviderSettings();
 
           // Reset form
           document.getElementById('login-form').reset();

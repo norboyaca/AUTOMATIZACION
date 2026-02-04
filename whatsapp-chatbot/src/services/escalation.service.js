@@ -17,33 +17,90 @@ const logger = require('../utils/logger');
  */
 const escalationRules = {
   // Frases que indican una SOLICITUD CLARA de hablar con asesor
-  // IMPORTANTE: Solo frases completas que indiquen intención clara
-  // NO incluir palabras sueltas como "asesor", "humano", "persona"
+  // ✅ MEJORADO: Incluye variaciones con "un/una" y más formas de solicitar asesor
   explicitRequest: [
-    'quiero hablar con asesor',
-    'necesito hablar con asesor',
+    // Variaciones de "quiero asesor"
     'quiero asesor',
+    'quiero un asesor',
+    'quiero una asesora',
+    'quiero hablar con asesor',
+    'quiero hablar con un asesor',
+    'quiero hablar con una asesora',
+    'quiero que me atienda un asesor',
+    'quiero atencion personal',
+    'quiero hablar con persona',
+    'quiero hablar con alguien',
+    // Variaciones de "necesito asesor"
     'necesito asesor',
+    'necesito un asesor',
+    'necesito una asesora',
+    'necesito hablar con asesor',
+    'necesito hablar con un asesor',
+    'necesito hablar con alguien',
+    'necesito hablar con persona',
+    'necesito atencion de asesor',
+    // Variaciones de "contactar/comunicar"
+    'contactame con asesor',
+    'contactame con un asesor',
+    'contactarme con asesor',
+    'contactarme con un asesor',
+    'comuniqueme con asesor',
+    'comuniqueme con un asesor',
+    'comunicarme con asesor',
+    'comunicarme con un asesor',
     'conectarme con asesor',
+    'conectarme con un asesor',
+    // Variaciones de "pasar/transferir"
+    'pasame con asesor',
+    'pasame con un asesor',
+    'pasarme con asesor',
+    'pasarme con un asesor',
+    'transferirme a asesor',
+    'transferirme a un asesor',
+    // Otras formas de pedir asesor
     'hablar con humano',
     'hablar con persona',
     'atención de asesor',
     'atención personal',
-    'quiero hablar con alguien',
-    'necesito hablar con alguien',
-    'transferirme a asesor',
-    'pasarme con asesor',
+    'atencion humana',
     'como puedo hablar con un asesor',
     'como hablar con asesor',
     'puedo hablar con asesor',
-    'quiero hablar con un asesor',
-    'necesito hablar con un asesor',
+    'puedo hablar con un asesor',
     'deseo hablar con asesor',
-    'quiero que me atienda un asesor',
-    'necesito atencion de asesor',
-    'quiero atencion personal',
-    'quiero hablar con persona',
-    'necesito hablar con persona'
+    'deseo hablar con un asesor'
+  ],
+
+  // ✅ NUEVO: Palabras clave de intención + "asesor" para detección flexible
+  // Si el mensaje contiene una palabra de intención + "asesor", es solicitud de escalación
+  advisorIntentKeywords: ['quiero', 'necesito', 'contacta', 'comunica', 'conecta', 'pasa', 'transfier', 'hablar', 'atencion', 'atención'],
+
+  // ✅ NUEVO: Frases que indican confusión o no entendimiento
+  // Cuando el usuario no entiende, mejor escalar a humano
+  userConfusion: [
+    'no entiendo',
+    'no entiendo nada',
+    'no te entiendo',
+    'no le entiendo',
+    'no comprendo',
+    'no sé',
+    'no se',
+    'explicame mejor',
+    'explícame mejor',
+    'expliqueme mejor',
+    'explíqueme mejor',
+    'no me queda claro',
+    'no quedo claro',
+    'que significa eso',
+    'qué significa eso',
+    'no me ayuda',
+    'eso no me sirve',
+    'no me sirve',
+    'repiteme',
+    'repíteme',
+    'otra vez',
+    'no es lo que pregunto',
+    'no es lo que pregunté'
   ],
 
   // Tópicos complejos/sensibles que requieren atención humana
@@ -123,7 +180,7 @@ function evaluateEscalation(userId, message, interactionCount = 0) {
     };
   }
 
-  // 1. Solicitud explícita de asesor humano
+  // 1. Solicitud explícita de asesor humano (frases exactas)
   const explicitMatch = escalationRules.explicitRequest.find(keyword =>
     normalizedMessage.includes(keyword.toLowerCase())
   );
@@ -140,6 +197,27 @@ function evaluateEscalation(userId, message, interactionCount = 0) {
     };
   }
 
+  // 1b. ✅ NUEVO: Detección flexible de intención de asesor
+  // Si el mensaje contiene "asesor" Y una palabra de intención, es solicitud de escalación
+  const hasAsesor = normalizedMessage.includes('asesor');
+  if (hasAsesor) {
+    const intentMatch = escalationRules.advisorIntentKeywords.find(intent =>
+      normalizedMessage.includes(intent.toLowerCase())
+    );
+
+    if (intentMatch) {
+      logger.info(`🚨 Intención de asesor detectada para ${userId}: "${intentMatch}" + "asesor"`);
+
+      return {
+        needsHuman: true,
+        reason: 'user_requested',
+        priority: 'high',
+        message: 'El usuario solicita hablar con un asesor.',
+        detectedKeyword: `${intentMatch} + asesor`
+      };
+    }
+  }
+
   // 2. Tópico complejo o sensible
   const complexMatch = escalationRules.complexTopics.find(keyword =>
     normalizedMessage.includes(keyword.toLowerCase())
@@ -154,6 +232,24 @@ function evaluateEscalation(userId, message, interactionCount = 0) {
       priority: 'medium',
       message: `Tópico sensible detectado: "${complexMatch}". Requiere atención humana.`,
       detectedKeyword: complexMatch
+    };
+  }
+
+  // 3. ✅ NUEVO: Detectar confusión del usuario
+  // Si el usuario indica que no entiende, es mejor escalar a humano
+  const confusionMatch = escalationRules.userConfusion.find(phrase =>
+    normalizedMessage.includes(phrase.toLowerCase())
+  );
+
+  if (confusionMatch) {
+    logger.info(`❓ Confusión detectada para ${userId}: "${confusionMatch}"`);
+
+    return {
+      needsHuman: true,
+      reason: 'user_confusion',
+      priority: 'medium',
+      message: `El usuario indica confusión: "${confusionMatch}". Requiere atención humana para aclarar.`,
+      detectedKeyword: confusionMatch
     };
   }
 
@@ -180,7 +276,7 @@ function evaluateEscalation(userId, message, interactionCount = 0) {
   //   };
   // }
 
-  // 3. Verificar si está fuera de horario laboral
+  // 4. Verificar si está fuera de horario laboral
   const isWithinHours = isWithinWorkingHours();
 
   if (!isWithinHours) {

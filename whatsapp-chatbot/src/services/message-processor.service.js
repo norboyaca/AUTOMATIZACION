@@ -102,10 +102,18 @@ async function processIncomingMessage(userId, message, options = {}) {
       const normalizedMessage = message.toLowerCase().trim();
       logger.info(`📋 Verificando respuesta de consentimiento: "${normalizedMessage}"`);
 
+      // ✅ NUEVO: Guardar mensaje del usuario PRIMERO (para que aparezca en el dashboard)
+      await saveMessage(userId, message, 'user', 'consent_response');
+
       // Verificar si acepta
       if (normalizedMessage === 'si' || normalizedMessage === 'sí' ||
           normalizedMessage === '1' || normalizedMessage.includes('acept')) {
         logger.info(`✅ Usuario ${userId} ACEPTÓ el consentimiento`);
+
+        // ✅ NUEVO: Enviar mensaje de verificación temporal
+        const verifyingMsg = `⏳ Verificando su respuesta, por favor espere...`;
+        await saveMessage(userId, verifyingMsg, 'bot', 'processing');
+
         chatService.setConsentResponse(userId, true);
         conversation.consentStatus = 'accepted';
         conversation.consentMessageSent = false;
@@ -113,7 +121,6 @@ async function processIncomingMessage(userId, message, options = {}) {
         // Enviar confirmación
         const confirmationMsg = `¡Perfecto, sumercé! 👍\n\nAhora puedo asesorarte.\n\n¿En qué puedo ayudarte?`;
         await whatsappProvider.sendMessage(userId, confirmationMsg);
-        await saveMessage(userId, message, 'user');
         await saveMessage(userId, confirmationMsg, 'bot', 'system');
 
         return null; // No procesar más este mensaje
@@ -123,6 +130,11 @@ async function processIncomingMessage(userId, message, options = {}) {
       if (normalizedMessage === 'no' || normalizedMessage === '2' ||
           normalizedMessage.includes('rechaz')) {
         logger.info(`❌ Usuario ${userId} RECHAZÓ el consentimiento`);
+
+        // ✅ NUEVO: Enviar mensaje de verificación temporal
+        const verifyingMsg = `⏳ Verificando su respuesta, por favor espere...`;
+        await saveMessage(userId, verifyingMsg, 'bot', 'processing');
+
         chatService.setConsentResponse(userId, false);
         conversation.consentStatus = 'rejected';
         conversation.consentMessageSent = false;
@@ -131,7 +143,6 @@ async function processIncomingMessage(userId, message, options = {}) {
         // Enviar mensaje de rechazo
         const rejectionMsg = `Entendido, sumercé. Su decisión ha sido registrada.\n\nSi cambia de opinión, puede escribirnos nuevamente.`;
         await whatsappProvider.sendMessage(userId, rejectionMsg);
-        await saveMessage(userId, message, 'user');
         await saveMessage(userId, rejectionMsg, 'bot', 'system');
 
         return null; // No procesar más este mensaje
@@ -210,6 +221,20 @@ async function processIncomingMessage(userId, message, options = {}) {
       // Guardar mensajes
       await saveMessage(userId, message, 'user');
       await saveMessage(userId, outOfHoursMsg, 'bot', 'out_of_hours');
+
+      // ✅ NUEVO: Emitir evento de escalación al dashboard
+      if (io) {
+        io.emit('escalation-detected', {
+          userId: userId,
+          phoneNumber: conversation.phoneNumber,
+          reason: 'out_of_hours',
+          priority: 'low',
+          message: message,
+          type: 'out_of_hours',
+          timestamp: Date.now()
+        });
+        logger.info(`📢 Evento 'escalation-detected' emitido (fuera de horario) para ${userId}`);
+      }
 
       logger.info(`✅ Mensaje fuera de horario enviado a ${userId}`);
 
@@ -411,6 +436,20 @@ El asesor de NORBOY encargado de este tema le atenderá en breve...`;
       await saveMessage(userId, message, 'user');
       await saveMessage(userId, fallbackMsg, 'bot', 'escalation_fallback');
 
+      // ✅ NUEVO: Emitir evento de escalación al dashboard
+      if (io) {
+        io.emit('escalation-detected', {
+          userId: userId,
+          phoneNumber: conversation.phoneNumber,
+          reason: 'no_response_found',
+          priority: 'medium',
+          message: message,
+          type: 'escalation_fallback',
+          timestamp: Date.now()
+        });
+        logger.info(`📢 Evento 'escalation-detected' emitido (fallback) para ${userId}`);
+      }
+
       logger.info(`🚨 Usuario ${userId} escalado a asesor (fallback)`);
 
       return null;
@@ -561,7 +600,10 @@ async function saveMessage(userId, message, sender, messageType = 'text') {
     conversationStateService.updateLastMessage(userId, messageText);
     conversation.lastInteraction = Date.now();
 
-    logger.debug(`💾 Mensaje guardado: [${sender}] type=${messageActualType} "${messageText.substring(0, 30)}..."`);
+    // ✅ MEJORADO: Log detallado para depuración
+    logger.info(`💾 Mensaje guardado: [${sender}] type=${messageActualType} "${messageText.substring(0, 50)}"`);
+    logger.info(`   → ID: ${messageRecord.id}`);
+    logger.info(`   → Usuario: ${userId}`);
 
     // ✅ NUEVO: Emitir evento Socket.IO para actualizar dashboard en tiempo real
     if (io) {
@@ -571,7 +613,10 @@ async function saveMessage(userId, message, sender, messageType = 'text') {
         message: messageRecord,
         timestamp: Date.now()
       });
-      logger.debug(`📡 Evento 'new-message' emitido para ${userId}`);
+      logger.info(`📡 [SOCKET] Evento 'new-message' EMITIDO para ${userId}`);
+      logger.info(`   → Mensaje: "${messageText.substring(0, 50)}"`);
+    } else {
+      logger.warn(`⚠️ Socket.IO NO disponible - mensaje no emitido en tiempo real`);
     }
   } catch (error) {
     logger.error('Error guardando mensaje:', error);

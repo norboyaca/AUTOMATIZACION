@@ -177,6 +177,117 @@ router.post('/test-connection', requireAuth, async (req, res) => {
 });
 
 // ===========================================
+// ✅ NUEVO: ENDPOINTS DE CONFIGURACIÓN DE IA
+// ===========================================
+
+/**
+ * GET /api/ai-settings
+ * Obtiene la configuración actual de proveedores de IA
+ */
+router.get('/ai-settings', requireAuth, (req, res) => {
+  try {
+    const settings = settingsService.getSettings();
+
+    res.json({
+      success: true,
+      settings: {
+        chatgpt: {
+          enabled: settings.openai.enabled,
+          available: settings.openaiAvailable,
+          model: settings.openai.model,
+          apiKeyConfigured: !!settings.openai.apiKey
+        },
+        grok: {
+          enabled: settings.groq.enabled,
+          available: settings.groqAvailable,
+          model: settings.groq.model,
+          apiKeyConfigured: !!settings.groq.apiKey
+        }
+      },
+      // Información de prioridad (solo informativo)
+      priority: {
+        primary: 'chatgpt',
+        fallback: 'grok',
+        note: 'ChatGPT es siempre el proveedor primario. Grok actúa como fallback.'
+      }
+    });
+  } catch (error) {
+    logger.error('Error obteniendo configuración de IA:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/ai-settings
+ * Actualiza la configuración de proveedores de IA
+ *
+ * Body esperado:
+ * {
+ *   chatgpt: { enabled: true/false },
+ *   grok: { enabled: true/false }
+ * }
+ *
+ * NOTA: NO se permite cambiar la prioridad. Siempre es ChatGPT → Grok
+ */
+router.put('/ai-settings', requireAuth, (req, res) => {
+  try {
+    const { chatgpt, grok } = req.body;
+
+    // Preparar objeto de configuración
+    const newSettings = {};
+
+    // Actualizar estado de ChatGPT (OpenAI)
+    if (chatgpt && typeof chatgpt.enabled === 'boolean') {
+      newSettings.openai = { enabled: chatgpt.enabled };
+      logger.info(`🤖 ChatGPT ${chatgpt.enabled ? 'ACTIVADO' : 'DESACTIVADO'}`);
+    }
+
+    // Actualizar estado de Grok
+    if (grok && typeof grok.enabled === 'boolean') {
+      newSettings.groq = { enabled: grok.enabled };
+      logger.info(`🤖 Grok ${grok.enabled ? 'ACTIVADO' : 'DESACTIVADO'}`);
+    }
+
+    // Verificar que al menos uno esté habilitado
+    const currentSettings = settingsService.getApiKeys();
+    const chatgptWillBeEnabled = newSettings.openai?.enabled ?? currentSettings.openai.enabled;
+    const grokWillBeEnabled = newSettings.groq?.enabled ?? currentSettings.groq.enabled;
+
+    if (!chatgptWillBeEnabled && !grokWillBeEnabled) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe mantener al menos un proveedor de IA activo',
+        warning: 'No se puede desactivar ambos proveedores simultáneamente'
+      });
+    }
+
+    // Guardar configuración
+    const success = settingsService.saveSettings(newSettings);
+
+    if (success) {
+      // Reinicializar proveedores dinámicamente (SIN reiniciar servidor)
+      const aiProvider = require('../providers/ai');
+      aiProvider.reinitializeProviders();
+
+      res.json({
+        success: true,
+        message: 'Configuración de IA actualizada',
+        settings: {
+          chatgpt: { enabled: chatgptWillBeEnabled },
+          grok: { enabled: grokWillBeEnabled }
+        }
+      });
+    } else {
+      res.status(500).json({ success: false, error: 'Error guardando configuración' });
+    }
+
+  } catch (error) {
+    logger.error('Error actualizando configuración de IA:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ===========================================
 // ENDPOINTS DE BASE DE CONOCIMIENTO
 // ===========================================
 
