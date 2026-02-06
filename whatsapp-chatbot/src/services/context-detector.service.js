@@ -40,6 +40,7 @@ const NORBOY_KEYWORDS = [
   'requisito', 'requisitos', 'reglamento', 'estatuto',
   'proceso', 'procedimiento', 'democra', 'democratico',
   'resolucion', 'acta', 'formulario', 'documento',
+  'documentos', 'disponible', 'disponibles',
 
   // Resultados y escrutinio
   'ganador', 'ganadores', 'resultado', 'resultados',
@@ -50,6 +51,16 @@ const NORBOY_KEYWORDS = [
   'norboy', 'cooperativa', 'asamblea', 'consejo',
   'junta', 'vigilancia', 'administracion', 'revisor',
   'comision', 'comite',
+
+  // Marco legal (NUEVO)
+  'ley', 'leyes', 'legal', 'normativa', 'respaldan',
+  'norma', 'regulacion', 'juridico', 'marco',
+
+  // Nacionalidad y ubicación (NUEVO)
+  'venezolano', 'venezolana', 'venezolanos', 'venezolanas',
+  'extranjero', 'extranjera', 'extranjeros', 'extranjeras',
+  'nacionalidad', 'nacionalidades', 'pais', 'paises',
+  'colombiano', 'colombiana', 'colombianos', 'colombianas',
 
   // Suplentes
   'suplente', 'suplentes', 'principal', 'principales',
@@ -325,15 +336,9 @@ const MESSAGES = {
 
 ¿Tiene alguna pregunta relacionada con el proceso electoral? 👍`,
 
-  noInformation: `Comprendo, sumercé. 👩‍💼
+  noInformation: `El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...`,
 
-No tengo información específica sobre eso en mis documentos.
-
-El asesor de NORBOY encargado de este tema le atenderá en breve...`,
-
-  lowConfidence: `Sumercé, no encontré información precisa sobre esa pregunta en los documentos disponibles.
-
-Un asesor de NORBOY podrá ayudarle mejor. Le atenderán en breve... 👩‍💼`,
+  lowConfidence: `El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...`,
 };
 
 // ===========================================

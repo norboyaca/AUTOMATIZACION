@@ -48,6 +48,10 @@ class TextHandler {
       const text = message.content?.text || '';
       const userId = message.from;
 
+      // ✅ CORRECCIÓN: Obtener número real del contacto y nombre de WhatsApp
+      const realPhoneNumber = message.realPhoneNumber || message.from;
+      const pushName = message.pushName || null;
+
       logger.debug(`Procesando texto de ${userId}: ${text.substring(0, 50)}...`);
 
       // 1. Verificar si es un comando especial (estos sí se procesan directamente)
@@ -63,7 +67,11 @@ class TextHandler {
 
       // 3. Para cualquier otro mensaje, usar messageProcessor con todos los puntos de control
       // Esto implementa: bot_active check, horario 4:30 PM, fallback, etc.
-      const response = await messageProcessor.processIncomingMessage(userId, text);
+      // ✅ CORRECCIÓN: Pasar número real y nombre de WhatsApp
+      const response = await messageProcessor.processIncomingMessage(userId, text, {
+        pushName: pushName,
+        realPhoneNumber: realPhoneNumber
+      });
 
       return response;
 

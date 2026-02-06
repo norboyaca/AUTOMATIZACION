@@ -20,6 +20,8 @@ const chatService = require('./chat.service');
 const whatsappProvider = require('../providers/whatsapp');
 const timeSimulation = require('./time-simulation.service');
 const numberControlService = require('./number-control.service');
+const spamControlService = require('./spam-control.service');
+const flowManager = require('../flows'); // ✅ NUEVO: Gestor de flujos
 
 // ✅ NUEVO: Socket.IO para emitir eventos de escalación al dashboard
 let io = null;
@@ -32,7 +34,7 @@ function setSocketIO(socketIOInstance) {
 // ===========================================
 // MENSAJAGES DEL SISTEMA
 // ===========================================
-const NO_INFO_MESSAGE = 'Comprendo, sumercé. 👩‍💼\n\nEl asesor de NORBOY encargado de este tema le atenderá en breve...';
+const NO_INFO_MESSAGE = 'El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...';
 
 // ===========================================
 // CONFIGURACIÓN DE HORARIO DE ATENCIÓN
@@ -47,6 +49,16 @@ const BUSINESS_HOURS = {
 };
 
 // ===========================================
+// ✅ NUEVO: CONFIGURACIÓN DE FLUJO DE MENÚ
+// ===========================================
+/**
+ * Habilita el nuevo flujo de menú NORBOY
+ * - true: Usa el nuevo flujo con menú de 4 opciones
+ * - false: Usa el flujo original (saludo simple + consentimiento)
+ */
+const USE_NEW_MENU_FLOW = process.env.USE_NEW_MENU_FLOW === 'true';
+
+// ===========================================
 // PUNTO DE CONTROL 5: FLUJO GENERAL
 // ===========================================
 
@@ -57,19 +69,116 @@ const BUSINESS_HOURS = {
  * @param {string} message - Mensaje recibido
  * @param {Object} options - Opciones adicionales
  * @param {string} options.pushName - Nombre del contacto de WhatsApp
+ * @param {string} options.realPhoneNumber - Número real del contacto (wa_id de Meta)
  * @returns {Promise<string|null>} Respuesta a enviar o null si no se debe responder
  */
 async function processIncomingMessage(userId, message, options = {}) {
   try {
-    const { pushName } = options;
+    const { pushName, realPhoneNumber } = options;
     logger.info(`📨 Procesando mensaje de ${userId}: "${message.substring(0, 50)}..."`);
 
-    // ✅ CORREGIDO: Obtener o crear conversación CON el nombre de WhatsApp
-    const conversation = conversationStateService.getOrCreateConversation(userId, { whatsappName: pushName });
+    // ✅ NUEVO: Flag para evitar guardar el mismo mensaje dos veces
+    let userMessageSaved = false;
+
+    // ✅ CORREGIDO: Obtener o crear conversación CON el nombre de WhatsApp y número real
+    const conversation = conversationStateService.getOrCreateConversation(userId, {
+      whatsappName: pushName,
+      realPhoneNumber: realPhoneNumber
+    });
 
     // Actualizar última interacción
     conversation.lastInteraction = Date.now();
     conversation.lastMessage = message;
+
+    // ===========================================
+    // PUNTO DE CONTROL -1: SALUDO INSTITUCIONAL OBLIGATORIO
+    // ===========================================
+    // REGLA CRÍTICA: El PRIMER mensaje del usuario SIEMPRE recibe
+    // un saludo institucional, sin importar qué escriba.
+    // NO se procesa contenido con RAG hasta que:
+    // 1. Se envíe el saludo
+    // 2. Se solicite consentimiento
+    // 3. El usuario acepte
+
+    if (!conversation.welcomeSent) {
+      logger.info(`👋 PRIMER MENSAJE de ${userId} - Enviando saludo obligatorio`);
+      logger.info(`   Mensaje original ignorado para RAG: "${message.substring(0, 50)}..."`);
+
+      // Guardar mensaje del usuario (para historial)
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+        userMessageSaved = true;
+      }
+
+      // ===========================================
+      // ✅ NUEVO: ELEGIR FLUJO (NUEVO O ANTIGUO)
+      // ===========================================
+      if (USE_NEW_MENU_FLOW) {
+        // Usar nuevo flujo de menú
+        logger.info(`🆕 Usando NUEVO flujo de menú NORBOY`);
+
+        try {
+          // Iniciar flujo de menú
+          const flowResult = await flowManager.startFlow(userId, 'norboy-menu', {
+            userId: userId,
+            originalMessage: message
+          });
+
+          // Marcar que ya se envió el saludo
+          conversation.welcomeSent = true;
+          conversation.interactionCount = 1;
+          conversation.activeFlow = 'norboy-menu';
+
+          // Enviar primer mensaje del flujo (saludo)
+          if (flowResult.message) {
+            await whatsappProvider.sendMessage(userId, flowResult.message);
+            await saveMessage(userId, flowResult.message, 'bot', 'welcome');
+          }
+
+          // Enviar segundo mensaje del flujo (menú)
+          if (flowResult.followUpMessage) {
+            await whatsappProvider.sendMessage(userId, flowResult.followUpMessage);
+            await saveMessage(userId, flowResult.followUpMessage, 'bot', 'menu');
+          }
+
+          logger.info(`✅ Saludo + Menú enviados a ${userId} (nuevo flujo)`);
+
+          return null;
+        } catch (flowError) {
+          logger.error(`❌ Error iniciando flujo de menú: ${flowError.message}`);
+          logger.info(`   → Volviendo al flujo original...`);
+
+          // Si falla el flujo, usar el antiguo como fallback
+        }
+      }
+
+      // ===========================================
+      // FLUJO ORIGINAL (SALUDO SIMPLE)
+      // ===========================================
+      logger.info(`📋 Usando flujo ORIGINAL (saludo simple)`);
+
+      // Mensaje de saludo institucional
+      const welcomeMsg = `Hola! Somos el equipo NORBOY.
+
+Bienvenido/a a nuestro canal de atención.
+
+En un momento le solicitaremos autorización para el tratamiento de sus datos personales.
+
+Mientras tanto, en qué podemos ayudarle?`;
+
+      // Marcar que ya se envió el saludo
+      conversation.welcomeSent = true;
+      conversation.interactionCount = 1;
+
+      // Enviar saludo
+      await whatsappProvider.sendMessage(userId, welcomeMsg);
+      await saveMessage(userId, welcomeMsg, 'bot', 'welcome');
+
+      logger.info(`✅ Saludo institucional enviado a ${userId}`);
+
+      // NO procesar más - el siguiente mensaje activará consentimiento
+      return null;
+    }
 
     // ===========================================
     // PUNTO DE CONTROL 0: CONTROL DE NÚMEROS (IA DESACTIVADA)
@@ -87,15 +196,245 @@ async function processIncomingMessage(userId, message, options = {}) {
       logger.info(`   Nombre: ${iaCheck.record?.name || 'Sin nombre'}`);
       logger.info(`   Motivo: ${iaCheck.reason}`);
 
-      // Guardar mensaje del usuario (para que el asesor pueda verlo)
-      await saveMessage(userId, message, 'user');
+      // Guardar mensaje del usuario (para que el asesor pueda verlo) - solo si no se guardó antes
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+        userMessageSaved = true;
+      }
 
       // NO responder automáticamente
       return null;
     }
 
     // ===========================================
-    // VERIFICACIÓN DE CONSENTIMIENTO
+    // PUNTO DE CONTROL 0.3: ANTI-SPAM (ANTES DE CONSUMIR TOKENS)
+    // ===========================================
+    // Detecta mensajes repetidos consecutivos del mismo usuario
+    // Si el usuario envía el mismo mensaje 4+ veces: NO se llama a IA
+    const spamCheck = spamControlService.evaluateMessage(userId, message, {
+      phoneNumber: conversation.phoneNumber,
+      userName: conversation.whatsappName || ''
+    });
+
+    if (spamCheck.shouldBlock) {
+      logger.warn(`🚫 ANTI-SPAM: Bloqueando respuesta para ${userId}`);
+      logger.warn(`   Razón: ${spamCheck.reason}`);
+      logger.warn(`   IA desactivada automáticamente: ${spamCheck.iaDeactivated}`);
+      logger.warn(`   NO se consumen tokens de IA`);
+
+      // Guardar mensaje del usuario (para historial) pero NO responder
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+        userMessageSaved = true;
+      }
+
+      // Marcar conversación como posible spam
+      conversation.possibleSpam = true;
+      conversation.spamConsecutiveCount = spamCheck.consecutiveCount;
+
+      // ✅ NUEVO: Emitir evento al dashboard para notificar bloqueo por spam
+      if (io) {
+        io.emit('spam-blocked', {
+          userId: userId,
+          phoneNumber: conversation.phoneNumber,
+          reason: spamCheck.reason,
+          consecutiveCount: spamCheck.consecutiveCount,
+          iaDeactivated: spamCheck.iaDeactivated,
+          timestamp: Date.now()
+        });
+        logger.info(`📢 Evento 'spam-blocked' emitido al dashboard para ${userId}`);
+      }
+
+      return null; // NO responder, NO consumir tokens
+    }
+
+    // Si hay advertencia de spam (3 repeticiones), loguear pero dejar pasar
+    if (spamCheck.isSpam && !spamCheck.shouldBlock) {
+      logger.warn(`⚠️ ANTI-SPAM: Advertencia para ${userId} - ${spamCheck.reason}`);
+      logger.warn(`   Próxima repetición será BLOQUEADA (sin tokens)`);
+    }
+
+    // ===========================================
+    // PUNTO DE CONTROL 0.5: VERIFICAR SI HAY UN FLUJO ACTIVO
+    // ===========================================
+    // ✅ NUEVO: Si hay un flujo activo (menú NORBOY), procesar el mensaje a través del flujo
+    if (flowManager.hasActiveFlow(userId) && USE_NEW_MENU_FLOW) {
+      logger.info(`🔄 Procesando mensaje a través del flujo activo para ${userId}`);
+
+      try {
+        // Guardar mensaje del usuario (solo una vez)
+        if (!userMessageSaved) {
+          await saveMessage(userId, message, 'user');
+          userMessageSaved = true;
+        }
+
+        // Procesar input a través del flujo activo
+        const flowResult = await flowManager.handleInput(userId, message);
+
+        if (flowResult) {
+          // Verificar si el flujo requiere intervención humana
+          if (flowResult.actionRequired && flowResult.selectedOption) {
+            const selectedOption = flowResult.selectedOption;
+
+            logger.info(`📊 Opción seleccionada: ${selectedOption}`);
+
+            // Si el flujo indica que el usuario aceptó el consentimiento
+            if (flowResult.step === 'process') {
+              // Actualizar estado de la conversación
+              conversation.consentStatus = 'accepted';
+              conversation.consentMessageSent = true;
+
+              // Ahora procesar según la opción seleccionada
+              if (selectedOption === 1) {
+                // Opción 1: Continuar con el flujo normal de IA/RAG
+                logger.info(`✅ Opción 1 seleccionada - Continuando con IA/RAG`);
+
+                // Enviar confirmación y dejar que el flujo continue
+                await whatsappProvider.sendMessage(userId, flowResult.message);
+                await saveMessage(userId, flowResult.message, 'bot', 'system');
+
+                // Dejar que el flujo continue normalmente hacia abajo
+                return null;
+              } else if (selectedOption === 2 || selectedOption === 3 || selectedOption === 4) {
+                // Opciones 2, 3, 4: Redirigir a asesor
+                const advisorMsg = `El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...`;
+
+                conversation.status = 'pending_advisor';
+                conversation.bot_active = false;
+                conversation.needs_human = true;
+                conversation.needsHumanReason = `menu_option_${selectedOption}`;
+                conversation.escalationMessageSent = true;
+                conversation.waitingForHuman = true;
+
+                await whatsappProvider.sendMessage(userId, advisorMsg);
+                await saveMessage(userId, advisorMsg, 'bot', 'escalation');
+
+                logger.info(`✅ Opción ${selectedOption} - Redirigiendo a asesor`);
+
+                return null;
+              }
+            }
+
+            // Si el flujo se completó
+            if (flowResult.isCompleted || flowResult.isCancelled) {
+              // Finalizar flujo
+              await flowManager.endFlow(userId);
+              conversation.activeFlow = null;
+
+              // Si el usuario rechazó el consentimiento
+              if (flowResult.data && flowResult.data.consentGiven === false) {
+                conversation.consentStatus = 'rejected';
+                conversation.bot_active = false;
+
+                const rejectionMsg = `Entendido, sumercé. Su decisión ha sido registrada.
+
+Si cambia de opinión, puede escribirnos nuevamente.`;
+
+                await whatsappProvider.sendMessage(userId, rejectionMsg);
+                await saveMessage(userId, rejectionMsg, 'bot', 'system');
+
+                logger.info(`❌ Usuario rechazó consentimiento - conversación finalizada`);
+
+                return null;
+              }
+
+              // Si el flujo se completó exitosamente, continuar con el procesamiento normal
+              return null;
+            }
+
+            // Si el flujo devuelve un mensaje normal, enviarlo
+            if (flowResult.message && !flowResult.isError && !flowResult.isCompleted) {
+              await whatsappProvider.sendMessage(userId, flowResult.message);
+              await saveMessage(userId, flowResult.message, 'bot', 'flow');
+
+              return null;
+            }
+          }
+
+          // Si hay un error en el flujo, reenviar el mensaje
+          if (flowResult.isError && flowResult.message) {
+            await whatsappProvider.sendMessage(userId, flowResult.message);
+            await saveMessage(userId, flowResult.message, 'bot', 'flow_error');
+
+            return null;
+          }
+        }
+
+        // Si el flujo retornó null, significa que debemos continuar con el procesamiento normal
+        logger.info(`🔄 Flujo procesado correctamente, continuando con procesamiento normal`);
+
+      } catch (flowError) {
+        logger.error(`❌ Error procesando flujo activo: ${flowError.message}`);
+        logger.error(flowError.stack);
+
+        // Finalizar flujo en caso de error
+        await flowManager.endFlow(userId);
+        conversation.activeFlow = null;
+      }
+    }
+
+    // ===========================================
+    // PUNTO DE CONTROL 0.5: SOLICITAR CONSENTIMIENTO (SEGUNDO MENSAJE) - FLUJO ORIGINAL
+    // ===========================================
+    // Si ya se envió saludo pero NO se ha solicitado consentimiento,
+    // este es el SEGUNDO mensaje - solicitar consentimiento
+    if (conversation.welcomeSent &&
+        !conversation.consentMessageSent &&
+        conversation.consentStatus === 'pending') {
+
+      logger.info(`📋 SEGUNDO MENSAJE de ${userId} - Solicitando consentimiento`);
+      logger.info(`   Mensaje guardado como pendiente: "${message.substring(0, 50)}..."`);
+
+      // Guardar mensaje del usuario (pendiente para después) - solo si no se guardó antes
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+        userMessageSaved = true;
+      }
+
+      // Guardar mensaje pendiente para responder después de aceptar
+      chatService.clearPendingMessage(userId);
+      // Nota: El mensaje pendiente se manejará cuando acepte
+
+      // Mensaje de consentimiento
+      const consentMsg = `👋 ¡Gracias por escribirnos!
+
+Para poder asesorarte mejor, te solicitamos autorizar el tratamiento de tus datos personales.
+
+👉 Conócenos aquí:
+https://norboy.coop/
+
+📄 Consulta nuestras políticas:
+🔒 Política de Protección de Datos Personales:
+https://norboy.coop/proteccion-de-datos-personales/
+💬 Uso de WhatsApp:
+https://www.whatsapp.com/legal
+
+━━━━━━━━━━━━━━━━━━
+⚠️ IMPORTANTE
+
+¿Aceptas las políticas de tratamiento de datos personales?
+
+Por favor, digita:
+
+1. Si
+2. No`;
+
+      // Marcar que se solicitó consentimiento
+      conversation.consentMessageSent = true;
+      conversation.interactionCount = 2;
+
+      // Enviar mensaje de consentimiento
+      await whatsappProvider.sendMessage(userId, consentMsg);
+      await saveMessage(userId, consentMsg, 'bot', 'consent');
+
+      logger.info(`✅ Mensaje de consentimiento enviado a ${userId}`);
+
+      // NO procesar más - esperar respuesta de consentimiento
+      return null;
+    }
+
+    // ===========================================
+    // VERIFICACIÓN DE CONSENTIMIENTO (RESPUESTA)
     // ===========================================
     // Si el consentimiento está solicitado, verificar la respuesta del usuario
     if (conversation.consentMessageSent === true && conversation.consentStatus === 'pending') {
@@ -103,7 +442,10 @@ async function processIncomingMessage(userId, message, options = {}) {
       logger.info(`📋 Verificando respuesta de consentimiento: "${normalizedMessage}"`);
 
       // ✅ NUEVO: Guardar mensaje del usuario PRIMERO (para que aparezca en el dashboard)
-      await saveMessage(userId, message, 'user', 'consent_response');
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user', 'consent_response');
+        userMessageSaved = true;
+      }
 
       // Verificar si acepta
       if (normalizedMessage === 'si' || normalizedMessage === 'sí' ||
@@ -169,8 +511,11 @@ async function processIncomingMessage(userId, message, options = {}) {
       logger.debug(`   status: ${conversation.status}`);
       logger.debug(`   waitingForHuman: ${conversation.waitingForHuman}`);
 
-      // Guardar mensaje pero NO responder
-      await saveMessage(userId, message, 'user');
+      // Guardar mensaje pero NO responder (solo si no se guardó antes)
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+        userMessageSaved = true;
+      }
 
       // Si está en estado advisor_handled, no hacer nada más
       // El asesor está atendiendo manualmente
@@ -187,8 +532,11 @@ async function processIncomingMessage(userId, message, options = {}) {
       logger.info(`   escalationMessageSent: ${conversation.escalationMessageSent}`);
       logger.info(`   Mensaje del usuario guardado: "${message.substring(0, 50)}..."`);
 
-      // Solo guardar el mensaje del usuario
-      await saveMessage(userId, message, 'user');
+      // Solo guardar el mensaje del usuario (si no se guardó antes)
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+        userMessageSaved = true;
+      }
       return null;
     }
 
@@ -201,7 +549,10 @@ async function processIncomingMessage(userId, message, options = {}) {
       // Solo enviar mensaje de fuera de horario si NO se ha enviado antes
       if (conversation.escalationMessageSent === true) {
         logger.info(`   Mensaje de fuera de horario ya enviado. Solo guardando mensaje.`);
-        await saveMessage(userId, message, 'user');
+        if (!userMessageSaved) {
+          await saveMessage(userId, message, 'user');
+          userMessageSaved = true;
+        }
         return null;
       }
 
@@ -218,8 +569,11 @@ async function processIncomingMessage(userId, message, options = {}) {
       // Enviar mensaje de fuera de horario
       await whatsappProvider.sendMessage(userId, outOfHoursMsg);
 
-      // Guardar mensajes
-      await saveMessage(userId, message, 'user');
+      // Guardar mensajes (solo si no se guardó antes)
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+        userMessageSaved = true;
+      }
       await saveMessage(userId, outOfHoursMsg, 'bot', 'out_of_hours');
 
       // ✅ NUEVO: Emitir evento de escalación al dashboard
@@ -259,14 +613,15 @@ async function processIncomingMessage(userId, message, options = {}) {
       // Verificar que no se haya enviado ya el mensaje de escalación
       if (conversation.escalationMessageSent === true) {
         logger.info(`   Mensaje de escalación ya enviado. Solo guardando mensaje.`);
-        await saveMessage(userId, message, 'user');
+        if (!userMessageSaved) {
+          await saveMessage(userId, message, 'user');
+          userMessageSaved = true;
+        }
         return null;
       }
 
       // Mensaje de escalación
-      const escalationMsg = `Comprendo, sumercé. 👩‍💼
-
-El asesor de NORBOY encargado de este tema le atenderá en breve...`;
+      const escalationMsg = `El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...`;
 
       // Actualizar estado de la conversación
       conversation.status = 'pending_advisor';
@@ -281,8 +636,11 @@ El asesor de NORBOY encargado de este tema le atenderá en breve...`;
       logger.info(`   → bot_active: false`);
       logger.info(`   → waitingForHuman: true`);
 
-      // Guardar mensajes
-      await saveMessage(userId, message, 'user');
+      // Guardar mensajes (solo si no se guardó antes)
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+        userMessageSaved = true;
+      }
       await saveMessage(userId, escalationMsg, 'bot', 'escalation');
 
       // Enviar mensaje de escalación
@@ -310,12 +668,16 @@ El asesor de NORBOY encargado de este tema le atenderá en breve...`;
     // ===========================================
     // PUNTO DE CONTROL 4: PROCESAR MENSAJE CON IA
     // ===========================================
+    // NOTA: Si llegamos aquí, el usuario ya:
+    // 1. Recibió saludo de bienvenida
+    // 2. Aceptó el consentimiento de datos
+    // Por lo tanto, skipConsent=true para evitar duplicación
 
     // Intentar generar respuesta con la IA
     let response;
     try {
       response = await chatService.generateTextResponse(userId, message, {
-        skipConsent: false
+        skipConsent: true  // Consentimiento ya validado en message-processor
       });
     } catch (aiError) {
       logger.error(`Error en IA para ${userId}:`, aiError);
@@ -359,8 +721,11 @@ El asesor de NORBOY encargado de este tema le atenderá en breve...`;
         logger.info(`   → escalationMessageSent: true`);
       }
 
-      // Guardar mensajes
-      await saveMessage(userId, message, 'user');
+      // Guardar mensajes (solo si no se guardó antes)
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+        userMessageSaved = true;
+      }
 
       // ✅ CORRECCIÓN: Pasar el objeto response completo si tiene type especial
       if (typeof response === 'object' && response.type) {
@@ -408,7 +773,10 @@ El asesor de NORBOY encargado de este tema le atenderá en breve...`;
       // IMPORTANTE: Solo enviar el mensaje de fallback si NO se ha enviado antes
       if (conversation.escalationMessageSent === true) {
         logger.info(`   Mensaje de escalación ya enviado. Solo guardando mensaje.`);
-        await saveMessage(userId, message, 'user');
+        if (!userMessageSaved) {
+          await saveMessage(userId, message, 'user');
+          userMessageSaved = true;
+        }
         return null;
       }
 
@@ -432,8 +800,11 @@ El asesor de NORBOY encargado de este tema le atenderá en breve...`;
       // Enviar mensaje de fallback (SOLO UNA VEZ)
       await whatsappProvider.sendMessage(userId, fallbackMsg);
 
-      // Guardar mensajes
-      await saveMessage(userId, message, 'user');
+      // Guardar mensajes (solo si no se guardó antes)
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+        userMessageSaved = true;
+      }
       await saveMessage(userId, fallbackMsg, 'bot', 'escalation_fallback');
 
       // ✅ NUEVO: Emitir evento de escalación al dashboard
@@ -460,8 +831,11 @@ El asesor de NORBOY encargado de este tema le atenderá en breve...`;
     // ===========================================
     logger.info(`✅ Respuesta generada para ${userId}: "${responseText.substring(0, 50)}..."`);
 
-    // Guardar mensajes
-    await saveMessage(userId, message, 'user');
+    // Guardar mensajes (solo si no se guardó antes)
+    if (!userMessageSaved) {
+      await saveMessage(userId, message, 'user');
+      userMessageSaved = true;
+    }
 
     // ✅ CORRECCIÓN: Pasar el objeto response completo si tiene type especial
     // Esto preserva el type 'consent', 'system', 'escalation', etc.
@@ -489,7 +863,9 @@ El asesor de NORBOY encargado de este tema le atenderá en breve...`;
       conversation.needsHumanReason = 'processing_error';
 
       await whatsappProvider.sendMessage(userId, fallbackMsg);
-      await saveMessage(userId, message, 'user');
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user');
+      }
       await saveMessage(userId, fallbackMsg, 'bot');
 
       logger.error(`🚨 Usuario ${userId} escalado a asesor (error)`);
@@ -515,13 +891,9 @@ function isOutOfHours() {
     return false;
   }
 
-  // Usar servicio de simulación si está activo
-  const now = timeSimulation.getCurrentTime();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-
-  // Formato decimal para comparar: 16.5 = 4:30 PM
-  const currentTimeDecimal = hour + (minute / 60);
+  // ✅ ACTUALIZADO: Usar zona horaria fija (no depende del servidor AWS)
+  const time = timeSimulation.getCurrentTime();
+  const currentTimeDecimal = time.decimal;
   const endTimeDecimal = BUSINESS_HOURS.endHour + (BUSINESS_HOURS.endMinute / 60);
 
   const isAfter = currentTimeDecimal > endTimeDecimal;
@@ -529,7 +901,7 @@ function isOutOfHours() {
   if (isAfter || timeSimulation.isSimulationActive()) {
     const timeSource = timeSimulation.isSimulationActive()
       ? `HORA SIMULADA: ${timeSimulation.getSimulatedTime()}`
-      : `Horario actual: ${hour}:${minute.toString().padStart(2, '0')}`;
+      : `Horario actual: ${time.timeString} (${time.timezone})`;
 
     logger.debug(`⏰ ${timeSource} > ${BUSINESS_HOURS.endHour}:${BUSINESS_HOURS.endMinute.toString().padStart(2, '0')}? ${isAfter ? 'FUERA' : 'DENTRO'}`);
   }

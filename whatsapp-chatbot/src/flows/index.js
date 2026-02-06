@@ -192,7 +192,11 @@ const getActiveFlowInfo = (userId) => {
 // REGISTRAR FLUJOS PREDEFINIDOS
 // ===========================================
 
-// TODO: Importar y registrar flujos cuando se implementen
+// ✅ NUEVO: Flujo de menú principal NORBOY
+const NorboyMenuFlow = require('./norboy-menu.flow');
+registerFlow('norboy-menu', NorboyMenuFlow);
+
+// TODO: Importar y registrar flujos adicionales cuando se implementen
 // const RegistrationFlow = require('./registration.flow');
 // registerFlow('registration', RegistrationFlow);
 

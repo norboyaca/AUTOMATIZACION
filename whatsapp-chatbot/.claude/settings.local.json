@@ -3,7 +3,9 @@
     "allow": [
       "Bash(dir:*)",
       "Bash(node:*)",
-      "Bash(node -c:*)"
+      "Bash(node -c:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)"
     ]
   }
 }

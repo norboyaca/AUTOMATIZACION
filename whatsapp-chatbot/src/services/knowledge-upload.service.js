@@ -51,13 +51,17 @@ function saveIndex() {
 
 /**
  * Procesa un archivo TXT
+ *
+ * ✅ OPTIMIZADO: No se guarda el campo 'content' completo
+ * porque es redundante con los chunks y aumenta el tamaño del JSON innecesariamente.
+ * El contenido original siempre puede reconstruirse desde el archivo TXT original.
  */
 async function processTxtFile(filePath, originalName) {
   const content = fs.readFileSync(filePath, 'utf8');
   return {
     type: 'txt',
     name: originalName,
-    content: content,
+    // content: content,  // ❌ ELIMINADO: Redundante con chunks
     chunks: extractChunks(content),
     uploadDate: new Date().toISOString()
   };
@@ -65,6 +69,9 @@ async function processTxtFile(filePath, originalName) {
 
 /**
  * Procesa un archivo PDF
+ *
+ * ✅ OPTIMIZADO: No se guarda el campo 'content' completo
+ * porque es redundante con los chunks y aumenta el tamaño del JSON innecesariamente.
  */
 async function processPdfFile(filePath, originalName) {
   try {
@@ -75,7 +82,7 @@ async function processPdfFile(filePath, originalName) {
     return {
       type: 'pdf',
       name: originalName,
-      content: data.text,
+      // content: data.text,  // ❌ ELIMINADO: Redundante con chunks
       pages: data.numpages,
       chunks: extractChunks(data.text),
       uploadDate: new Date().toISOString()

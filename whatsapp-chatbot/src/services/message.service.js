@@ -99,9 +99,12 @@ const normalizePayload = (payload) => {
 
 /**
  * Normaliza payload de Meta (Cloud API)
+ *
+ * ✅ CORREGIDO: Ahora extrae el número real del contacto (wa_id)
+ * En algunos casos, Meta envía un "lid" (local ID interno) en message.from
+ * pero el número real del cliente está en contacts[0].wa_id
  */
 const normalizeMetaPayload = (payload) => {
-  // TODO: Implementar extracción de datos de Meta
   // Estructura esperada: payload.entry[0].changes[0].value.messages[0]
 
   try {
@@ -112,9 +115,25 @@ const normalizeMetaPayload = (payload) => {
 
     if (!message) return null;
 
+    // ✅ CORRECCIÓN: Extraer el número real del contacto
+    // El wa_id del contacto es el número de teléfono real del cliente
+    const contacts = value?.contacts;
+    const contact = contacts?.[0];
+    const realPhoneNumber = contact?.wa_id || message.from;
+    const contactName = contact?.profile?.name || null;
+
+    // Log para debugging
+    if (message.from !== realPhoneNumber) {
+      logger.info(`📱 Número corregido: ${message.from} → ${realPhoneNumber}`);
+    }
+
     return {
       id: message.id,
       from: message.from,
+      // ✅ NUEVO: Número real del contacto (usar para guardar en conversación)
+      realPhoneNumber: realPhoneNumber,
+      // ✅ NUEVO: Nombre del contacto de WhatsApp
+      pushName: contactName,
       timestamp: message.timestamp,
       type: detectMessageType(message),
       content: extractContent(message),

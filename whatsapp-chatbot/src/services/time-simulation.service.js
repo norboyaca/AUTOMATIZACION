@@ -6,6 +6,9 @@
  * Permite simular una hora diferente para pruebas
  * de horario de atención.
  *
+ * ✅ ACTUALIZADO: Ahora usa zona horaria fija desde utils/timezone.js
+ * No depende de la zona horaria del servidor AWS.
+ *
  * USO:
  * - Solo para desarrollo/testing
  * - Se activa con variable de entorno SIMULATE_TIME
@@ -13,6 +16,7 @@
  */
 
 const logger = require('../utils/logger');
+const timezone = require('../utils/timezone');
 
 // Hora simulada (null = usar hora real)
 let simulatedTime = null;
@@ -26,26 +30,37 @@ let scheduleCheckEnabled = false;
 
 /**
  * Obtiene la hora actual (real o simulada)
+ * ✅ ACTUALIZADO: Usa zona horaria fija (America/Bogota por defecto)
  *
- * @returns {Date} Fecha actual
+ * @returns {Object} Objeto con { hours, minutes, seconds, decimal }
  */
 function getCurrentTime() {
   if (simulatedTime) {
-    // Devolver la hora simulada
-    const now = new Date();
     const [hours, minutes] = simulatedTime.split(':').map(Number);
 
-    const simulatedDate = new Date();
-    simulatedDate.setHours(hours);
-    simulatedDate.setMinutes(minutes);
-    simulatedDate.setSeconds(0);
-
     logger.debug(`⏰ Usando hora simulada: ${simulatedTime}`);
-    return simulatedDate;
+    return {
+      hours,
+      minutes,
+      seconds: 0,
+      decimal: hours + (minutes / 60),
+      timeString: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`,
+      simulated: true,
+      timezone: timezone.SYSTEM_TIMEZONE
+    };
   }
 
-  // Devolver la hora real
-  return new Date();
+  // ✅ CORREGIDO: Usar zona horaria fija en lugar de new Date()
+  const now = timezone.now();
+  return {
+    hours: now.hours,
+    minutes: now.minutes,
+    seconds: now.seconds,
+    decimal: now.decimal,
+    timeString: now.timeString,
+    simulated: false,
+    timezone: timezone.SYSTEM_TIMEZONE
+  };
 }
 
 /**
@@ -113,15 +128,13 @@ function isSimulationActive() {
 
 /**
  * Obtiene la hora actual en formato decimal para comparaciones
- * Útil para verificar si estamos dentro del horario
+ * ✅ ACTUALIZADO: Usa zona horaria fija
  *
  * @returns {number} Hora en formato decimal (ej: 16.5 = 4:30 PM)
  */
 function getCurrentTimeDecimal() {
-  const now = getCurrentTime();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-  return hour + (minute / 60);
+  const time = getCurrentTime();
+  return time.decimal;
 }
 
 // ===========================================
@@ -141,6 +154,7 @@ function setScheduleCheck(enabled) {
   if (enabled) {
     logger.info(`✅ Verificación de horario ACTIVADA`);
     logger.info(`   El bot verificará el horario de atención (8:00 AM - 4:30 PM)`);
+    logger.info(`   Zona horaria: ${timezone.SYSTEM_TIMEZONE}`);
   } else {
     logger.warn(`⚠️ Verificación de horario DESACTIVADA`);
     logger.warn(`   El bot responderá SIN verificar el horario`);
@@ -167,16 +181,19 @@ function isScheduleCheckEnabled() {
 
 /**
  * Obtiene el estado actual del control de horario
+ * ✅ ACTUALIZADO: Incluye zona horaria fija
  *
  * @returns {Object} Estado
  */
 function getScheduleCheckStatus() {
+  const time = getCurrentTime();
   return {
     enabled: scheduleCheckEnabled,
     simulatedTime: simulatedTime,
     isSimulationActive: isSimulationActive(),
-    currentTime: getCurrentTime().toLocaleTimeString(),
-    currentDecimal: getCurrentTimeDecimal()
+    currentTime: time.timeString,
+    currentDecimal: time.decimal,
+    timezone: timezone.SYSTEM_TIMEZONE
   };
 }
 

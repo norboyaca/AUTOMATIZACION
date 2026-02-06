@@ -1,0 +1,182 @@
+{
+  "files": [
+    {
+      "id": "1769649942736",
+      "fileName": "1769649942720_Proceso DemocrÃ¡tico DEFINITIVO.txt",
+      "originalName": "Proceso DemocrÃ¡tico DEFINITIVO.txt",
+      "type": "txt",
+      "size": 8653,
+      "chunksCount": 2,
+      "uploadDate": "2026-01-29T01:25:42.736Z"
+    },
+    {
+      "id": "1769649943056",
+      "fileName": "1769649942752_RESOLUCION-No-001-ENE-13-DE-2026.pdf",
+      "originalName": "RESOLUCION-No-001-ENE-13-DE-2026.pdf",
+      "type": "pdf",
+      "size": 410633,
+      "chunksCount": 6,
+      "uploadDate": "2026-01-29T01:25:43.056Z"
+    },
+    {
+      "id": "1769649943204",
+      "fileName": "1769649943076_REGLAMENTO-DE-ELECCION-DE-DELEGADOS-2026-2029.pdf",
+      "originalName": "REGLAMENTO-DE-ELECCION-DE-DELEGADOS-2026-2029.pdf",
+      "type": "pdf",
+      "size": 441963,
+      "chunksCount": 12,
+      "uploadDate": "2026-01-29T01:25:43.204Z"
+    },
+    {
+      "id": "1769649943403",
+      "fileName": "1769649943297_CRONOGRAMA-OFICIAL.pdf",
+      "originalName": "CRONOGRAMA-OFICIAL.pdf",
+      "type": "pdf",
+      "size": 320423,
+      "chunksCount": 7,
+      "uploadDate": "2026-01-29T01:25:43.403Z"
+    },
+    {
+      "id": "1769795947156",
+      "fileName": "1769795947143_ULTIMAS PREGUNTAS.txt",
+      "originalName": "ULTIMAS PREGUNTAS.txt",
+      "type": "txt",
+      "size": 1763,
+      "chunksCount": 2,
+      "uploadDate": "2026-01-30T17:59:07.156Z"
+    },
+    {
+      "id": "1770152517847",
+      "fileName": "1770152517787_ULTIMAS PREGUNTAS.txt",
+      "originalName": "ULTIMAS PREGUNTAS.txt",
+      "type": "txt",
+      "size": 1763,
+      "chunksCount": 5,
+      "uploadDate": "2026-02-03T21:01:57.846Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770152517787_ULTIMAS PREGUNTAS.txt"
+    },
+    {
+      "id": "1770152517869",
+      "fileName": "1770152517858_Proceso DemocrÃ¡tico DEFINITIVO.txt",
+      "originalName": "Proceso DemocrÃ¡tico DEFINITIVO.txt",
+      "type": "txt",
+      "size": 8653,
+      "chunksCount": 29,
+      "uploadDate": "2026-02-03T21:01:57.869Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770152517858_Proceso DemocrÃ¡tico DEFINITIVO.txt"
+    },
+    {
+      "id": "1770167980343",
+      "fileName": "1770167980324_ð§ Perfil del niÃ±o.txt",
+      "originalName": "ð§ Perfil del niÃ±o.txt",
+      "type": "txt",
+      "size": 1319,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-04T01:19:40.343Z",
+      "stageId": null,
+      "relativePath": "1770167980324_ð§ Perfil del niÃ±o.txt"
+    },
+    {
+      "id": "1770168591678",
+      "fileName": "1770168591662_ð§ Perfil del niÃ±o.txt",
+      "originalName": "ð§ Perfil del niÃ±o.txt",
+      "type": "txt",
+      "size": 1319,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-04T01:29:51.678Z",
+      "stageId": null,
+      "relativePath": "1770168591662_ð§ Perfil del niÃ±o.txt"
+    },
+    {
+      "id": "1770168801631",
+      "fileName": "1770168801617_ð§ Perfil del niÃ±o.txt",
+      "originalName": "ð§ Perfil del niÃ±o.txt",
+      "type": "txt",
+      "size": 1319,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-04T01:33:21.630Z",
+      "stageId": null,
+      "relativePath": "1770168801617_ð§ Perfil del niÃ±o.txt"
+    },
+    {
+      "id": "1770179893841",
+      "fileName": "1770179893824_INFORMACION-COMPLETA-DELEGADOS-NORBOY-2026.txt",
+      "originalName": "INFORMACION-COMPLETA-DELEGADOS-NORBOY-2026.txt",
+      "type": "txt",
+      "size": 7574,
+      "chunksCount": 48,
+      "uploadDate": "2026-02-04T04:38:13.840Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770179893824_INFORMACION-COMPLETA-DELEGADOS-NORBOY-2026.txt"
+    },
+    {
+      "id": "1770179893867",
+      "fileName": "1770179893856_FAQ-ELECCION-DELEGADOS-NORBOY-2026.txt",
+      "originalName": "FAQ-ELECCION-DELEGADOS-NORBOY-2026.txt",
+      "type": "txt",
+      "size": 7741,
+      "chunksCount": 67,
+      "uploadDate": "2026-02-04T04:38:13.867Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770179893856_FAQ-ELECCION-DELEGADOS-NORBOY-2026.txt"
+    },
+    {
+      "id": "1770180275243",
+      "fileName": "1770180275177_CRONOGRAMA-DETALLADO-COMPLETO-NORBOY-2026.txt",
+      "originalName": "CRONOGRAMA-DETALLADO-COMPLETO-NORBOY-2026.txt",
+      "type": "txt",
+      "size": 10051,
+      "chunksCount": 54,
+      "uploadDate": "2026-02-04T04:44:35.243Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770180275177_CRONOGRAMA-DETALLADO-COMPLETO-NORBOY-2026.txt"
+    },
+    {
+      "id": "1770180275320",
+      "fileName": "1770180275256_FAQ-CRONOGRAMA-COMPLETO-NORBOY-2026.txt",
+      "originalName": "FAQ-CRONOGRAMA-COMPLETO-NORBOY-2026.txt",
+      "type": "txt",
+      "size": 9822,
+      "chunksCount": 77,
+      "uploadDate": "2026-02-04T04:44:35.320Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770180275256_FAQ-CRONOGRAMA-COMPLETO-NORBOY-2026.txt"
+    },
+    {
+      "id": "1770180614808",
+      "fileName": "1770180614727_REGLAMENTO-COMPLETO-REFERENCIA-NORBOY-2026.txt",
+      "originalName": "REGLAMENTO-COMPLETO-REFERENCIA-NORBOY-2026.txt",
+      "type": "txt",
+      "size": 13186,
+      "chunksCount": 87,
+      "uploadDate": "2026-02-04T04:50:14.808Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770180614727_REGLAMENTO-COMPLETO-REFERENCIA-NORBOY-2026.txt"
+    },
+    {
+      "id": "1770180614896",
+      "fileName": "1770180614824_FAQ-REGLAMENTO-ELECCION-NORBOY-2026.txt",
+      "originalName": "FAQ-REGLAMENTO-ELECCION-NORBOY-2026.txt",
+      "type": "txt",
+      "size": 10400,
+      "chunksCount": 84,
+      "uploadDate": "2026-02-04T04:50:14.896Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770180614824_FAQ-REGLAMENTO-ELECCION-NORBOY-2026.txt"
+    },
+    {
+      "id": "1770219494635",
+      "fileName": "1770219494556_RESUMEN-FECHAS-NORBOY-2026.txt",
+      "originalName": "RESUMEN-FECHAS-NORBOY-2026.txt",
+      "type": "txt",
+      "size": 5268,
+      "chunksCount": 30,
+      "uploadDate": "2026-02-04T15:38:14.634Z",
+      "stageId": "stage_1",
+      "relativePath": "elegimos-juntos-2026-2029/1770219494556_RESUMEN-FECHAS-NORBOY-2026.txt"
+    }
+  ],
+  "lastUpdate": "2026-02-04T15:38:14.635Z"
+}

@@ -1,0 +1,17 @@
+{
+  "573028599105": {
+    "phoneNumber": "573028599105",
+    "userId": "573028599105@s.whatsapp.net",
+    "name": "David Castella",
+    "reason": "Spam repetitivo (4 repeticiones)",
+    "consecutiveCount": 4,
+    "blockedAt": 1770351804320,
+    "blockedAtFormatted": "2026-02-05 23:23:24",
+    "timezone": "America/Bogota",
+    "totalBlockedMessages": 1,
+    "lastMessage": "👋 ¡Hola! Soy tu asistente virtual, te doy la bienvenida a Claro Empresas y Negocios. ✨ El ícono de ",
+    "active": true,
+    "reactivatedAt": null,
+    "reactivatedBy": null
+  }
+}

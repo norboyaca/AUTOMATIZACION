@@ -20,6 +20,7 @@ const chatService = require('../services/chat.service');
 const advisorControlService = require('../services/advisor-control.service');
 const timeSimulation = require('../services/time-simulation.service');
 const numberControlService = require('../services/number-control.service');
+const spamControlService = require('../services/spam-control.service');
 const { requireAuth } = require('../middlewares/auth.middleware');
 const logger = require('../utils/logger');
 
@@ -645,12 +646,14 @@ router.get('/simulated-time', requireAuth, (req, res) => {
     const simulated = timeSimulation.getSimulatedTime();
     const isActive = timeSimulation.isSimulationActive();
 
+    const currentTime = timeSimulation.getCurrentTime();
     res.json({
       success: true,
       isSimulationActive: isActive,
       simulatedTime: simulated,
-      currentRealTime: new Date().toLocaleTimeString(),
-      currentEffectiveTime: timeSimulation.getCurrentTime().toLocaleTimeString()
+      currentRealTime: currentTime.timeString,
+      currentEffectiveTime: currentTime.timeString,
+      timezone: currentTime.timezone
     });
 
   } catch (error) {
@@ -928,6 +931,118 @@ router.get('/number-control/:phoneNumber/check', requireAuth, (req, res) => {
     });
   } catch (error) {
     logger.error('Error verificando número:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ===========================================
+// ENDPOINTS PARA CONTROL ANTI-SPAM
+// ===========================================
+
+/**
+ * GET /api/conversations/spam-control
+ *
+ * Obtiene estadísticas y lista de bloqueos por spam
+ */
+router.get('/spam-control', requireAuth, (req, res) => {
+  try {
+    const stats = spamControlService.getStats();
+    const blocks = spamControlService.getSpamBlocks();
+
+    res.json({
+      success: true,
+      stats,
+      blocks,
+      total: blocks.length
+    });
+  } catch (error) {
+    logger.error('Error obteniendo datos anti-spam:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/conversations/spam-control/active
+ *
+ * Obtiene solo los bloqueos activos por spam
+ */
+router.get('/spam-control/active', requireAuth, (req, res) => {
+  try {
+    const blocks = spamControlService.getSpamBlocks(true);
+
+    res.json({
+      success: true,
+      blocks,
+      total: blocks.length
+    });
+  } catch (error) {
+    logger.error('Error obteniendo bloqueos activos de spam:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/conversations/spam-control/:phoneNumber/reactivate
+ *
+ * Reactiva la IA para un número bloqueado por spam
+ *
+ * Body:
+ * {
+ *   "reactivatedBy": "Nombre del admin"
+ * }
+ */
+router.post('/spam-control/:phoneNumber/reactivate', requireAuth, (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+    const { reactivatedBy } = req.body;
+
+    const result = spamControlService.reactivateFromSpam(
+      phoneNumber,
+      reactivatedBy || 'Admin'
+    );
+
+    if (result.success) {
+      logger.info(`🟢 IA reactivada desde dashboard para ${phoneNumber} por ${reactivatedBy || 'Admin'}`);
+    }
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Error reactivando IA por spam:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/conversations/spam-control/:phoneNumber
+ *
+ * Obtiene el estado de spam de un número específico
+ */
+router.get('/spam-control/:phoneNumber', requireAuth, (req, res) => {
+  try {
+    const { phoneNumber } = req.params;
+    const block = spamControlService.getSpamBlock(phoneNumber);
+    const isBlocked = spamControlService.isBlockedBySpam(phoneNumber);
+
+    res.json({
+      success: true,
+      phoneNumber,
+      isBlockedBySpam: isBlocked,
+      block
+    });
+  } catch (error) {
+    logger.error('Error verificando spam:', error);
     res.status(500).json({
       success: false,
       error: error.message

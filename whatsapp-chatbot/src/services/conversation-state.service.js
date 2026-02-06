@@ -69,13 +69,15 @@ const conversations = new Map();
  * @param {string} userId - ID del usuario de WhatsApp
  * @param {Object} options - Opciones adicionales
  * @param {string} options.whatsappName - Nombre del contacto (pushName)
+ * @param {string} options.realPhoneNumber - Número real del contacto (wa_id del contacto)
  * @returns {Object} Conversación
  */
 function getOrCreateConversation(userId, options = {}) {
-  const { whatsappName } = options;
+  const { whatsappName, realPhoneNumber } = options;
 
   if (!conversations.has(userId)) {
-    const phoneNumber = extractPhoneNumber(userId);
+    // ✅ CORRECCIÓN: Usar el número real si está disponible, sino extraer del userId
+    const phoneNumber = realPhoneNumber || extractPhoneNumber(userId);
 
     const conversation = {
       userId,
@@ -121,12 +123,25 @@ function getOrCreateConversation(userId, options = {}) {
       logger.info(`Nueva conversación creada: ${userId}`);
     }
   } else {
-    // ✅ CORREGIDO: Si la conversación ya existe pero no tiene nombre, actualizarlo
+    // ✅ CORREGIDO: Si la conversación ya existe, actualizar nombre y/o número si es necesario
     const conversation = conversations.get(userId);
+
+    // Actualizar nombre de WhatsApp si no existe
     if (whatsappName && whatsappName.trim() && !conversation.whatsappName) {
       conversation.whatsappName = whatsappName.trim();
       conversation.whatsappNameUpdatedAt = Date.now();
       logger.info(`✅ Nombre actualizado para conversación existente ${userId}: "${whatsappName}"`);
+    }
+
+    // ✅ NUEVO: Actualizar número de teléfono si se proporciona uno real diferente
+    // Esto corrige casos donde el userId tiene un wa_id interno pero ahora tenemos el número real
+    if (realPhoneNumber && realPhoneNumber !== conversation.phoneNumber) {
+      const oldPhone = conversation.phoneNumber;
+      // Solo actualizar si el número nuevo parece ser más correcto (menor longitud = número real vs wa_id interno)
+      if (realPhoneNumber.length <= 13 && oldPhone.length > 13) {
+        conversation.phoneNumber = realPhoneNumber;
+        logger.info(`✅ Número corregido para ${userId}: ${oldPhone} → ${realPhoneNumber}`);
+      }
     }
   }
 

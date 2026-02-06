@@ -155,9 +155,20 @@ const generateTextResponse = async (userId, message, options = {}) => {
     if (hasUploadedDocs) {
       logger.info(`📚 Hay ${uploadedFiles.length} documento(s) subido(s), usando IA con contexto completo`);
       logger.info(`📄 Documentos: ${uploadedFiles.map(f => f.originalName).join(', ')}`);
+      logger.info(`🔍 openAIAvailable: ${openAIAvailable}`);
+
       if (openAIAvailable) {
         try {
+          logger.info(`🚀 Llamando a generateWithAI...`);
           const aiResponse = await generateWithAI(userId, message, options);
+          logger.info(`✅ generateWithAI retornó respuesta (tipo: ${typeof aiResponse})`);
+
+          // ✅ CRÍTICO: Verificar si es una respuesta de escalación
+          if (aiResponse && typeof aiResponse === 'object' && aiResponse.type === 'escalation_no_info') {
+            logger.warn('⚠️ generateWithAI retornó escalación, propagando...');
+            return aiResponse;
+          }
+
           logger.info('✅ Respuesta: OpenAI con documentos');
           return aiResponse;
         } catch (error) {
@@ -165,6 +176,8 @@ const generateTextResponse = async (userId, message, options = {}) => {
           openAIAvailable = false;
           setTimeout(() => { openAIAvailable = true; }, 5 * 60 * 1000);
         }
+      } else {
+        logger.warn('⚠️ openAIAvailable es FALSE, no se llamará a generateWithAI');
       }
     } else {
       logger.info('📭 No hay documentos subidos, usando flujo normal');
@@ -436,20 +449,10 @@ const generateWithAI = async (userId, message, options = {}) => {
     logger.warn(`   Esto indica que la IA NO encontró información relevante`);
     logger.warn(`   Respuesta: "${cleanedResponse.substring(0, 100)}..."`);
     logger.warn(`   Calidad del contexto: ${contextQuality}, Fragmentos encontrados: ${searchResults.length}`);
+    logger.warn(`   ✅ ESCALANDO DIRECTAMENTE - No se intentará recuperación`);
 
-    // ✅ NUEVO: Si la calidad del contexto es alta o media, intentar respuesta alternativa
-    if (contextQuality === 'high' || contextQuality === 'medium') {
-      logger.info(`🔄 Intentando respuesta alternativa con contexto de calidad ${contextQuality.toUpperCase()}`);
-
-      // Generar respuesta usando el mejor fragmento encontrado
-      const topFragment = searchResults[0].text;
-      const fallbackResponse = `Según la información disponible sobre el proceso electoral:\n\n${topFragment.substring(0, 300)}...\n\nPara más detalles específicos, un asesor puede atenderte.`;
-
-      logger.info(`✅ Respuesta alternativa generada usando fragmento top`);
-      return fallbackResponse;
-    }
-
-    // Retornar el mensaje de escalación directamente
+    // ✅ CRÍTICO: Escalar directamente sin intentar recuperación
+    // Si la IA respondió con el mensaje de escalación, no hay razón para volver a intentar
     return {
       type: 'escalation_no_info',
       text: NO_INFO_MESSAGE,
@@ -489,18 +492,11 @@ const generateWithAI = async (userId, message, options = {}) => {
     logger.warn(`   Respuesta: "${cleanedResponse.substring(0, 100)}..."`);
     logger.warn(`   Patrón detectado: "${lowConfidencePatterns.find(p => normalizedResponse.includes(p))}"`);
     logger.warn(`   Calidad del contexto: ${contextQuality}, Fragmentos encontrados: ${searchResults.length}`);
+    logger.warn(`   ✅ ESCALANDO DIRECTAMENTE - No se intentará recuperación`);
 
-    // ✅ NUEVO: Si la calidad del contexto es buena, intentar con el mejor fragmento
-    if (contextQuality === 'high' || (contextQuality === 'medium' && searchResults.length >= 3)) {
-      logger.info(`🔄 Recuperando: usando mejor fragmento encontrado (score: ${searchResults[0].score})`);
-
-      const topFragment = searchResults[0].text;
-      const fallbackResponse = `${topFragment.substring(0, 500)}...\n\nSi necesitas más detalles, un asesor puede ayudarte.`;
-
-      return fallbackResponse;
-    }
-
-    // Retornar objeto especial de escalación
+    // ✅ CRÍTICO: Escalar directamente sin intentar recuperación
+    // La IA ya revisó los fragmentos e indicó que no hay información suficiente
+    // No hay razón para volver a intentar con la IA
     return {
       type: 'escalation_no_info',
       text: NO_INFO_MESSAGE,
@@ -521,14 +517,32 @@ const generateWithAI = async (userId, message, options = {}) => {
 
 /**
  * Detecta si es un saludo
+ * ✅ MEJORADO: Case-insensitive y más variaciones
  */
 const isGreeting = (text) => {
+  const normalizedText = text.toLowerCase().trim();
+
   const greetings = [
+    // Formas estándar
     'hola', 'buenos dias', 'buenas tardes', 'buenas noches',
+    'buen dia', 'buen dia', 'buenos dias',
+
+    // Informales
     'hey', 'hi', 'hello', 'saludos', 'que tal', 'buenas',
-    'ola', 'holi', 'holaa', 'holaaa'
+
+    // Variaciones comunes con errores tipográficos
+    'ola', 'holi', 'holaa', 'holaaa', 'hla', 'hlaa', 'hol',
+    'buenas', 'bueno', 'bno', 'bn'
   ];
-  return greetings.some(g => text === g || text.startsWith(g + ' ') || text.startsWith(g + ','));
+
+  // Verificar coincidencias exactas o que comiencen con el saludo
+  return greetings.some(g =>
+    normalizedText === g ||
+    normalizedText.startsWith(g + ' ') ||
+    normalizedText.startsWith(g + ',') ||
+    normalizedText.startsWith(g + '.') ||
+    normalizedText.startsWith(g + '!')
+  );
 };
 
 /**
@@ -571,7 +585,7 @@ Escríbanos su pregunta, estamos para servirle 👍`;
 /**
  * Mensaje cuando la IA no tiene información suficiente
  */
-const NO_INFO_MESSAGE = 'Comprendo, sumercé. 👩‍💼\n\nEl asesor de NORBOY encargado de este tema le atenderá en breve...';
+const NO_INFO_MESSAGE = 'El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...';
 
 /**
  * ✅ CRÍTICO: FUNCIÓN ELIMINADA - NO MÁS RESPUESTAS INVENTADAS
@@ -747,9 +761,7 @@ const cleanQuestionMarks = (text) => {
 const getEscalationMessage = (escalation) => {
   return {
     type: 'escalation',
-    text: `Comprendo, sumercé. 👩‍💼
-
-El asesor de NORBOY encargado de este tema le atenderá en breve...`,
+    text: `El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...`,
     needsHuman: true,
     escalation
   };
@@ -778,7 +790,7 @@ Lo atenderemos con gusto:
 /**
  * Construye mensajes para IA
  *
- * ✅ MEJORADO: Prompt más flexible que permite respuestas inteligentes
+ * ✅ MEJORADO: Prompt más flexible con fragmentos numerados y scores de relevancia
  * ✅ NUEVO: Ajusta el prompt según la calidad del contexto encontrado
  */
 const buildMessages = (userMessage, history = [], context = '', options = {}, contextInfo = {}) => {
@@ -793,48 +805,8 @@ const buildMessages = (userMessage, history = [], context = '', options = {}, co
   });
 
   if (context) {
-    // ✅ OPTIMIZADO: Prompt ajustado dinámicamente según calidad del contexto
-    // Usar formateo del RAG optimizado si está disponible
-    let promptContext = '';
-
-    // Alta y media calidad: confiar más en los documentos
-    if (contextQuality === 'high' || contextQuality === 'medium') {
-      // Contexto de buena calidad: ser más exigente usando la información
-      promptContext = `📚 INFORMACIÓN DE DOCUMENTOS (CALIDAD: ${contextQuality.toUpperCase()}):
-Se encontraron ${searchResults.length} fragmentos relevantes en los documentos.
-
-${context}
-
-INSTRUCCIONES OBLIGATORIAS (contexto de calidad ${contextQuality.toUpperCase()}):
-1. ✅ DEBES USAR LA INFORMACIÓN DE LOS DOCUMENTOS - NO LA IGNORES
-2. Los fragmentos incluyen PREGUNTAS y RESPUESTAS de un banco de preguntas oficiales
-3. Si encuentras una respuesta en los documentos, ÚSALA directamente
-4. NO busques coincidencia EXACTA de palabras - busca SIMILITUD DE SIGNIFICADO
-5. Si el documento dice "9 al 14 de febrero" y preguntan "qué día son los votos", RESPONDE con esa fecha
-6. NO digas "no tengo información" si la información ESTÁ en los fragmentos
-7. Solo escala al asesor si la pregunta es COMPLETAMENTE AJENA a NORBOY o cooperativas
-8. Responde siempre de manera amable usando "sumercé"
-
-EJEMPLOS DE CÓMO USAR LA INFORMACIÓN:
-- Si preguntan "¿cuándo es la elección?" y el documento dice "Del 9 al 14 de febrero de 2026", responde: "Sumercé, la elección es del 9 al 14 de febrero de 2026"
-- Si preguntan "¿qué día se vota?" y el documento menciona "votación: 9 al 14 de febrero", responde con esa fecha
-- Si la información está, úsala. NO busques excusas para no responder.`;
-    } else {
-      // Contexto de baja calidad: aún así intentar usar la información
-      promptContext = `📚 INFORMACIÓN DE DOCUMENTOS DISPONIBLE:\n${context}\n\nINSTRUCCIONES:
-1. PRIORIDAD MÁXIMA: Usa PRIMERO la información de los documentos proporcionados arriba
-2. Aunque la similitud no sea perfecta, si encuentras información relacionada, ÚSALA
-3. NO busques coincidencia EXACTA - busca SIMILITUD DE SIGNIFICADO
-4. Si preguntan por "votos" y el documento menciona "elección" o "votación", es LO MISMO - usa esa info
-5. Solo si NO HAY NADA RELACIONADO después de revisar TODO, di: "Estamos verificando esa información. Un asesor te contestará en breve."
-6. Responde siempre de manera amable usando "sumercé" para dirigirte al usuario
-
-IMPORTANTE - NO SEAS TAN EXIGENTE:
-- NO busques coincidencia PERFECTA de palabras
-- "Votación" = "Elección" = "Votos" = SINÓNIMOS - úsalos como iguales
-- Si el documento tiene una fecha, úsala aunque la pregunta no sea idéntica
-- Es mejor responder con información aproximada que decir "no tengo información"`;
-    }
+    // ✅ MEJORADO: Construir prompt con fragmentos numerados y scores
+    const promptContext = buildImprovedPrompt(userMessage, searchResults, contextQuality);
 
     messages.push({
       role: 'system',
@@ -861,6 +833,71 @@ NO respondas sobre temas ajenos a la cooperativa (ciencia, historia, geografía,
   messages.push({ role: 'user', content: userMessage });
 
   return messages;
+};
+
+/**
+ * Construye un prompt mejorado con fragmentos numerados y scores
+ * ✅ NUEVO: Formato estructurado para mejor comprensión de la IA
+ */
+const buildImprovedPrompt = (userMessage, searchResults, contextQuality) => {
+  // Calcular score promedio y máximo
+  const scores = searchResults.map(r => r.score).filter(s => s !== undefined);
+  const topScore = scores.length > 0 ? Math.max(...scores) : 0;
+
+  // Construir fragmentos con numeración
+  const fragmentsText = searchResults
+    .map((result, index) => {
+      const scoreInfo = result.score !== undefined ? ` (Relevancia: ${(result.score * 100).toFixed(0)}%)` : '';
+      return `
+[FRAGMENTO ${index + 1}]${scoreInfo}
+${result.text}
+---`;
+    })
+    .join('\n');
+
+  // Instrucciones según calidad
+  let instructions = '';
+
+  if (contextQuality === 'high' && topScore > 0.6) {
+    // Alta confianza
+    instructions = `
+INSTRUCCIONES:
+- La información proporcionada es altamente relevante
+- Responde de forma clara y directa usando estos fragmentos
+- Cita datos específicos (fechas, números, lugares) cuando sea apropiado
+- Si el documento dice "9 al 14 de febrero" y preguntan "qué día son los votos", RESPONDE con esa fecha`;
+  }
+  else if (contextQuality === 'medium' || (contextQuality === 'high' && topScore < 0.6)) {
+    // Confianza media
+    instructions = `
+INSTRUCCIONES:
+- Usa la información disponible para responder
+- Si la información es insuficiente para responder completamente, indícalo
+- Sé honesto sobre las limitaciones de los fragmentos proporcionados
+- Si hace falta información crucial, sugiere contactar a NORBOY`;
+  }
+  else {
+    // Baja confianza
+    instructions = `
+INSTRUCCIONES:
+- Los fragmentos disponibles no parecen responder directamente la pregunta
+- Genera una respuesta cortés indicando que no tienes esa información específica
+- Sugiere contactar directamente a NORBOY para esta consulta
+- Formato sugerido: "Sumercé, no encuentro información específica sobre [tema] en los documentos disponibles. Le recomiendo contactar a NORBOY en..."`;
+  }
+
+  return `
+PREGUNTA DEL USUARIO:
+"${userMessage}"
+
+FRAGMENTOS RECUPERADOS DE LOS DOCUMENTOS:
+${fragmentsText}
+
+${instructions}
+
+NOTA IMPORTANTE: Si los fragmentos contienen caracteres como "Ã©", "Ã³", "Ã±", interprétalos como caracteres especiales españoles (é, ó, ñ) y comprende el contexto.
+
+RESPUESTA:`;
 };
 
 /**

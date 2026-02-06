@@ -31,6 +31,11 @@ const whatsappWeb = whatsappProvider === 'baileys'
 logger.info(`Usando WhatsApp provider: ${whatsappProvider}`);
 
 const chatService = require('./src/services/chat.service');
+const spamControlService = require('./src/services/spam-control.service');
+const numberControlService = require('./src/services/number-control.service');
+
+// ✅ Inyectar numberControlService en spam-control (evita dependencia circular)
+spamControlService.setNumberControlService(numberControlService);
 
 // ✅ NUEVO: Servicio de embeddings para inicialización automática
 const embeddingsService = require('./src/services/embeddings.service');
