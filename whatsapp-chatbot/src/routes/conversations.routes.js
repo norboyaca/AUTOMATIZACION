@@ -12,6 +12,10 @@
  * - POST /api/conversations/:userId/take - Asesor toma una conversación
  * - POST /api/conversations/:userId/release - Asesor libera una conversación
  * - POST /api/conversations/cleanup - Limpia conversaciones expiradas
+ *
+ * ✅ NUEVOS ENDPOINTS MULTIMEDIA:
+ * - POST /api/conversations/upload-media - Subir archivo multimedia
+ * - POST /api/conversations/:userId/send-media - Enviar mensaje multimedia
  */
 
 const express = require('express');
@@ -21,7 +25,10 @@ const advisorControlService = require('../services/advisor-control.service');
 const timeSimulation = require('../services/time-simulation.service');
 const numberControlService = require('../services/number-control.service');
 const spamControlService = require('../services/spam-control.service');
+const mediaService = require('../services/media.service');  // ✅ NUEVO
+const whatsappProvider = require('../providers/whatsapp');  // ✅ NUEVO para fetchChats
 const { requireAuth } = require('../middlewares/auth.middleware');
+const { single } = require('../middlewares/upload.middleware');  // ✅ NUEVO
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -34,10 +41,12 @@ const router = express.Router();
  * Query params:
  * - status: filter by status (active, expired, new_cycle)
  * - consent: filter by consent status (pending, accepted, rejected)
+ * - limit: limitar cantidad de resultados (default: 20 para carga inicial)
+ * - offset: offset para paginación (default: 0)
  */
 router.get('/', requireAuth, (req, res) => {
   try {
-    const { status, consent } = req.query;
+    const { status, consent, limit, offset } = req.query;
 
     let conversations = conversationStateService.getAllConversations();
 
@@ -54,8 +63,23 @@ router.get('/', requireAuth, (req, res) => {
     // Ordenar por última interacción (más reciente primero)
     conversations.sort((a, b) => b.lastInteraction - a.lastInteraction);
 
+    // ===========================================
+    // ✅ NUEVO: Paginación para carga inicial
+    // ===========================================
+    const totalBeforeLimit = conversations.length;
+    const limitNum = limit ? parseInt(limit, 10) : null; // null = sin límite
+    const offsetNum = offset ? parseInt(offset, 10) : 0;
+
+    // Aplicar offset
+    let paginatedConversations = conversations.slice(offsetNum);
+
+    // Aplicar límite solo si se especifica
+    if (limitNum !== null) {
+      paginatedConversations = paginatedConversations.slice(0, limitNum);
+    }
+
     // Enriquecer con información del control de números
-    conversations = conversations.map(conv => {
+    paginatedConversations = paginatedConversations.map(conv => {
       const iaCheck = numberControlService.shouldIARespond(conv.phoneNumber);
       const controlRecord = numberControlService.getControlledNumber(conv.phoneNumber);
 
@@ -79,8 +103,10 @@ router.get('/', requireAuth, (req, res) => {
 
     res.json({
       success: true,
-      conversations,
-      total: conversations.length
+      conversations: paginatedConversations,
+      total: totalBeforeLimit,
+      returned: paginatedConversations.length,
+      hasMore: (offsetNum + paginatedConversations.length) < totalBeforeLimit
     });
   } catch (error) {
     logger.error('Error obteniendo conversaciones:', error);
@@ -467,18 +493,22 @@ router.get('/:userId/bot-status', requireAuth, async (req, res) => {
 /**
  * GET /api/conversations/:userId/messages
  *
- * Obtiene el historial COMPLETO de mensajes de una conversación activa
+ * Obtiene el historial de mensajes de una conversación con paginación
  *
- * ✅ CAMBIADO: Ahora devuelve TODOS los mensajes por defecto
- * - No se limita a 4 mensajes
- * - Solo devuelve mensajes de la conversación activa actual (no días anteriores)
- * - Query params opcionles:
- *   - limit: para fines especiales de debugging
- *   - full: true para cargar historial completo (ahora es el default)
+ * ✅ OPCIÓN 3 - HÍBRIDA:
+ * - Primero busca en memoria (últimos 50)
+ * - Si necesita más, busca en DynamoDB
+ * - Fusiona resultados transparentemente
+ *
+ * Query params:
+ *   - limit: cantidad de mensajes a devolver (default: 20)
+ *   - before: cursor/timestamp para cargar mensajes anteriores
+ *   - full: true para cargar historial completo sin paginación
  */
 router.get('/:userId/messages', requireAuth, async (req, res) => {
   try {
     const { userId } = req.params;
+    const { limit, before, full } = req.query;
     const conversation = conversationStateService.getConversation(userId);
 
     if (!conversation) {
@@ -488,42 +518,108 @@ router.get('/:userId/messages', requireAuth, async (req, res) => {
       });
     }
 
-    // ✅ CAMBIADO: Por defecto cargar TODOS los mensajes (ilimitado)
-    // Solo se puede limitar explícitamente con query param para debugging
-    const explicitLimit = req.query.limit ? parseInt(req.query.limit, 10) : null;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    let allMessages = conversation.messages || [];
+    let source = 'memory';
 
     // ===========================================
-    // ✅ CORRECCIÓN PROBLEMA 1 & 2: No combinar advisorMessages
+    // ✅ OPCIÓN 3 - HÍBRIDA: Buscar en DynamoDB si:
+    // - Se pide 'full=true', O
+    // - No hay suficientes mensajes en memoria, O
+    // - El cursor 'before' es anterior al mensaje más antiguo en memoria
     // ===========================================
-    // ANTES: Se combinaba conversation.messages + advisorMessages
-    //        Esto causaba duplicación porque advisorMessages también
-    //        estaba guardado en conversation.messages
-    //
-    // AHORA: Solo usar conversation.messages que YA incluye todos:
-    //        - Mensajes de usuario (sender='user')
-    //        - Mensajes del bot (sender='bot')
-    //        - Mensajes de asesores (sender='admin')
 
-    const allMessages = conversation.messages || [];
+    const memoryMessages = allMessages;
+    const oldestMemoryTimestamp = memoryMessages.length > 0
+      ? Math.min(...memoryMessages.map(m => m.timestamp || 0))
+      : Infinity;
 
-    // Ordenar por timestamp (cronológicamente)
-    allMessages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const needDynamoDB = full === 'true' ||
+      (before && parseInt(before, 10) < oldestMemoryTimestamp) ||
+      (memoryMessages.length < limitNum && full === 'true');
 
-    // ✅ CAMBIADO: Por defecto devolver TODOS los mensajes
-    const messagesToReturn = explicitLimit
-      ? allMessages.slice(-explicitLimit)  // Solo si se pide explícitamente
-      : allMessages;  // Por defecto: todos los mensajes
+    if (needDynamoDB) {
+      try {
+        const conversationRepository = require('../repositories/conversation.repository');
+        logger.info(`📊 [DYNAMODB] Consultando mensajes para ${userId}...`);
 
-    logger.info(`📜 Mensajes cargados para ${userId}: ${messagesToReturn.length}/${allMessages.length} mensajes`);
+        // Obtener historial desde DynamoDB
+        const dynamoMessages = await conversationRepository.getHistory(userId, {
+          limit: full === 'true' ? 1000 : limitNum + 50 // Buffer para paginación
+        });
+
+        // Convertir formato DynamoDB al formato esperado por el frontend
+        const formattedDynamoMessages = dynamoMessages.map(msg => ({
+          id: msg.id || msg.messageId,
+          conversationId: msg.conversationId || userId,
+          sender: msg.direction === 'incoming' ? 'user' : 'bot',
+          message: msg.content?.text || '[Multimedia]',
+          timestamp: msg.timestamp || Date.parse(msg.createdAt),
+          type: msg.metadata?.originalType || 'text'
+        }));
+
+        // Usar mensajes de DynamoDB
+        allMessages = formattedDynamoMessages;
+        source = 'dynamodb';
+        logger.info(`✅ [DYNAMODB] ${allMessages.length} mensajes obtenidos`);
+
+      } catch (dbError) {
+        logger.error(`❌ [DYNAMODB] Error consultando mensajes:`, dbError.message);
+        // Fallback a memoria si DynamoDB falla
+        allMessages = memoryMessages;
+        source = 'memory (fallback)';
+      }
+    }
+
+    // ===========================================
+    // Paginación
+    // ===========================================
+    // Ordenar por timestamp DESC (más recientes primero) para paginación
+    const sortedMessages = [...allMessages].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+    let messagesToReturn = sortedMessages;
+    let hasMore = false;
+
+    // Si se pide el historial completo, saltar paginación
+    if (full === 'true') {
+      messagesToReturn = sortedMessages;
+      hasMore = false;
+    } else {
+      // Aplicar paginación
+
+      // Si se proporciona cursor 'before', filtrar mensajes más antiguos que ese timestamp
+      if (before) {
+        const beforeTimestamp = parseInt(before, 10);
+        messagesToReturn = sortedMessages.filter(msg => (msg.timestamp || 0) < beforeTimestamp);
+      }
+
+      // Verificar si hay más mensajes
+      hasMore = messagesToReturn.length > limitNum;
+
+      // Aplicar límite
+      messagesToReturn = messagesToReturn.slice(0, limitNum);
+    }
+
+    // Revertir orden para enviar al frontend (cronológico: antiguos arriba)
+    const chronologicalMessages = [...messagesToReturn].reverse();
+
+    // Cursor para la siguiente página (el timestamp del mensaje más antiguo)
+    const nextCursor = messagesToReturn.length > 0
+      ? messagesToReturn[messagesToReturn.length - 1].timestamp
+      : null;
+
+    logger.info(`📜 Mensajes cargados para ${userId}: ${chronologicalMessages.length}/${allMessages.length} (source: ${source}, hasMore: ${hasMore})`);
 
     res.json({
       success: true,
-      messages: messagesToReturn,
+      messages: chronologicalMessages,
       total: allMessages.length,
-      returned: messagesToReturn.length,
-      isLimited: explicitLimit !== null,
+      returned: chronologicalMessages.length,
+      hasMore: hasMore,
+      nextCursor: nextCursor,
       conversationStart: conversation.cycleStart,
-      status: conversation.status
+      status: conversation.status,
+      source: source // Para debug: saber de dónde vinieron los datos
     });
 
   } catch (error) {
@@ -1043,6 +1139,316 @@ router.get('/spam-control/:phoneNumber', requireAuth, (req, res) => {
     });
   } catch (error) {
     logger.error('Error verificando spam:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ===========================================
+// ✅ NUEVOS ENDPOINTS PARA MENSAJES MULTIMEDIA
+// ===========================================
+
+/**
+ * POST /api/conversations/upload-media
+ *
+ * Sube un archivo multimedia (audio, imagen, documento)
+ *
+ * FormData:
+ * - file: El archivo a subir
+ * - type: Tipo de archivo ('audio', 'image', 'document')
+ */
+router.post('/upload-media', requireAuth, single('file'), async (req, res) => {
+  try {
+    const { type } = req.body;
+
+    if (!type || !['audio', 'image', 'document'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Tipo de archivo no válido. Debe ser: audio, image, o document'
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No se proporcionó ningún archivo'
+      });
+    }
+
+    // Guardar archivo usando el servicio de media
+    const savedFile = await mediaService.saveUploadedFile(req.file, type);
+
+    res.json({
+      success: true,
+      file: {
+        url: savedFile.url,
+        filepath: savedFile.filepath,  // ✅ NUEVO: Ruta absoluta para enviar por WhatsApp
+        filename: savedFile.filename,
+        originalname: savedFile.originalname,
+        size: savedFile.size,
+        type: savedFile.type
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error subiendo archivo:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/conversations/:userId/send-media
+ *
+ * Envía un mensaje multimedia a una conversación
+ *
+ * Body:
+ * {
+ *   "media": {
+ *     "type": "audio|image|document",
+ *     "url": "/uploads/audio/file.mp3",
+ *     "filename": "archivo.mp3",
+ *     "size": 12345
+ *   },
+ *   "caption": "Texto opcional (para imágenes/documentos)",
+ *   "advisor": {
+ *     "id": "advisor_123",
+ *     "name": "Juan Pérez",
+ *     "email": "juan@norboy.coop"
+ *   }
+ * }
+ */
+router.post('/:userId/send-media', requireAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { media, caption, advisor } = req.body;
+
+    if (!media || !media.type || !media.url) {
+      return res.status(400).json({
+        success: false,
+        error: 'Datos de media incompletos'
+      });
+    }
+
+    if (!advisor || !advisor.id || !advisor.name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Datos del asesor requeridos'
+      });
+    }
+
+    logger.info(`📨 Enviando mensaje multimedia de asesor a ${userId}`);
+
+    // Enviar mensaje multimedia
+    const result = await advisorControlService.sendAdvisorMediaMessage(
+      userId,
+      advisor,
+      media,
+      caption || ''
+    );
+
+    res.json({
+      success: true,
+      message: result.wasPreviouslyActive
+        ? 'Mensaje multimedia enviado y bot desactivado'
+        : 'Mensaje multimedia enviado (bot ya estaba inactivo)',
+      botActive: result.botActive,
+      status: result.status,
+      sentMessage: result.message
+    });
+
+  } catch (error) {
+    logger.error('Error enviando mensaje multimedia:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Servir archivos estáticos subidos
+router.use('/uploads', express.static(require('path').join(__dirname, '../../uploads')));
+
+// ===========================================
+// ✅ NUEVOS ENDPOINTS PARA CHATS DIRECTOS DE WHATSAPP
+// ===========================================
+
+/**
+ * GET /api/conversations/whatsapp-chats
+ *
+ * Obtiene los chats desde Baileys, memoria o DynamoDB (en ese orden)
+ *
+ * Query params:
+ * - limit: cantidad de chats (default: 20)
+ */
+router.get('/whatsapp-chats', requireAuth, async (req, res) => {
+  try {
+    const { limit } = req.query;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+
+    logger.info(`📱 Obteniendo chats (limit: ${limitNum})`);
+
+    let chats = [];
+    let source = 'none';
+
+    // 1. Intentar obtener desde Baileys
+    const whatsappProvider = require('../providers/whatsapp');
+    chats = await whatsappProvider.fetchChats(limitNum);
+
+    if (chats && chats.length > 0) {
+      source = 'baileys';
+      logger.info(`📱 ${chats.length} chats desde Baileys`);
+    }
+
+    // 2. Si Baileys está vacío, usar memoria
+    if ((!chats || chats.length === 0)) {
+      const memoryConversations = conversationStateService.getAllConversations();
+
+      if (memoryConversations.length > 0) {
+        chats = memoryConversations.map(conv => ({
+          userId: conv.userId,
+          phoneNumber: conv.phoneNumber,
+          whatsappName: conv.whatsappName || 'Sin nombre',
+          registeredName: conv.registeredName || conv.whatsappName || 'Sin nombre',
+          lastMessage: conv.lastMessage || '',
+          lastInteraction: conv.lastInteraction || Date.now(),
+          unreadCount: 0,
+          status: conv.status || 'active',
+          bot_active: conv.bot_active !== undefined ? conv.bot_active : true
+        }));
+        source = 'memory';
+        logger.info(`📱 ${chats.length} chats desde memoria`);
+      }
+    }
+
+    // 3. Si memoria está vacío, cargar desde DynamoDB
+    if ((!chats || chats.length === 0)) {
+      logger.info('📱 Memoria vacía, cargando desde DynamoDB...');
+
+      const conversationRepository = require('../repositories/conversation.repository');
+      const dbConversations = await conversationRepository.findActive({ limit: limitNum });
+
+      if (dbConversations.length > 0) {
+        chats = dbConversations.map(conv => {
+          const data = conv.toObject ? conv.toObject() : conv;
+          const phoneNumber = (data.participantId || '')
+            .replace('@s.whatsapp.net', '')
+            .replace('@g.us', '')
+            .replace('@lid', '');
+          return {
+            userId: data.participantId,
+            phoneNumber: phoneNumber,
+            whatsappName: data.participantName || 'Sin nombre',
+            registeredName: data.participantName || 'Sin nombre',
+            lastMessage: data.lastMessage || '',
+            lastInteraction: data.lastInteraction || data.updatedAt ? new Date(data.updatedAt).getTime() : Date.now(),
+            unreadCount: 0,
+            status: data.status || 'active',
+            bot_active: data.status !== 'advisor_handled'
+          };
+        });
+        source = 'dynamodb';
+        logger.info(`📱 ${chats.length} chats desde DynamoDB`);
+      }
+    }
+
+    // Enriquecer con información del control de números
+    const enrichedChats = chats.map(chat => {
+      const phoneNumber = chat.phoneNumber || '';
+      const iaCheck = numberControlService.shouldIARespond(phoneNumber);
+      const controlRecord = numberControlService.getControlledNumber(phoneNumber);
+
+      // Prioridad de nombres: manual > WhatsApp > Sin nombre
+      const displayName = controlRecord?.name || chat.whatsappName || 'Sin nombre';
+
+      return {
+        ...chat,
+        registeredName: displayName,
+        whatsappName: chat.whatsappName || null,
+        iaControlled: controlRecord !== null,
+        iaActive: iaCheck.shouldRespond,
+        iaControlReason: controlRecord?.reason || null
+      };
+    });
+
+    // Ordenar por última interacción (más recientes primero)
+    enrichedChats.sort((a, b) => (b.lastInteraction || 0) - (a.lastInteraction || 0));
+
+    // Aplicar límite
+    const limitedChats = enrichedChats.slice(0, limitNum);
+
+    res.json({
+      success: true,
+      conversations: limitedChats,
+      total: enrichedChats.length,
+      returned: limitedChats.length,
+      hasMore: enrichedChats.length > limitNum,
+      source: source
+    });
+
+  } catch (error) {
+    logger.error('Error obteniendo chats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/conversations/:userId/whatsapp-messages
+ *
+ * Obtiene mensajes de un chat desde Baileys, Memoria o DynamoDB
+ *
+ * Query params:
+ * - limit: cantidad de mensajes (default: 50)
+ * - cursor: cursor para paginación
+ */
+router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { limit, cursor } = req.query;
+    const limitNum = limit ? parseInt(limit, 10) : 200;
+
+    logger.info(`📜 Obteniendo mensajes para ${userId} (limit: ${limitNum})`);
+
+    // CARGAR DIRECTAMENTE DESDE DYNAMODB (fuente de verdad)
+    // DynamoDB tiene TODOS los mensajes guardados, traemos solo los últimos 200
+    logger.info(`📜 Cargando últimos ${limitNum} mensajes desde DynamoDB...`);
+    const conversationRepository = require('../repositories/conversation.repository');
+    const dbMessages = await conversationRepository.getHistory(userId, { limit: limitNum });
+
+    const messages = dbMessages.map(msg => ({
+      id: msg.id || msg.messageId,
+      sender: msg.direction === 'incoming' ? 'user' : 'bot',
+      message: msg.content?.text || '[Multimedia]',
+      text: msg.content?.text || '[Multimedia]',
+      type: msg.metadata?.originalType || msg.messageType || 'text',
+      timestamp: msg.timestamp || msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now(),
+      direction: msg.direction || 'incoming'
+    }));
+
+    logger.info(`📜 ${messages.length} mensajes cargados desde DynamoDB`);
+
+    // Ordenar por timestamp (más antiguos primero para chat)
+    messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    res.json({
+      success: true,
+      messages: messages,
+      hasMore: false,
+      nextCursor: null,
+      total: messages.length,
+      returned: messages.length,
+      source: 'dynamodb'
+    });
+
+  } catch (error) {
+    logger.error('Error obteniendo mensajes:', error);
     res.status(500).json({
       success: false,
       error: error.message

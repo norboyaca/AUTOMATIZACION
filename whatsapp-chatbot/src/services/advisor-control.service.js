@@ -15,6 +15,7 @@
 const logger = require('../utils/logger');
 const conversationStateService = require('./conversation-state.service');
 const whatsappProvider = require('../providers/whatsapp');
+const mediaService = require('./media.service');
 
 // ✅ NUEVO: Socket.IO para emitir eventos de nuevos mensajes
 let io = null;
@@ -367,8 +368,119 @@ async function transferToAdvisor(userId, newAdvisorData) {
   }
 }
 
+/**
+ * ===========================================
+ * ✅ NUEVO: ENVIAR MENSAJE MULTIMEDIA DESDE DASHBOARD
+ * ===========================================
+ * Soporta: audio, imagen, documento (PDF)
+ *
+ * @param {string} userId - ID del usuario de WhatsApp
+ * @param {Object} advisorData - Datos del asesor
+ * @param {Object} mediaData - Datos del archivo multimedia
+ * @param {string} mediaData.type - Tipo: 'audio', 'image', 'document'
+ * @param {string} mediaData.url - URL del archivo
+ * @param {string} mediaData.filename - Nombre original del archivo
+ * @param {number} mediaData.size - Tamaño del archivo
+ * @param {string} caption - Texto opcional de acompañamiento
+ * @returns {Promise<Object>} Resultado de la operación
+ */
+async function sendAdvisorMediaMessage(userId, advisorData, mediaData, caption = '') {
+  try {
+    const conversation = conversationStateService.getConversation(userId);
+
+    if (!conversation) {
+      throw new Error('Conversación no encontrada');
+    }
+
+    logger.info(`👨‍💼 Asesor ${advisorData.name} enviando ${mediaData.type} a ${userId}`);
+
+    // Desactivar el bot si estaba activo
+    const wasActive = conversation.bot_active;
+
+    conversation.bot_active = false;
+    conversation.status = 'advisor_handled';
+    conversation.assignedTo = advisorData.id;
+    conversation.advisorName = advisorData.name;
+    conversation.needs_human = true;
+    conversation.botDeactivatedAt = Date.now();
+    conversation.botDeactivatedBy = advisorData.id;
+
+    // Determinar el tipo de mensaje según el tipo de archivo
+    const messageType = mediaData.type; // 'audio', 'image', 'document'
+
+    // Crear registro del mensaje multimedia
+    const messageRecord = {
+      id: `adv_media_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      message: caption || mediaData.filename, // Si hay caption, usarlo; si no, el nombre del archivo
+      sender: 'admin',
+      senderId: advisorData.id,
+      senderName: advisorData.name,
+      senderEmail: advisorData.email || null,
+      timestamp: Date.now(),
+      type: messageType,  // ✅ NUEVO: Tipo multimedia
+      mediaUrl: mediaData.url,
+      fileName: mediaData.filename,
+      fileSize: mediaData.size
+    };
+
+    // Guardar en conversación
+    if (!conversation.messages) {
+      conversation.messages = [];
+    }
+    conversation.messages.push(messageRecord);
+
+    // Actualizar última interacción
+    conversation.lastInteraction = Date.now();
+    conversation.lastMessage = caption || `[${mediaData.type}] ${mediaData.filename}`;
+
+    // Actualizar historial interno
+    if (!advisorMessagesHistory.has(userId)) {
+      advisorMessagesHistory.set(userId, []);
+    }
+    advisorMessagesHistory.get(userId).push(messageRecord);
+
+    if (wasActive) {
+      logger.info(`🔴 BOT DESACTIVADO para ${userId} (mensaje multimedia)`);
+    }
+
+    // Enviar mensaje por WhatsApp según el tipo
+    await whatsappProvider.sendMediaMessage(userId, {
+      type: mediaData.type,
+      url: mediaData.url,
+      filename: mediaData.filename,
+      caption: caption
+    });
+
+    // Emitir evento Socket.IO
+    if (io) {
+      io.emit('new-message', {
+        userId: userId,
+        phoneNumber: conversation.phoneNumber,
+        message: messageRecord,
+        timestamp: Date.now()
+      });
+      logger.debug(`📡 Evento 'new-message' emitido para ${userId} (media, ID: ${messageRecord.id})`);
+    }
+
+    logger.info(`✅ Mensaje multimedia de asesor enviado a ${userId}`);
+
+    return {
+      success: true,
+      botActive: false,
+      status: conversation.status,
+      wasPreviouslyActive: wasActive,
+      message: messageRecord
+    };
+
+  } catch (error) {
+    logger.error(`Error enviando mensaje multimedia de asesor a ${userId}:`, error);
+    throw error;
+  }
+}
+
 module.exports = {
   sendAdvisorMessage,
+  sendAdvisorMediaMessage,  // ✅ NUEVO: Enviar mensajes multimedia
   reactivateBot,
   isBotActive,
   getAdvisorMessages,

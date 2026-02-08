@@ -1,40 +1,28 @@
 /**
  * ===========================================
- * REPOSITORIO DE CONVERSACIONES
+ * REPOSITORIO DE CONVERSACIONES - DYNAMODB
  * ===========================================
  *
  * Responsabilidades:
  * - Abstracción de la capa de persistencia
- * - CRUD de conversaciones
- * - CRUD de mensajes
+ * - CRUD de conversaciones en DynamoDB
+ * - CRUD de mensajes en DynamoDB
  * - Consultas especializadas
  *
  * PATRÓN: Repository
  * Permite cambiar la implementación de almacenamiento
  * sin afectar el resto de la aplicación.
- *
- * IMPLEMENTACIONES POSIBLES:
- * - En memoria (desarrollo/testing)
- * - MongoDB
- * - PostgreSQL
- * - Redis (para sesiones/caché)
  */
 
 const logger = require('../utils/logger');
 const { Conversation } = require('../models/conversation.model');
 const { Message } = require('../models/message.model');
+const { docClient, TABLES } = require('../providers/dynamodb.provider');
+const { PutCommand, GetCommand, UpdateCommand, DeleteCommand, QueryCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { v4: uuidv4 } = require('uuid');
 
 /**
- * Almacenamiento en memoria (para desarrollo)
- * En producción, reemplazar con MongoDB/PostgreSQL
- */
-const memoryStore = {
-  conversations: new Map(),
-  messages: new Map()
-};
-
-/**
- * Repositorio de Conversaciones
+ * Repositorio de Conversaciones con DynamoDB
  */
 class ConversationRepository {
 
@@ -48,9 +36,23 @@ class ConversationRepository {
    * @returns {Promise<Conversation|null>}
    */
   async findByParticipantId(participantId) {
-    // TODO: Reemplazar con query a base de datos
-    const conversation = memoryStore.conversations.get(participantId);
-    return conversation ? new Conversation(conversation) : null;
+    try {
+      const command = new GetCommand({
+        TableName: TABLES.CONVERSATIONS,
+        Key: { participantId }
+      });
+
+      const response = await docClient.send(command);
+
+      if (!response.Item) {
+        return null;
+      }
+
+      return new Conversation(response.Item);
+    } catch (error) {
+      logger.error(`Error buscando conversación ${participantId}:`, error);
+      throw error;
+    }
   }
 
   /**
@@ -76,9 +78,105 @@ class ConversationRepository {
    * @returns {Promise<Conversation>}
    */
   async save(conversation) {
-    conversation.updatedAt = new Date();
-    memoryStore.conversations.set(conversation.participantId, conversation.toObject());
-    return conversation;
+    try {
+      conversation.updatedAt = new Date();
+
+      const obj = conversation.toObject();
+
+      // Convertir fechas a ISO strings para DynamoDB
+      const item = {
+        ...obj,
+        createdAt: obj.createdAt ? obj.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: obj.updatedAt ? obj.updatedAt.toISOString() : new Date().toISOString(),
+        lastMessageAt: obj.lastMessageAt ? obj.lastMessageAt.toISOString() : null,
+        lastInteraction: obj.updatedAt ? obj.updatedAt.getTime() : Date.now() // Para índice numérico
+      };
+
+      const command = new PutCommand({
+        TableName: TABLES.CONVERSATIONS,
+        Item: item
+      });
+
+      await docClient.send(command);
+      return conversation;
+    } catch (error) {
+      logger.error(`Error guardando conversación:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Guarda una conversación directamente (raw) sin pasar por el modelo
+   * Útil para guardar datos desde memoria con todos los campos
+   * @param {Object} data - Datos planos de la conversación
+   * @returns {Promise<Object>}
+   */
+  async saveRaw(data) {
+    try {
+      // Asegurar que tiene participantId
+      if (!data.participantId && !data.userId) {
+        throw new Error('participantId o userId es requerido');
+      }
+
+      const participantId = data.participantId || data.userId;
+
+      // Preparar item para DynamoDB
+      const item = {
+        // Campos base del modelo Conversation
+        participantId: participantId,
+        id: data.id || null,
+        participantName: data.participantName || data.whatsappName || null,
+        status: data.status || 'active',
+        activeFlow: data.activeFlow || null,
+        flowState: data.flowState || {},
+        context: data.context || { systemPrompt: null, variables: {} },
+        metadata: data.metadata || {},
+        tags: data.tags || [],
+
+        // Timestamps
+        createdAt: data.createdAt ? (data.createdAt instanceof Date ? data.createdAt.toISOString() : data.createdAt) : new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        lastMessageAt: data.lastMessageAt ? (data.lastMessageAt instanceof Date ? data.lastMessageAt.toISOString() : data.lastMessageAt) : null,
+        lastInteraction: data.lastInteraction || Date.now(),
+
+        // Campos adicionales de memoria (se guardan como están)
+        phoneNumber: data.phoneNumber || null,
+        whatsappName: data.whatsappName || null,
+        whatsappNameUpdatedAt: data.whatsappNameUpdatedAt || null,
+        bot_active: data.bot_active !== undefined ? data.bot_active : true,
+        consentStatus: data.consentStatus || 'pending',
+        consentMessageSent: data.consentMessageSent || false,
+        welcomeSent: data.welcomeSent || false,
+        interactionCount: data.interactionCount || 0,
+        messageCount: data.messageCount || 0,
+        lastMessage: data.lastMessage || '',
+        needsHuman: data.needsHuman || false,
+        needsHumanReason: data.needsHumanReason || null,
+        assignedTo: data.assignedTo || null,
+        advisorName: data.advisorName || null,
+        takenAt: data.takenAt || null,
+        escalationCount: data.escalationCount || 0,
+        advisorMessages: data.advisorMessages || [],
+        botDeactivatedAt: data.botDeactivatedAt || null,
+        botDeactivatedBy: data.botDeactivatedBy || null,
+        escalationMessageSent: data.escalationMessageSent || false,
+        waitingForHuman: data.waitingForHuman || false,
+        lastEscalationMessageAt: data.lastEscalationMessageAt || null,
+        manuallyReactivated: data.manuallyReactivated || false
+      };
+
+      const command = new PutCommand({
+        TableName: TABLES.CONVERSATIONS,
+        Item: item
+      });
+
+      await docClient.send(command);
+      logger.debug(`💾 Conversación guardada (raw): ${participantId}`);
+      return data;
+    } catch (error) {
+      logger.error(`Error guardando conversación (raw):`, error);
+      throw error;
+    }
   }
 
   /**
@@ -104,11 +202,22 @@ class ConversationRepository {
    * @returns {Promise<boolean>}
    */
   async delete(participantId) {
-    const existed = memoryStore.conversations.has(participantId);
-    memoryStore.conversations.delete(participantId);
-    // También eliminar mensajes asociados
-    memoryStore.messages.delete(participantId);
-    return existed;
+    try {
+      const command = new DeleteCommand({
+        TableName: TABLES.CONVERSATIONS,
+        Key: { participantId }
+      });
+
+      await docClient.send(command);
+
+      // También eliminar mensajes asociados (esto debería hacerse en un batch)
+      // Por ahora lo dejamos para optimizar después
+
+      return true;
+    } catch (error) {
+      logger.error(`Error eliminando conversación ${participantId}:`, error);
+      return false;
+    }
   }
 
   /**
@@ -116,13 +225,48 @@ class ConversationRepository {
    * @param {Object} options - Opciones de paginación
    * @returns {Promise<Array<Conversation>>}
    */
-  async findActive(options = { limit: 50, offset: 0 }) {
-    const conversations = Array.from(memoryStore.conversations.values())
-      .filter(c => c.status === 'active')
-      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
-      .slice(options.offset, options.offset + options.limit);
+  async findActive(options = {}) {
+    // Destructuring con valores por defecto para evitar undefined
+    const { limit = 50, offset = 0 } = options;
 
-    return conversations.map(c => new Conversation(c));
+    try {
+      logger.info(`🔍 [DYNAMO] Iniciando findActive con limit=${limit}, offset=${offset}`);
+
+      // Por ahora hacemos un scan (en producción usar índice GSI)
+      const command = new ScanCommand({
+        TableName: TABLES.CONVERSATIONS,
+        FilterExpression: '#status = :status',
+        ExpressionAttributeNames: {
+          '#status': 'status'
+        },
+        ExpressionAttributeValues: {
+          ':status': 'active'
+        },
+        Limit: limit
+      });
+
+      const response = await docClient.send(command);
+
+      logger.info(`📊 [DYNAMO] Scan devolvió ${response.Items?.length || 0} items`);
+
+      const conversations = (response.Items || [])
+        .map(item => {
+          logger.info(`📦 [DYNAMO] Item: participantId=${item.participantId}, status=${item.status}`);
+          return new Conversation(item);
+        })
+        .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+      logger.info(`✅ [DYNAMO] Retornando ${conversations.length} conversaciones (después de mapeo)`);
+
+      const sliced = conversations.slice(offset, offset + limit);
+      logger.info(`✅ [DYNAMO] Slice(${offset}, ${offset + limit}) = ${sliced.length} conversaciones`);
+
+      return sliced;
+    } catch (error) {
+      logger.error('❌ [DYNAMO] Error listando conversaciones activas:', error);
+      logger.error(`   Error: ${error.message}, Código: ${error.$metadata?.httpStatusCode}`);
+      return [];
+    }
   }
 
   // ===========================================
@@ -135,14 +279,38 @@ class ConversationRepository {
    * @returns {Promise<Message>}
    */
   async saveMessage(message) {
-    const participantId = message.from || message.to;
+    try {
+      // Generar ID único si no tiene
+      if (!message.id) {
+        message.id = uuidv4();
+      }
 
-    if (!memoryStore.messages.has(participantId)) {
-      memoryStore.messages.set(participantId, []);
+      const participantId = message.from || message.to;
+      const obj = message.toObject();
+
+      // Convertir fechas a ISO strings para DynamoDB
+      const item = {
+        ...obj,
+        messageId: message.id,
+        participantId: participantId,
+        timestamp: obj.createdAt ? new Date(obj.createdAt).getTime() : Date.now(),
+        createdAt: obj.createdAt ? new Date(obj.createdAt).toISOString() : new Date().toISOString(),
+        updatedAt: obj.updatedAt ? new Date(obj.updatedAt).toISOString() : new Date().toISOString()
+      };
+
+      const command = new PutCommand({
+        TableName: TABLES.MESSAGES,
+        Item: item
+      });
+
+      await docClient.send(command);
+      logger.debug(`Mensaje guardado en DynamoDB: ${message.id}`);
+
+      return message;
+    } catch (error) {
+      logger.error('Error guardando mensaje:', error);
+      throw error;
     }
-
-    memoryStore.messages.get(participantId).push(message.toObject());
-    return message;
   }
 
   /**
@@ -152,11 +320,29 @@ class ConversationRepository {
    * @returns {Promise<Array<Message>>}
    */
   async getHistory(participantId, options = { limit: 20 }) {
-    const messages = memoryStore.messages.get(participantId) || [];
+    try {
+      const command = new QueryCommand({
+        TableName: TABLES.MESSAGES,
+        IndexName: 'participantId-timestamp-index',
+        KeyConditionExpression: 'participantId = :participantId',
+        ExpressionAttributeValues: {
+          ':participantId': participantId
+        },
+        ScanIndexForward: false, // Orden descendente (más recientes primero)
+        Limit: options.limit
+      });
 
-    return messages
-      .slice(-options.limit)
-      .map(m => new Message(m));
+      const response = await docClient.send(command);
+
+      const messages = (response.Items || [])
+        .map(item => new Message(item))
+        .reverse(); // Invertir para orden cronológico
+
+      return messages;
+    } catch (error) {
+      logger.error(`Error obteniendo historial de ${participantId}:`, error);
+      return [];
+    }
   }
 
   /**
@@ -165,8 +351,23 @@ class ConversationRepository {
    * @returns {Promise<number>}
    */
   async countMessages(participantId) {
-    const messages = memoryStore.messages.get(participantId) || [];
-    return messages.length;
+    try {
+      const command = new QueryCommand({
+        TableName: TABLES.MESSAGES,
+        IndexName: 'participantId-timestamp-index',
+        KeyConditionExpression: 'participantId = :participantId',
+        ExpressionAttributeValues: {
+          ':participantId': participantId
+        },
+        Select: 'COUNT'
+      });
+
+      const response = await docClient.send(command);
+      return response.Count || 0;
+    } catch (error) {
+      logger.error(`Error contando mensajes de ${participantId}:`, error);
+      return 0;
+    }
   }
 
   // ===========================================
@@ -179,21 +380,34 @@ class ConversationRepository {
    * @returns {Promise<number>} Número de conversaciones eliminadas
    */
   async cleanupInactive(maxAgeDays = 30) {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - maxAgeDays);
+      const cutoffTimestamp = cutoffDate.getTime();
 
-    let deletedCount = 0;
+      // Scan para encontrar conversaciones viejas
+      const command = new ScanCommand({
+        TableName: TABLES.CONVERSATIONS,
+        FilterExpression: 'lastInteraction < :cutoff',
+        ExpressionAttributeValues: {
+          ':cutoff': cutoffTimestamp
+        }
+      });
 
-    for (const [id, conv] of memoryStore.conversations) {
-      if (new Date(conv.updatedAt) < cutoffDate) {
-        memoryStore.conversations.delete(id);
-        memoryStore.messages.delete(id);
+      const response = await docClient.send(command);
+      let deletedCount = 0;
+
+      for (const item of response.Items || []) {
+        await this.delete(item.participantId);
         deletedCount++;
       }
-    }
 
-    logger.info(`Limpieza: ${deletedCount} conversaciones eliminadas`);
-    return deletedCount;
+      logger.info(`Limpieza: ${deletedCount} conversaciones eliminadas`);
+      return deletedCount;
+    } catch (error) {
+      logger.error('Error en limpieza de conversaciones:', error);
+      return 0;
+    }
   }
 
   /**
@@ -201,14 +415,54 @@ class ConversationRepository {
    * @returns {Promise<Object>}
    */
   async getStats() {
-    const conversations = Array.from(memoryStore.conversations.values());
+    try {
+      // Obtener total de conversaciones
+      const conversationsCommand = new ScanCommand({
+        TableName: TABLES.CONVERSATIONS,
+        Select: 'COUNT'
+      });
 
-    return {
-      totalConversations: conversations.length,
-      activeConversations: conversations.filter(c => c.status === 'active').length,
-      totalMessages: Array.from(memoryStore.messages.values())
-        .reduce((sum, msgs) => sum + msgs.length, 0)
-    };
+      const conversationsResponse = await docClient.send(conversationsCommand);
+      const totalConversations = conversationsResponse.Count || 0;
+
+      // Obtener conversaciones activas
+      const activeCommand = new ScanCommand({
+        TableName: TABLES.CONVERSATIONS,
+        FilterExpression: '#status = :status',
+        ExpressionAttributeNames: {
+          '#status': 'status'
+        },
+        ExpressionAttributeValues: {
+          ':status': 'active'
+        },
+        Select: 'COUNT'
+      });
+
+      const activeResponse = await docClient.send(activeCommand);
+      const activeConversations = activeResponse.Count || 0;
+
+      // Obtener total de mensajes
+      const messagesCommand = new ScanCommand({
+        TableName: TABLES.MESSAGES,
+        Select: 'COUNT'
+      });
+
+      const messagesResponse = await docClient.send(messagesCommand);
+      const totalMessages = messagesResponse.Count || 0;
+
+      return {
+        totalConversations,
+        activeConversations,
+        totalMessages
+      };
+    } catch (error) {
+      logger.error('Error obteniendo estadísticas:', error);
+      return {
+        totalConversations: 0,
+        activeConversations: 0,
+        totalMessages: 0
+      };
+    }
   }
 }
 

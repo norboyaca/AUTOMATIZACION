@@ -164,11 +164,179 @@ const formatBytes = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
+/**
+ * ===========================================
+ * ✅ NUEVAS FUNCIONES PARA CARGA DE ARCHIVOS
+ * ===========================================
+ * Para enviar archivos desde el dashboard
+ */
+
+/**
+ * Tipos de archivo permitidos para carga desde dashboard
+ */
+const ALLOWED_UPLOAD_TYPES = {
+  audio: ['audio/mpeg', 'audio/ogg', 'audio/mp4', 'audio/wav'],
+  image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+  document: ['application/pdf']
+};
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+/**
+ * Guarda un archivo subido desde el dashboard
+ * @param {Object} file - Archivo desde multer o buffer
+ * @param {string} type - Tipo de archivo ('audio', 'image', 'document')
+ * @returns {Promise<Object>} Información del archivo guardado
+ */
+const saveUploadedFile = async (file, type) => {
+  try {
+    // Validar tamaño
+    const fileSize = file.size || (file.buffer ? file.buffer.length : 0);
+    if (fileSize > MAX_FILE_SIZE) {
+      throw new Error(`Archivo demasiado grande. Máximo: ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+    }
+
+    // Validar tipo MIME
+    const mimeType = file.mimetype;
+    const allowedTypes = ALLOWED_UPLOAD_TYPES[type];
+    if (!allowedTypes || !allowedTypes.includes(mimeType)) {
+      throw new Error(`Tipo de archivo no permitido para ${type}: ${mimeType}`);
+    }
+
+    // Generar nombre único
+    const extension = getExtensionFromMime(mimeType);
+    const filename = `${Date.now()}_${uuidv4()}${extension}`;
+
+    // ✅ NUEVO: Convertir a ruta absoluta
+    const baseUploadDir = path.resolve(config.media.uploadDir);
+    const uploadDir = path.join(baseUploadDir, type);
+
+    // Crear directorio si no existe
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    // Guardar archivo
+    const filepath = path.join(uploadDir, filename);
+
+    if (file.buffer) {
+      // Archivo desde memoria (multer memoryStorage)
+      await fs.writeFile(filepath, file.buffer);
+    } else if (file.path) {
+      // Archivo temporal (multer diskStorage)
+      await fs.copyFile(file.path, filepath);
+    }
+
+    logger.info(`Archivo guardado: ${filepath} (${type})`);
+
+    return {
+      filename,
+      filepath,  // ✅ Ruta absoluta al archivo
+      originalname: file.originalname || 'archivo',
+      mimetype: mimeType,
+      size: fileSize,
+      type,
+      url: `/uploads/${type}/${filename}`  // URL relativa para frontend
+    };
+  } catch (error) {
+    logger.error('Error guardando archivo subido:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtiene un archivo por su URL relativa
+ * @param {string} url - URL relativa del archivo
+ * @returns {Promise<Object>} Información del archivo
+ */
+const getFileByUrl = async (url) => {
+  try {
+    // Extraer tipo y nombre de la URL: /uploads/audio/file.mp3
+    const match = url.match(/\/uploads\/(\w+)\/(.+)/);
+    if (!match) {
+      throw new Error('URL inválida');
+    }
+
+    const [, type, filename] = match;
+    const filepath = path.join(config.media.uploadDir, type, filename);
+
+    const stats = await fs.stat(filepath);
+    const fileBuffer = await fs.readFile(filepath);
+
+    return {
+      filepath,
+      buffer: fileBuffer,
+      mimetype: getMimeTypeFromFilename(filename),
+      size: stats.size
+    };
+  } catch (error) {
+    logger.error('Error obteniendo archivo por URL:', error);
+    throw error;
+  }
+};
+
+/**
+ * Obtiene el MIME type según el nombre de archivo
+ */
+const getMimeTypeFromFilename = (filename) => {
+  const ext = path.extname(filename).toLowerCase();
+  const mimeMap = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.mp3': 'audio/mpeg',
+    '.ogg': 'audio/ogg',
+    '.wav': 'audio/wav',
+    '.m4a': 'audio/mp4',
+    '.pdf': 'application/pdf'
+  };
+
+  return mimeMap[ext] || 'application/octet-stream';
+};
+
+/**
+ * Valida un archivo antes de subirlo
+ * @param {Object} file - Archivo a validar
+ * @param {string} type - Tipo esperado
+ * @returns {Object}} Resultado de validación
+ */
+const validateUploadedFile = (file, type) => {
+  const errors = [];
+
+  // Validar tamaño
+  const fileSize = file.size || (file.buffer ? file.buffer.length : 0);
+  if (fileSize > MAX_FILE_SIZE) {
+    errors.push(`Archivo excede los ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+  }
+
+  // Validar tipo MIME
+  const mimeType = file.mimetype;
+  const allowedTypes = ALLOWED_UPLOAD_TYPES[type];
+  if (!allowedTypes) {
+    errors.push(`Tipo de archivo no válido: ${type}`);
+  } else if (!allowedTypes.includes(mimeType)) {
+    errors.push(`Tipo MIME no permitido: ${mimeType}. Permitidos: ${allowedTypes.join(', ')}`);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+};
+
 module.exports = {
   downloadMedia,
   deleteMedia,
   cleanupOldFiles,
   getExtensionFromMime,
   isAllowedFileType,
-  getFileInfo
+  getFileInfo,
+  // ✅ Nuevas funciones
+  saveUploadedFile,
+  getFileByUrl,
+  getMimeTypeFromFilename,
+  validateUploadedFile,
+  // Constantes
+  ALLOWED_UPLOAD_TYPES,
+  MAX_FILE_SIZE
 };

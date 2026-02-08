@@ -40,6 +40,29 @@
       background: var(--light-gray);
       min-height: 100vh;
       overflow-x: hidden;
+      /* Prevenir pull-to-refresh en móviles */
+      overscroll-behavior-y: none;
+      /* Mejorar renderizado de texto en móviles */
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Prevenir overflow horizontal en todos los elementos */
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    /* Mejoras para触摸 en dispositivos móviles */
+    * {
+      /* Prevenir zoom en tap en iOS */
+      touch-action: manipulation;
+    }
+
+    /* Responsive para imágenes y videos */
+    img, video, iframe {
+      max-width: 100%;
+      height: auto;
     }
 
     /* Dashboard Container */
@@ -280,6 +303,163 @@
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.5; }
+    }
+
+    /* ========================================
+       HEADER RESPONSIVE - MÓVIL
+       ======================================== */
+    /* Tablet pequeña y móvil grande (max 600px) */
+    @media (max-width: 600px) {
+      .dashboard-header {
+        padding: 0 10px;
+        height: 48px;
+        flex-wrap: nowrap;
+      }
+
+      .header-left {
+        gap: 6px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .header-title {
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .header-subtitle {
+        display: none;
+      }
+
+      .header-right {
+        gap: 4px;
+        flex-shrink: 0;
+      }
+
+      .dashboard-clock {
+        padding: 4px 8px;
+        font-size: 10px;
+        gap: 3px;
+        border-radius: 12px;
+      }
+
+      .dashboard-clock .clock-icon {
+        font-size: 11px;
+      }
+
+      .dashboard-clock .clock-seconds {
+        font-size: 8px;
+      }
+
+      .header-status-badge {
+        padding: 4px 8px;
+        font-size: 9px;
+        gap: 4px;
+        border-radius: 12px;
+      }
+
+      .status-dot {
+        width: 5px;
+        height: 5px;
+      }
+
+      .header-upload-btn {
+        padding: 6px 12px;
+        font-size: 11px;
+        gap: 5px;
+      }
+    }
+
+    /* Móvil muy pequeño (max 375px) */
+    @media (max-width: 375px) {
+      .dashboard-header {
+        padding: 0 8px;
+        height: 44px;
+      }
+
+      .header-left {
+        gap: 4px;
+      }
+
+      .header-title {
+        font-size: 12px;
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .dashboard-clock {
+        padding: 3px 6px;
+        font-size: 9px;
+        gap: 2px;
+      }
+
+      .dashboard-clock .clock-icon {
+        font-size: 9px;
+      }
+
+      .dashboard-clock .clock-time {
+        font-size: 9px;
+      }
+
+      .dashboard-clock .clock-seconds {
+        display: none;
+      }
+
+      .header-status-badge {
+        padding: 3px 6px;
+        font-size: 8px;
+        gap: 3px;
+      }
+
+      .header-status-badge span:not(.status-dot) {
+        display: none;
+      }
+
+      .header-status-badge .status-dot {
+        width: 8px;
+        height: 8px;
+      }
+
+      .header-upload-btn {
+        padding: 4px 8px;
+        font-size: 9px;
+        gap: 3px;
+      }
+
+      .header-upload-btn span:not(:first-child) {
+        display: none;
+      }
+    }
+
+    /* Mini móviles (max 320px) */
+    @media (max-width: 320px) {
+      .dashboard-header {
+        height: 40px;
+        padding: 0 6px;
+      }
+
+      .header-title {
+        font-size: 11px;
+        max-width: 80px;
+      }
+
+      .dashboard-clock {
+        font-size: 8px;
+        padding: 2px 5px;
+      }
+
+      .dashboard-clock .clock-icon {
+        font-size: 8px;
+      }
+
+      .header-upload-btn {
+        padding: 3px 6px;
+        font-size: 8px;
+      }
     }
 
     /* ========================================
@@ -678,16 +858,17 @@
     /* Móvil pequeño (max 480px) */
     @media (max-width: 480px) {
       .dashboard-content {
-        padding: 12px;
+        padding: 8px;
       }
 
       .content-card {
-        padding: 15px;
+        padding: 12px;
         border-radius: 12px;
       }
 
       .content-card h2 {
-        font-size: 18px;
+        font-size: 16px;
+        margin-bottom: 12px;
       }
 
       /* Botón hamburguesa móvil */
@@ -727,6 +908,137 @@
 
       .sidebar-overlay.active {
         display: block;
+      }
+
+      /* Mejorar área táctil de botones en móvil */
+      button, .btn, a {
+        min-height: 44px; /* Tamaño mínimo recomendado por Apple */
+        min-width: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Excepciones para elementos pequeños */
+      .emoji-picker-item,
+      .status-dot,
+      .bot-status-dot {
+        min-height: auto;
+        min-width: auto;
+      }
+
+      /* Inputs más grandes en móvil para facilitar entrada */
+      input, textarea, select {
+        min-height: 44px;
+        font-size: 16px; /* Prevenir zoom en iOS */
+      }
+
+      /* Excepción para textarea que puede crecer */
+      textarea {
+        min-height: 44px;
+        max-height: 120px;
+      }
+    }
+
+    /* Móvil pequeño (max 375px) */
+    @media (max-width: 375px) {
+      .dashboard-content {
+        padding: 10px;
+      }
+
+      .content-card {
+        padding: 12px;
+        border-radius: 10px;
+      }
+
+      .content-card h2 {
+        font-size: 16px;
+        margin-bottom: 12px;
+      }
+
+      .breadcrumb {
+        font-size: 10px;
+        margin-bottom: 12px;
+      }
+
+      /* Ajustar botón de menú móvil */
+      .mobile-menu-btn {
+        width: 50px;
+        height: 50px;
+        bottom: 15px;
+        right: 15px;
+        font-size: 20px;
+      }
+
+      /* Sidebar más angosto en móviles pequeños */
+      .sidebar {
+        width: 260px;
+      }
+
+      .nav-item {
+        padding: 12px 15px;
+      }
+
+      .nav-item-icon {
+        font-size: 18px;
+      }
+    }
+
+    /* Mini móvil (max 320px) */
+    @media (max-width: 320px) {
+      .dashboard-content {
+        padding: 8px;
+      }
+
+      .content-card {
+        padding: 10px;
+        border-radius: 8px;
+      }
+
+      .content-card h2 {
+        font-size: 15px;
+        margin-bottom: 10px;
+      }
+
+      .breadcrumb {
+        font-size: 9px;
+        margin-bottom: 10px;
+      }
+
+      .mobile-menu-btn {
+        width: 45px;
+        height: 45px;
+        bottom: 12px;
+        right: 12px;
+        font-size: 18px;
+      }
+
+      .sidebar {
+        width: 240px;
+      }
+
+      .sidebar-header {
+        padding: 15px 10px;
+      }
+
+      .sidebar-logo {
+        font-size: 18px;
+      }
+
+      .sidebar-logo-subtitle {
+        font-size: 8px;
+      }
+
+      .nav-item {
+        padding: 10px 12px;
+      }
+
+      .nav-item-text {
+        font-size: 11px;
+      }
+
+      .nav-item-icon {
+        font-size: 16px;
       }
     }
 
@@ -1047,6 +1359,90 @@
       transform: scale(0.95);
     }
 
+    /* ========================================
+       ✅ NUEVO: BOTONES DE ADJUNTAR Y AUDIO
+       ======================================== */
+    .chat-attach-btn,
+    .chat-audio-btn {
+      padding: 9px 12px;
+      background: #f5f5f5;
+      border: 2px solid var(--border-gray);
+      border-radius: 9px;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .chat-attach-btn:hover,
+    .chat-audio-btn:hover {
+      background: #e8e8e8;
+      border-color: var(--primary-green);
+    }
+
+    .chat-attach-btn.active {
+      background: var(--primary-green);
+      border-color: var(--primary-green);
+    }
+
+    .chat-audio-btn.recording {
+      background: #d32f2f;
+      border-color: #d32f2f;
+      animation: pulse-recording 1s infinite;
+    }
+
+    @keyframes pulse-recording {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* Menú de adjuntar archivos */
+    .attach-menu {
+      position: absolute;
+      bottom: 60px;
+      left: 50px;
+      background: white;
+      border: 2px solid var(--border-gray);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      padding: 8px;
+      z-index: 1000;
+      display: none;
+      min-width: 200px;
+    }
+
+    .attach-menu.show {
+      display: block;
+      animation: slideUp 0.2s ease-out;
+    }
+
+    .attach-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .attach-menu-item:hover {
+      background: #f5f5f5;
+    }
+
+    .attach-menu-icon {
+      font-size: 20px;
+    }
+
+    .attach-menu-item span:last-child {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--dark-gray);
+    }
+
     .chat-actions {
       display: flex;
       gap: 7px; /* Reducido 12%: 8px → 7px */
@@ -1298,6 +1694,187 @@
       }
     }
 
+    /* Móvil pequeño (max 375px) */
+    @media (max-width: 375px) {
+      .chat-modal-header {
+        padding: 10px 12px;
+      }
+
+      .chat-modal-header h3 {
+        font-size: 14px;
+      }
+
+      .chat-modal-header .phone-number {
+        font-size: 11px;
+      }
+
+      .chat-modal-close {
+        width: 28px;
+        height: 28px;
+        font-size: 18px;
+      }
+
+      .chat-modal-body {
+        padding: 10px;
+      }
+
+      .message-bubble {
+        max-width: 90%;
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+
+      .message-sender {
+        font-size: 10px;
+      }
+
+      .message-time {
+        font-size: 9px;
+      }
+
+      .chat-modal-footer {
+        padding: 8px 10px;
+      }
+
+      .chat-input-container {
+        gap: 6px;
+      }
+
+      .chat-message-input {
+        font-size: 13px;
+        padding: 7px 10px;
+        min-height: 36px;
+      }
+
+      .chat-send-btn {
+        padding: 7px 12px;
+        font-size: 12px;
+        min-width: 50px;
+      }
+
+      .emoji-picker-btn {
+        padding: 7px 8px;
+        font-size: 14px;
+        min-width: 30px;
+      }
+
+      .emoji-picker-panel {
+        min-width: 200px;
+        bottom: 50px;
+        padding: 8px;
+      }
+
+      .emoji-picker-grid {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 2px;
+      }
+
+      .emoji-picker-item {
+        width: 22px;
+        height: 22px;
+        font-size: 14px;
+      }
+
+      .emoji-picker-section-title {
+        font-size: 8px;
+        margin-bottom: 4px;
+      }
+
+      .chat-actions {
+        padding: 8px 10px;
+      }
+
+      .chat-action-btn {
+        padding: 5px 8px;
+        font-size: 10px;
+        min-width: 60px;
+      }
+
+      .bot-status-indicator {
+        padding: 3px 8px;
+        font-size: 10px;
+        gap: 4px;
+      }
+
+      .bot-status-dot {
+        width: 6px;
+        height: 6px;
+      }
+    }
+
+    /* Mini móvil (max 320px) */
+    @media (max-width: 320px) {
+      .chat-modal-header {
+        padding: 8px 10px;
+      }
+
+      .chat-modal-header h3 {
+        font-size: 13px;
+      }
+
+      .chat-modal-header .phone-number {
+        font-size: 10px;
+      }
+
+      .chat-modal-header .header-content {
+        gap: 8px;
+      }
+
+      .chat-modal-body {
+        padding: 8px;
+      }
+
+      .message-bubble {
+        max-width: 95%;
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+
+      .chat-message-input {
+        font-size: 12px;
+        padding: 6px 8px;
+        min-height: 34px;
+      }
+
+      .chat-send-btn {
+        padding: 6px 10px;
+        font-size: 11px;
+        min-width: 45px;
+      }
+
+      .emoji-picker-btn {
+        padding: 6px 7px;
+        font-size: 13px;
+        min-width: 28px;
+      }
+
+      .emoji-picker-panel {
+        min-width: 180px;
+        padding: 6px;
+      }
+
+      .emoji-picker-item {
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
+      }
+
+      .emoji-picker-section-title {
+        display: none;
+      }
+
+      .chat-actions {
+        padding: 6px 8px;
+        gap: 4px;
+      }
+
+      .chat-action-btn {
+        padding: 4px 6px;
+        font-size: 9px;
+        min-width: 50px;
+      }
+    }
+
     /* ========================================
        LOGIN PAGE STYLES
        ======================================== */
@@ -1414,6 +1991,135 @@
       display: block;
     }
 
+    /* Login Responsive - Móvil */
+    @media (max-width: 480px) {
+      .login-card {
+        padding: 30px 20px;
+        width: 95%;
+        border-radius: 16px;
+      }
+
+      .login-logo h2 {
+        font-size: 20px;
+      }
+
+      .login-logo p {
+        font-size: 12px;
+      }
+
+      .login-logo img {
+        max-width: 80px;
+      }
+
+      .login-form-group label {
+        font-size: 13px;
+      }
+
+      .login-form-group input {
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+
+      .login-btn {
+        padding: 12px;
+        font-size: 14px;
+      }
+
+      .login-error {
+        font-size: 12px;
+        padding: 10px;
+      }
+    }
+
+    /* Login Responsive - Móvil pequeño (max 375px) */
+    @media (max-width: 375px) {
+      .login-card {
+        padding: 25px 18px;
+        width: 92%;
+        border-radius: 14px;
+      }
+
+      .login-logo {
+        margin-bottom: 20px;
+      }
+
+      .login-logo h2 {
+        font-size: 18px;
+      }
+
+      .login-logo p {
+        font-size: 11px;
+      }
+
+      .login-logo img {
+        max-width: 70px;
+        margin-bottom: 12px;
+      }
+
+      .login-form-group {
+        margin-bottom: 15px;
+      }
+
+      .login-form-group label {
+        font-size: 12px;
+        margin-bottom: 6px;
+      }
+
+      .login-form-group input {
+        padding: 9px 11px;
+        font-size: 12px;
+        border-radius: 8px;
+      }
+
+      .login-btn {
+        padding: 11px;
+        font-size: 13px;
+        border-radius: 8px;
+      }
+
+      .login-error {
+        font-size: 11px;
+        padding: 8px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+      }
+    }
+
+    /* Login Responsive - Mini móvil (max 320px) */
+    @media (max-width: 320px) {
+      .login-card {
+        padding: 20px 15px;
+        width: 90%;
+        border-radius: 12px;
+      }
+
+      .login-logo h2 {
+        font-size: 16px;
+      }
+
+      .login-logo p {
+        font-size: 10px;
+      }
+
+      .login-logo img {
+        max-width: 60px;
+      }
+
+      .login-form-group label {
+        font-size: 11px;
+      }
+
+      .login-form-group input {
+        padding: 8px 10px;
+        font-size: 11px;
+      }
+
+      .login-btn {
+        padding: 10px;
+        font-size: 12px;
+      }
+    }
+
     /* ========================================
        CONVERSATIONS VIEW STYLES
        ======================================== */
@@ -1496,6 +2202,81 @@
       .btn-small {
         padding: 4px 8px;
         font-size: 11px;
+      }
+
+      /* Ocultar columnas menos importantes en móvil muy pequeño */
+      .conversations-table th:nth-child(4),
+      .conversations-table td:nth-child(4) {
+        display: none;
+      }
+
+      .last-message {
+        max-width: 100px;
+      }
+    }
+
+    /* Móvil pequeño (max 375px) */
+    @media (max-width: 375px) {
+      .conversations-table {
+        font-size: 10px;
+      }
+
+      .conversations-table th,
+      .conversations-table td {
+        padding: 6px 4px;
+      }
+
+      /* Ocultar más columnas en pantallas muy pequeñas */
+      .conversations-table th:nth-child(3),
+      .conversations-table td:nth-child(3) {
+        display: none;
+      }
+
+      .conversations-table th:nth-child(5),
+      .conversations-table td:nth-child(5) {
+        display: none;
+      }
+
+      .phone-number {
+        font-size: 10px;
+      }
+
+      .status-badge {
+        padding: 3px 6px;
+        font-size: 8px;
+      }
+
+      .btn-small {
+        padding: 3px 6px;
+        font-size: 10px;
+      }
+
+      .last-message {
+        max-width: 80px;
+        font-size: 10px;
+      }
+    }
+
+    /* Mini móvil (max 320px) */
+    @media (max-width: 320px) {
+      .conversations-table th,
+      .conversations-table td {
+        padding: 4px 2px;
+        font-size: 9px;
+      }
+
+      .conversations-table .btn-small {
+        padding: 2px 4px;
+        font-size: 9px;
+      }
+
+      .conversations-table .phone-number {
+        font-size: 9px;
+      }
+
+      .table-responsive {
+        margin-left: -5px;
+        margin-right: -5px;
       }
     }
 
@@ -1878,7 +2659,66 @@
     @media (max-width: 480px) {
       .stats-cards {
         grid-template-columns: 1fr;
-        gap: 7px; /* Reducido 12%: 8px → 7px */
+        gap: 6px;
+        margin-bottom: 12px;
+      }
+
+      .stat-card {
+        padding: 8px;
+        min-height: 60px;
+      }
+
+      .stat-number {
+        font-size: 20px;
+      }
+
+      .stat-label {
+        font-size: 9px;
+      }
+    }
+
+    /* Móvil pequeño (max 375px) */
+    @media (max-width: 375px) {
+      .stats-cards {
+        gap: 4px;
+        margin-bottom: 8px;
+      }
+
+      .stat-card {
+        padding: 6px;
+        min-height: 50px;
+        border-radius: 8px;
+      }
+
+      .stat-number {
+        font-size: 16px;
+        margin-bottom: 2px;
+      }
+
+      .stat-label {
+        font-size: 8px;
+        letter-spacing: 0.2px;
+      }
+    }
+
+    /* Mini móvil (max 320px) */
+    @media (max-width: 320px) {
+      .stats-cards {
+        gap: 3px;
+        margin-bottom: 6px;
+      }
+
+      .stat-card {
+        padding: 5px;
+        min-height: 45px;
+      }
+
+      .stat-number {
+        font-size: 14px;
+      }
+
+      .stat-label {
+        font-size: 7px;
       }
     }
 
@@ -3536,12 +4376,48 @@ footer {
           // ✅ NUEVO: Generar ID único temporal si el mensaje no tiene ID
           const tempMessageId = messageId || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+          // ✅ NUEVO: Renderizar según tipo (texto, audio, imagen, documento)
+          let messageContent = '';
+
+          if (msg.type === 'audio') {
+            messageContent = `
+              <div class="message-audio">
+                <audio controls src="${msg.mediaUrl || ''}" style="max-width: 200px;">
+                  <a href="${msg.mediaUrl || ''}">Descargar audio</a>
+                </audio>
+              </div>
+            `;
+          } else if (msg.type === 'image') {
+            messageContent = `
+              <div class="message-image">
+                <img src="${msg.mediaUrl || ''}" alt="Imagen" style="max-width: 250px; border-radius: 8px;" onclick="window.open('${msg.mediaUrl || ''}', '_blank')">
+              </div>
+              ${msg.message && msg.message !== msg.fileName ? `<div class="message-text">${msg.message}</div>` : ''}
+            `;
+          } else if (msg.type === 'document') {
+            messageContent = `
+              <div class="message-document">
+                <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #f0f0f0; border-radius: 8px;">
+                  <span style="font-size: 24px;">📄</span>
+                  <div>
+                    <div style="font-weight: 500;">${msg.fileName || 'Documento'}</div>
+                    <a href="${msg.mediaUrl || ''}" download style="font-size: 12px; color: var(--primary-green);">Descargar</a>
+                  </div>
+                </div>
+              </div>
+              ${msg.message && msg.message !== msg.fileName ? `<div class="message-text">${msg.message}</div>` : ''}
+            `;
+          } else {
+            // Mensaje de texto
+            messageContent = `<div class="message-text">${msg.message}</div>`;
+          }
+
           // Crear HTML del mensaje con data attribute para tracking
           const messageHtml = `
             <div class="chat-message ${senderClass}" data-message-id="${tempMessageId}">
               <div class="message-sender">${senderName}</div>
               <div class="message-bubble">
-                <div class="message-text">${msg.message}</div>
+                ${messageContent}
               </div>
               <div class="message-time">${msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}</div>
             </div>
@@ -4358,25 +5234,42 @@ footer {
        CONVERSATIONS FUNCTIONS
        ======================================== */
 
+    // ==========================================
+    // ✅ NUEVO: Variables para paginación de chats
+    // ==========================================
+    let conversationsOffset = 0;
+    const CONVERSATIONS_LIMIT = 20;
+    let totalConversations = 0;
+    let hasMoreConversations = false;
+
     // Cargar lista de conversaciones
-    async function loadConversations() {
+    async function loadConversations(offset = 0, limit = CONVERSATIONS_LIMIT) {
       const loadingEl = document.getElementById('conversations-loading');
       const contentEl = document.getElementById('conversations-content');
       const emptyEl = document.getElementById('conversations-empty');
       const tableBody = document.getElementById('conversations-table-body');
 
-      // Mostrar loading
-      loadingEl.style.display = 'block';
-      contentEl.style.display = 'none';
-      emptyEl.style.display = 'none';
+      // Mostrar loading solo si es la primera carga
+      if (offset === 0) {
+        loadingEl.style.display = 'block';
+        contentEl.style.display = 'none';
+        emptyEl.style.display = 'none';
+      }
 
       try {
-        const response = await authenticatedFetch('/api/conversations');
+        // ✅ NUEVO: Obtener chats directamente desde WhatsApp
+        const url = `/api/conversations/whatsapp-chats?limit=${limit}&offset=${offset}`;
+        const response = await authenticatedFetch(url);
         const data = await response.json();
 
         // ✅ NUEVO: Log informativo para debugging
-        console.log('📊 Conversaciones recibidas:', data.total);
-        console.log('   Estados:', data.conversations.map(c => c.status));
+        console.log(`📊 Conversaciones recibidas desde WhatsApp: ${data.returned}/${data.total} (hasMore: ${data.hasMore})`);
+        console.log('   Fuente:', data.source);
+
+        // Actualizar variables de paginación
+        totalConversations = data.total;
+        hasMoreConversations = data.hasMore;
+        conversationsOffset = offset;
 
         // Ocultar loading
         loadingEl.style.display = 'none';
@@ -4384,11 +5277,16 @@ footer {
         if (data.success && data.conversations.length > 0) {
           contentEl.style.display = 'block';
 
-          // ✅ NUEVO: Mostrar contador de conversaciones
+          // ✅ NUEVO: Mostrar contador de conversaciones con información de paginación
           const statsInfo = document.getElementById('conversations-stats-info') || document.createElement('div');
           statsInfo.id = 'conversations-stats-info';
           statsInfo.style.cssText = 'text-align: center; color: var(--medium-gray); font-size: 0.9rem; padding: 10px; margin-bottom: 10px;';
-          statsInfo.textContent = `💬 Mostrando ${data.conversations.length} conversación(es)`;
+
+          const endCount = offset + data.conversations.length;
+          statsInfo.innerHTML = `
+            💬 Mostrando ${offset + 1}-${endCount} de ${data.total} conversaciones
+            ${data.hasMore ? `<button class="btn-small" onclick="loadMoreConversations()" style="margin-left: 10px;">⬇️ Cargar más</button>` : ''}
+          `;
           tableBody.parentElement.parentElement.insertBefore(statsInfo, tableBody.parentElement);
 
           // Llenar tabla
@@ -4431,7 +5329,7 @@ footer {
 
             return `
               <tr class="${rowClass}">
-                <td><strong>${conv.registeredName || 'Sin nombre'}</strong></td>
+                <td><strong>${conv.whatsappName || conv.registeredName || 'Sin nombre'}</strong></td>
                 <td><span class="phone-number">${normalizePhoneNumber(conv.phoneNumber)}</span>${iaBadge}</td>
                 <td><span class="last-message" title="${conv.lastMessage || ''}">${shortMessage}</span></td>
                 <td><span class="status-badge ${statusInfo.class}">${statusInfo.text}</span></td>
@@ -4467,6 +5365,18 @@ footer {
         emptyEl.style.display = 'block';
       }
     }
+
+    // ✅ NUEVO: Cargar más conversaciones (paginación)
+    async function loadMoreConversations() {
+      const newOffset = conversationsOffset + CONVERSATIONS_LIMIT;
+      await loadConversations(newOffset, CONVERSATIONS_LIMIT);
+    }
+
+    // ✅ NUEVO: Variables para paginación de mensajes
+    let currentChatMessagesPage = 0;
+    let currentChatHasMore = false;
+    let currentChatNextCursor = null;
+    const MESSAGES_PER_PAGE = 20;
 
     // ==========================================
     // FUNCIONES DE CONTROL DE HORARIO
@@ -5275,12 +6185,12 @@ footer {
             } else if (isIADisabled) {
               actionBtn = `<button class="take-btn" onclick="activateIAForNumber('${conv.phoneNumber}')" style="font-size: 11px; padding: 6px 12px;">🟢 Activar IA</button>`;
             } else {
-              actionBtn = `<button class="reset-btn" onclick="openDisableIAModal('${conv.phoneNumber}', '${conv.registeredName || ''}')" style="font-size: 11px; padding: 6px 12px;">🔴 Desactivar IA</button>`;
+              actionBtn = `<button class="reset-btn" onclick="openDisableIAModal('${conv.phoneNumber}', '${conv.whatsappName || conv.registeredName || ''}')" style="font-size: 11px; padding: 6px 12px;">🔴 Desactivar IA</button>`;
             }
 
             return `
               <tr>
-                <td><strong>${conv.registeredName || 'Sin nombre'}</strong></td>
+                <td><strong>${conv.whatsappName || conv.registeredName || 'Sin nombre'}</strong></td>
                 <td><span class="phone-number">${normalizePhoneNumber(conv.phoneNumber)}</span></td>
                 <td><span style="font-size: 0.9em; color: var(--medium-gray);">${lastInteraction}</span></td>
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
@@ -5836,6 +6746,7 @@ footer {
     /**
      * Abre el chat de una conversación
      * PUNTO DE CONTROL 2: Interfaz para que el asesor responda
+     * ✅ NUEVO: Con paginación de mensajes
      */
     let currentChatUserId = null;
 
@@ -5844,6 +6755,12 @@ footer {
 
     async function openChat(userId) {
       currentChatUserId = userId;
+
+      // ✅ NUEVO: Resetear variables de paginación
+      currentChatMessagesPage = 0;
+      currentChatHasMore = false;
+      currentChatNextCursor = null;
+      currentChatOldestTimestamp = null;
 
       // ✅ NUEVO: Limpiar Set de mensajes renderizados al abrir chat
       renderedMessageIds.clear();
@@ -5863,65 +6780,12 @@ footer {
       phoneSpan.textContent = normalizePhoneNumber(userId.split('@')[0]);
       messagesDiv.innerHTML = '<div style="text-align: center; color: var(--medium-gray); padding: 40px;">Cargando mensajes...</div>';
 
+      // ✅ NUEVO: Agregar listener para scroll hacia arriba (cargar más mensajes)
+      messagesDiv.onscroll = null; // Limpiar listener anterior
+      messagesDiv.onscroll = handleChatScroll;
+
       // Cargar historial de mensajes
-      try {
-        const response = await authenticatedFetch(`/api/conversations/${encodeURIComponent(userId)}/messages`);
-        const data = await response.json();
-
-        if (data.success) {
-          // ✅ MEJORADO: Mostrar información sobre cuántos mensajes se cargaron
-          console.log(`📜 Mensajes cargados: ${data.returned}/${data.total} (completo: ${!data.isLimited})`);
-
-          // Renderizar mensajes
-          if (data.messages && data.messages.length > 0) {
-            messagesDiv.innerHTML = data.messages.map(msg => {
-              const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
-              // Usar senderName si existe, si no usar el valor de sender
-              const senderName = msg.senderName || (msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario'));
-
-              // ✅ NUEVO: Generar ID único para tracking y agregar al Set
-              const messageId = msg.id || msg.messageId || `loaded_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-              renderedMessageIds.add(messageId);
-
-              return `
-                <div class="chat-message ${senderClass}" data-message-id="${messageId}">
-                  <div class="message-sender">${senderName}</div>
-                  <div class="message-bubble">
-                    <div class="message-text">${msg.message}</div>
-                  </div>
-                  <div class="message-time">${msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ''}</div>
-                </div>
-              `;
-            }).join('');
-
-            // ✅ NUEVO: Mensaje informativo sobre la carga
-            if (data.total > 0) {
-              const infoDiv = document.createElement('div');
-              infoDiv.style.cssText = 'text-align: center; color: var(--medium-gray); font-size: 0.85rem; padding: 10px; opacity: 0.7;';
-              infoDiv.textContent = `💬 ${data.returned} mensajes cargados (historial completo)`;
-              messagesDiv.insertBefore(infoDiv, messagesDiv.firstChild);
-
-              // Remover el mensaje después de 3 segundos
-              setTimeout(() => {
-                if (infoDiv.parentNode === messagesDiv) {
-                  messagesDiv.removeChild(infoDiv);
-                }
-              }, 3000);
-            }
-
-            console.log(`✅ ${renderedMessageIds.size} mensajes marcados como renderizados`);
-          } else {
-            messagesDiv.innerHTML = '<div style="text-align: center; color: var(--medium-gray); padding: 40px;">No hay mensajes aún</div>';
-          }
-
-          // Scroll al final
-          messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        } else {
-          messagesDiv.innerHTML = '<div style="text-align: center; color: #c62828; padding: 40px;">Error cargando mensajes</div>';
-        }
-      } catch (error) {
-        messagesDiv.innerHTML = '<div style="text-align: center; color: #c62828; padding: 40px;">Error de conexión</div>';
-      }
+      await loadChatMessages(userId);
 
       // Verificar estado del bot
       try {
@@ -5951,6 +6815,178 @@ footer {
     }
 
     /**
+     * ✅ NUEVO: Cargar mensajes del chat con paginación
+     */
+    async function loadChatMessages(userId, loadMore = false) {
+      const messagesDiv = document.getElementById('chat-messages');
+
+      try {
+        // ✅ NUEVO: Obtener mensajes directamente desde WhatsApp
+        let url = `/api/conversations/${encodeURIComponent(userId)}/whatsapp-messages?limit=${MESSAGES_PER_PAGE}`;
+
+        // Si es carga de más mensajes, usar el cursor
+        if (loadMore && currentChatNextCursor) {
+          url += `&cursor=${encodeURIComponent(currentChatNextCursor)}`;
+        }
+
+        const response = await authenticatedFetch(url);
+        const data = await response.json();
+
+        if (data.success) {
+          // ✅ NUEVO: Actualizar variables de paginación
+          currentChatHasMore = data.hasMore;
+          currentChatNextCursor = data.nextCursor;
+
+          // Renderizar mensajes
+          if (data.messages && data.messages.length > 0) {
+            const messagesHTML = data.messages.map(msg => {
+              const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
+              const senderName = msg.senderName || (msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario'));
+
+              // Generar ID único
+              const messageId = msg.id || msg.messageId || `loaded_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              renderedMessageIds.add(messageId);
+
+              // ✅ NUEVO: Renderizar según tipo (texto, audio, imagen, documento)
+              let messageContent = '';
+
+              if (msg.type === 'audio') {
+                messageContent = `
+                  <div class="message-audio">
+                    <audio controls src="${msg.mediaUrl || ''}" style="max-width: 200px;">
+                      <a href="${msg.mediaUrl || ''}">Descargar audio</a>
+                    </audio>
+                  </div>
+                `;
+              } else if (msg.type === 'image') {
+                messageContent = `
+                  <div class="message-image">
+                    <img src="${msg.mediaUrl || ''}" alt="Imagen" style="max-width: 250px; border-radius: 8px;" onclick="window.open('${msg.mediaUrl || ''}', '_blank')">
+                  </div>
+                  ${msg.message && msg.message !== msg.fileName ? `<div class="message-text">${msg.message}</div>` : ''}
+                `;
+              } else if (msg.type === 'document') {
+                messageContent = `
+                  <div class="message-document">
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #f0f0f0; border-radius: 8px;">
+                      <span style="font-size: 24px;">📄</span>
+                      <div>
+                        <div style="font-weight: 500;">${msg.fileName || 'Documento'}</div>
+                        <a href="${msg.mediaUrl || ''}" download style="font-size: 12px; color: var(--primary-green);">Descargar</a>
+                      </div>
+                    </div>
+                  </div>
+                  ${msg.message && msg.message !== msg.fileName ? `<div class="message-text">${msg.message}</div>` : ''}
+                `;
+              } else {
+                // Mensaje de texto
+                messageContent = `<div class="message-text">${msg.message}</div>`;
+              }
+
+              return `
+                <div class="chat-message ${senderClass}" data-message-id="${messageId}">
+                  <div class="message-sender">${senderName}</div>
+                  <div class="message-bubble">
+                    ${messageContent}
+                  </div>
+                  <div class="message-time">${msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ''}</div>
+                </div>
+              `;
+            }).join('');
+
+            // Actualizar timestamp más antiguo para siguiente página
+            if (data.messages.length > 0) {
+              currentChatOldestTimestamp = data.messages[0].timestamp; // El primero es el más antiguo (están ordenados cronológicamente)
+            }
+
+            if (loadMore) {
+              // Insertar mensajes al principio
+              const scrollPos = messagesDiv.scrollHeight;
+              messagesDiv.insertAdjacentHTML('afterbegin', messagesHTML);
+              // Restaurar posición del scroll
+              messagesDiv.scrollTop = messagesDiv.scrollHeight - scrollPos;
+            } else {
+              // Primera carga
+              messagesDiv.innerHTML = messagesHTML;
+
+              // ✅ NUEVO: Mensaje informativo sobre la carga
+              if (data.total > 0) {
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'chat-info-message';
+                infoDiv.style.cssText = 'text-align: center; color: var(--medium-gray); font-size: 0.85rem; padding: 10px; opacity: 0.7;';
+                infoDiv.innerHTML = `
+                  💬 ${data.returned} de ${data.total} mensajes
+                  ${data.hasMore ? '<br><span style="cursor: pointer; color: var(--primary-green);" onclick="loadMoreChatMessages()">⬆️ Cargar más antiguos</span>' : ''}
+                `;
+                messagesDiv.insertBefore(infoDiv, messagesDiv.firstChild);
+
+                // Remover el mensaje después de 5 segundos (pero mantener el botón de cargar más)
+                setTimeout(() => {
+                  if (infoDiv.parentNode === messagesDiv) {
+                    infoDiv.style.opacity = '0.5';
+                  }
+                }, 5000);
+              }
+
+              // ✅ Scroll al final después de que el DOM se actualice
+              setTimeout(() => {
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+              }, 100);
+            }
+
+            console.log(`✅ ${data.returned} mensajes cargados (hasMore: ${data.hasMore})`);
+          } else if (!loadMore) {
+            // Solo mostrar "no hay mensajes" si no es carga de más
+            messagesDiv.innerHTML = '<div style="text-align: center; color: var(--medium-gray); padding: 40px;">No hay mensajes aún</div>';
+          }
+        } else {
+          messagesDiv.innerHTML = '<div style="text-align: center; color: #c62828; padding: 40px;">Error cargando mensajes</div>';
+        }
+      } catch (error) {
+        messagesDiv.innerHTML = '<div style="text-align: center; color: #c62828; padding: 40px;">Error de conexión</div>';
+      }
+    }
+
+    /**
+     * ✅ NUEVO: Cargar más mensajes antiguos
+     */
+    async function loadMoreChatMessages() {
+      if (!currentChatUserId || !currentChatHasMore) return;
+
+      const messagesDiv = document.getElementById('chat-messages');
+
+      // Mostrar indicador de carga
+      const loadingDiv = document.createElement('div');
+      loadingDiv.id = 'chat-loading-more';
+      loadingDiv.style.cssText = 'text-align: center; padding: 10px; color: var(--medium-gray);';
+      loadingDiv.textContent = '⏳ Cargando mensajes más antiguos...';
+      messagesDiv.insertBefore(loadingDiv, messagesDiv.firstChild);
+
+      await loadChatMessages(currentChatUserId, true);
+
+      // Remover indicador
+      const loading = document.getElementById('chat-loading-more');
+      if (loading) loading.remove();
+    }
+
+    /**
+     * ✅ NUEVO: Manejar scroll en el chat para cargar más mensajes
+     */
+    function handleChatScroll(event) {
+      const messagesDiv = event.target;
+
+      // Si el scroll está cerca del tope (50px o menos), cargar más mensajes
+      if (messagesDiv.scrollTop < 50 && currentChatHasMore) {
+        // Evitar múltiples cargas simultáneas
+        messagesDiv.onscroll = null;
+        loadMoreChatMessages().then(() => {
+          // Restaurar listener después de cargar
+          messagesDiv.onscroll = handleChatScroll;
+        });
+      }
+    }
+
+    /**
      * Cierra el modal de chat
      */
     function closeChatModal() {
@@ -5961,6 +6997,14 @@ footer {
       // ✅ NUEVO: Cerrar emoji picker si está abierto
       if (isEmojiPickerOpen) {
         closeEmojiPicker();
+      }
+
+      // ✅ NUEVO: Cerrar menú de adjuntar si está abierto
+      closeAttachMenu();
+
+      // ✅ NUEVO: Detener grabación si está activa
+      if (isRecording) {
+        stopAudioRecording();
       }
 
       // ✅ NUEVO: Limpiar Set de mensajes renderizados al cerrar chat
@@ -6063,6 +7107,289 @@ footer {
     /**
      * ========================================
      * END EMOJI PICKER FUNCTIONS
+     * ========================================
+     */
+
+    /**
+     * ========================================
+     * ✅ NUEVO: FUNCIONES PARA ARCHIVOS MULTIMEDIA
+     * ========================================
+     */
+
+    /**
+     * Abre/cierra el menú de adjuntar archivos
+     */
+    function toggleAttachMenu() {
+      const menu = document.getElementById('attach-menu');
+      const btn = document.getElementById('chat-attach-btn');
+
+      if (menu.classList.contains('show')) {
+        menu.classList.remove('show');
+        btn.classList.remove('active');
+      } else {
+        menu.classList.add('show');
+        btn.classList.add('active');
+
+        // Cerrar emoji picker si está abierto
+        if (isEmojiPickerOpen) {
+          closeEmojiPicker();
+        }
+      }
+    }
+
+    /**
+     * Cierra el menú de adjuntar archivos
+     */
+    function closeAttachMenu() {
+      const menu = document.getElementById('attach-menu');
+      const btn = document.getElementById('chat-attach-btn');
+
+      menu.classList.remove('show');
+      btn.classList.remove('active');
+    }
+
+    /**
+     * Maneja la subida de archivos
+     */
+    async function handleFileUpload(input, type) {
+      const file = input.files[0];
+      if (!file) return;
+
+      // Validar tamaño (10MB máximo)
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        showAlert('El archivo excede los 10MB permitidos', 'error');
+        input.value = '';
+        return;
+      }
+
+      try {
+        // Mostrar indicador de carga
+        const messagesDiv = document.getElementById('chat-messages');
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'chat-loading-media';
+        loadingDiv.style.cssText = 'text-align: center; padding: 10px; color: var(--medium-gray);';
+        loadingDiv.innerHTML = '⏳ Subiendo archivo...';
+        messagesDiv.appendChild(loadingDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        // Crear FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', type);
+
+        // Subir archivo
+        const uploadResponse = await authenticatedFetch('/api/conversations/upload-media', {
+          method: 'POST',
+          body: formData
+        });
+
+        const uploadData = await uploadResponse.json();
+
+        if (!uploadData.success) {
+          throw new Error(uploadData.error || 'Error al subir el archivo');
+        }
+
+        // Enviar mensaje multimedia
+        const advisorData = getCurrentAdvisor();
+        const sendResponse = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/send-media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            media: uploadData.file,
+            caption: '', // TODO: Podríamos agregar un input para caption
+            advisor: advisorData
+          })
+        });
+
+        const sendData = await sendResponse.json();
+
+        // Remover indicador de carga
+        messagesDiv.removeChild(loadingDiv);
+
+        if (sendData.success) {
+          // El mensaje se agregará automáticamente vía Socket.IO
+          console.log('✅ Archivo enviado correctamente');
+        } else {
+          throw new Error(sendData.error || 'Error al enviar el mensaje');
+        }
+
+        // Limpiar input y cerrar menú
+        input.value = '';
+        closeAttachMenu();
+
+      } catch (error) {
+        showAlert('Error: ' + error.message, 'error');
+        console.error('Error subiendo archivo:', error);
+
+        // Remover indicador de carga si existe
+        const loadingDiv = document.querySelector('.chat-loading-media');
+        if (loadingDiv) loadingDiv.remove();
+      }
+    }
+
+    /**
+     * Variables para grabación de audio
+     */
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    /**
+     * Toggle del grabador de audio
+     */
+    async function toggleAudioRecorder() {
+      const btn = document.getElementById('chat-audio-btn');
+
+      if (isRecording) {
+        // Detener grabación
+        stopAudioRecording();
+      } else {
+        // Iniciar grabación
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+          };
+
+          mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/mpeg' });
+            await sendAudioMessage(audioBlob);
+
+            // Detener tracks
+            stream.getTracks().forEach(track => track.stop());
+          };
+
+          mediaRecorder.start();
+          isRecording = true;
+
+          btn.classList.add('recording');
+          btn.innerHTML = '⏹️'; // Cambiar a icono de detener
+
+          // Mostrar indicador
+          const messagesDiv = document.getElementById('chat-messages');
+          const recordingDiv = document.createElement('div');
+          recordingDiv.id = 'recording-indicator';
+          recordingDiv.style.cssText = 'text-align: center; padding: 10px; color: #d32f2f; font-weight: 500;';
+          recordingDiv.innerHTML = '🔴 Grabando... <span style="font-size: 12px;">(Toca 🎤 para detener)</span>';
+          messagesDiv.appendChild(recordingDiv);
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        } catch (error) {
+          showAlert('No se pudo acceder al micrófono: ' + error.message, 'error');
+          console.error('Error accediendo al micrófono:', error);
+        }
+      }
+    }
+
+    /**
+     * Detiene la grabación de audio
+     */
+    function stopAudioRecording() {
+      if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        isRecording = false;
+
+        const btn = document.getElementById('chat-audio-btn');
+        btn.classList.remove('recording');
+        btn.innerHTML = '🎤';
+
+        // Remover indicador
+        const recordingDiv = document.getElementById('recording-indicator');
+        if (recordingDiv) recordingDiv.remove();
+      }
+    }
+
+    /**
+     * Envía un mensaje de audio
+     */
+    async function sendAudioMessage(audioBlob) {
+      if (!currentChatUserId) return;
+
+      try {
+        // Mostrar indicador de carga
+        const messagesDiv = document.getElementById('chat-messages');
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'chat-loading-media';
+        loadingDiv.style.cssText = 'text-align: center; padding: 10px; color: var(--medium-gray);';
+        loadingDiv.innerHTML = '⏳ Enviando audio...';
+        messagesDiv.appendChild(loadingDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+        // Crear archivo
+        const file = new File([audioBlob], 'audio.mp3', { type: 'audio/mpeg' });
+
+        // Crear FormData
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', 'audio');
+
+        // Subir archivo
+        const uploadResponse = await authenticatedFetch('/api/conversations/upload-media', {
+          method: 'POST',
+          body: formData
+        });
+
+        const uploadData = await uploadResponse.json();
+
+        if (!uploadData.success) {
+          throw new Error(uploadData.error || 'Error al subir el audio');
+        }
+
+        // Enviar mensaje multimedia
+        const advisorData = getCurrentAdvisor();
+        const sendResponse = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/send-media`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            media: uploadData.file,
+            caption: '',
+            advisor: advisorData
+          })
+        });
+
+        const sendData = await sendResponse.json();
+
+        // Remover indicador de carga
+        messagesDiv.removeChild(loadingDiv);
+
+        if (sendData.success) {
+          console.log('✅ Audio enviado correctamente');
+        } else {
+          throw new Error(sendData.error || 'Error al enviar el audio');
+        }
+
+      } catch (error) {
+        showAlert('Error: ' + error.message, 'error');
+        console.error('Error enviando audio:', error);
+
+        // Remover indicador de carga si existe
+        const loadingDiv = document.querySelector('.chat-loading-media');
+        if (loadingDiv) loadingDiv.remove();
+      }
+    }
+
+    /**
+     * Cierra los menús al hacer clic fuera
+     */
+    document.addEventListener('click', function(event) {
+      const attachMenu = document.getElementById('attach-menu');
+      const attachBtn = document.getElementById('chat-attach-btn');
+
+      // Cerrar menú de adjuntar si el clic no fue en el menú ni en el botón
+      if (attachMenu.classList.contains('show') &&
+          !attachMenu.contains(event.target) &&
+          !attachBtn.contains(event.target)) {
+        closeAttachMenu();
+      }
+    });
+
+    /**
+     * ========================================
+     * END MULTIMEDIA FUNCTIONS
      * ========================================
      */
 
@@ -6682,9 +8009,41 @@ footer {
           rows="1"
           onkeydown="handleChatKeydown(event)"
         ></textarea>
+
+        <!-- ✅ NUEVO: Botón para subir archivos (clip) -->
+        <button class="chat-attach-btn" id="chat-attach-btn" onclick="toggleAttachMenu()" title="Adjuntar archivo">
+          📎
+        </button>
+
+        <!-- ✅ NUEVO: Botón para grabar/enviar audio -->
+        <button class="chat-audio-btn" id="chat-audio-btn" onclick="toggleAudioRecorder()" title="Enviar audio">
+          🎤
+        </button>
+
         <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()">
           Enviar
         </button>
+
+        <!-- ✅ NUEVO: Menú de adjuntar archivos -->
+        <div class="attach-menu" id="attach-menu">
+          <div class="attach-menu-item" onclick="document.getElementById('file-image-input').click()">
+            <span class="attach-menu-icon">🖼️</span>
+            <span>Imagen</span>
+          </div>
+          <div class="attach-menu-item" onclick="document.getElementById('file-document-input').click()">
+            <span class="attach-menu-icon">📄</span>
+            <span>PDF</span>
+          </div>
+          <div class="attach-menu-item" onclick="document.getElementById('file-audio-input').click()">
+            <span class="attach-menu-icon">🎵</span>
+            <span>Audio</span>
+          </div>
+        </div>
+
+        <!-- ✅ NUEVO: Inputs ocultos para subir archivos -->
+        <input type="file" id="file-image-input" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;" onchange="handleFileUpload(this, 'image')">
+        <input type="file" id="file-document-input" accept="application/pdf" style="display: none;" onchange="handleFileUpload(this, 'document')">
+        <input type="file" id="file-audio-input" accept="audio/mpeg,audio/ogg,audio/wav" style="display: none;" onchange="handleFileUpload(this, 'audio')">
 
         <!-- Emoji Picker Panel -->
         <div class="emoji-picker-panel" id="emoji-picker-panel">

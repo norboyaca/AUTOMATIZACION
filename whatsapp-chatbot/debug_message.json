@@ -1,0 +1,70 @@
+{
+  "key": {
+    "remoteJid": "573028599105@s.whatsapp.net",
+    "remoteJidAlt": "254468541157383@lid",
+    "fromMe": false,
+    "id": "3EB06A9082C40DFBDECDE6",
+    "participant": "",
+    "addressingMode": "pn"
+  },
+  "message": {
+    "conversation": "hola",
+    "messageContextInfo": {
+      "deviceListMetadata": {
+        "senderKeyHash": "QAX//zyKDRg6jg==",
+        "senderTimestamp": "1770261210",
+        "senderAccountType": "E2EE",
+        "receiverAccountType": "E2EE",
+        "recipientKeyHash": "Iuzh5MEUdI7A/g==",
+        "recipientTimestamp": "1770407277"
+      },
+      "deviceListMetadataVersion": 2,
+      "messageSecret": "9UeHt/GeF+ZWwE1WhE3iZlQONDDPauyVgdNjkcCu09g=",
+      "limitSharingV2": {
+        "trigger": "UNKNOWN",
+        "initiatedByMe": false
+      }
+    }
+  },
+  "full": {
+    "key": {
+      "remoteJid": "573028599105@s.whatsapp.net",
+      "remoteJidAlt": "254468541157383@lid",
+      "fromMe": false,
+      "id": "3EB06A9082C40DFBDECDE6",
+      "participant": "",
+      "addressingMode": "pn"
+    },
+    "messageTimestamp": 1770500828,
+    "pushName": "David Castella",
+    "broadcast": false,
+    "message": {
+      "conversation": "hola",
+      "messageContextInfo": {
+        "deviceListMetadata": {
+          "senderKeyHash": "QAX//zyKDRg6jg==",
+          "senderTimestamp": "1770261210",
+          "senderAccountType": "E2EE",
+          "receiverAccountType": "E2EE",
+          "recipientKeyHash": "Iuzh5MEUdI7A/g==",
+          "recipientTimestamp": "1770407277"
+        },
+        "deviceListMetadataVersion": 2,
+        "messageSecret": "9UeHt/GeF+ZWwE1WhE3iZlQONDDPauyVgdNjkcCu09g=",
+        "limitSharingV2": {
+          "trigger": "UNKNOWN",
+          "initiatedByMe": false
+        }
+      }
+    }
+  },
+  "transformed": {
+    "id": "3EB06A9082C40DFBDECDE6",
+    "message": "hola",
+    "sender": "user",
+    "timestamp": 1770500828000,
+    "type": "text",
+    "mediaUrl": null,
+    "fileName": null
+  }
+}

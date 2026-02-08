@@ -8,79 +8,169 @@
  * - Controlar ciclos de 60 minutos por número
  * - Manejar resets manuales y automáticos
  * - Almacenar historial de mensajes
+ * - ✅ PERSISTENCIA: DynamoDB (vía repository) + Caché en memoria
  */
 
 const logger = require('../utils/logger');
+const conversationRepository = require('../repositories/conversation.repository');
+const { Conversation } = require('../models/conversation.model');
 
 // Duración del ciclo en milisegundos (60 minutos)
 const CYCLE_DURATION_MS = 60 * 60 * 1000;
 
-/**
- * Estructura de datos por conversación:
- *
- * {
- *   userId: "573503267342@s.whatsapp.net",
- *   phoneNumber: "573503267342",
- *   cycleStart: 1706544000000,        // Timestamp inicio del ciclo actual
- *   lastInteraction: 1706547600000,   // Última actividad
- *   status: "active" | "expired" | "new_cycle" | "pending_advisor" | "out_of_hours" | "advisor_handled",
- *   consentStatus: "pending" | "accepted" | "rejected",
- *   interactionCount: 2,
- *   welcomeSent: false,
- *   consentMessageSent: false,
- *   lastMessage: "Texto del último mensaje",
- *   messageCount: 5,                   // Total de mensajes en el ciclo
- *
- *   // CAMPOS PARA ESCALACIÓN A HUMANO:
- *   needsHuman: false,                // Indica si requiere intervención humana
- *   needsHumanReason: null,            // Razón: 'user_requested', 'complex_topic', 'multiple_retries'
- *   assignedTo: null,                  // ID del asesor que tomó la conversación
- *   advisorName: null,                 // Nombre del asesor
- *   takenAt: null,                     // Timestamp cuando fue tomado por asesor
- *   escalationCount: 0,                // Contador de veces que fue escalado
- *
- *   // NUEVOS CAMPOS PARA CONTROL DEL BOT (PUNTO DE CONTROL 2):
- *   bot_active: true,                  // ✅ CRÍTICO: Controla si el bot responde automáticamente
- *   advisorMessages: [],               // Historial de mensajes enviados por asesores
- *   botDeactivatedAt: null,            // Timestamp de desactivación del bot
- *   botDeactivatedBy: null,            // ID del asesor que desactivó el bot
- *   messages: [],                      // Historial completo de mensajes
- *
- *   // NUEVOS CAMPOS PARA EVITAR REPETICIÓN:
- *   escalationMessageSent: false,      // ✅ Ya se envió mensaje de escalación
- *   waitingForHuman: false,            // ✅ Esperando respuesta de asesor (no responder más)
- *   lastEscalationMessageAt: null,     // Timestamp del último mensaje de escalación
- *
- *   // ✅ NUEVO: NOMBRE DE WHATSAPP:
- *   whatsappName: null,                // Nombre del contacto en WhatsApp (pushName)
- *   whatsappNameUpdatedAt: null        // Timestamp de última actualización del nombre
- * }
- */
+// Caché en memoria para acceso rápido y compatibilidad síncrona
+const conversationsCache = new Map();
 
-// Almacenamiento en memoria (puede migrarse a DB después)
-const conversations = new Map();
+// ===========================================
+// ✅ Funciones de Persistencia (DynamoDB)
+// ===========================================
+
+/**
+ * Carga las conversaciones activas desde DynamoDB al iniciar
+ */
+async function loadConversationsFromDB() {
+  try {
+    logger.info('🔄 Cargando conversaciones activas desde DynamoDB...');
+
+    const activeConversations = await conversationRepository.findActive({ limit: 100 });
+    logger.info(`📊 findActive() devolvió ${activeConversations.length} conversaciones`);
+
+    let loadedCount = 0;
+    for (const conv of activeConversations) {
+      const convData = conv.toObject ? conv.toObject() : conv;
+
+      // MAPEO: Modelo DynamoDB -> Estructura en memoria
+      // DynamoDB usa: participantId
+      // Memoria usa: userId, phoneNumber, whatsappName, etc.
+      const cacheKey = convData.participantId;
+      if (!cacheKey) {
+        logger.warn('⚠️ Conversación sin participantId, saltando...');
+        continue;
+      }
+
+      // Crear estructura compatible con memoria
+      const memoryConversation = {
+        // IDs (participantId de DynamoDB -> userId de memoria)
+        userId: convData.participantId,
+        participantId: convData.participantId,
+
+        // Extraer phoneNumber del participantId (quitar sufijos de WhatsApp)
+        phoneNumber: extractPhoneNumber(convData.participantId),
+
+        // Nombres
+        whatsappName: convData.participantName || null,
+
+        // Estado
+        status: convData.status || 'active',
+        bot_active: convData.status !== 'advisor_handled', // Si está siendo atendido por asesor, bot inactivo
+
+        // Flujo activo (para máquinas de estado)
+        activeFlow: convData.activeFlow || null,
+        flowState: convData.flowState || {},
+
+        // Timestamps - convertir strings ISO a Date
+        cycleStart: convData.createdAt ? new Date(convData.createdAt).getTime() : Date.now(),
+        lastInteraction: convData.lastInteraction || Date.now(),
+        createdAt: convData.createdAt ? new Date(convData.createdAt) : new Date(),
+        updatedAt: convData.updatedAt ? new Date(convData.updatedAt) : new Date(),
+
+        // Consentimiento
+        consentStatus: 'pending', // No se guarda en DynamoDB actualmente
+        consentMessageSent: false,
+
+        // Contadores
+        interactionCount: 0,
+        messageCount: 0,
+
+        // Mensajes
+        lastMessage: '',
+        messages: [], // Se cargarán bajo demanda desde DynamoDB
+
+        // Escalación
+        needsHuman: convData.status === 'pending_advisor',
+        needsHumanReason: null,
+        assignedTo: null,
+        advisorName: null,
+        takenAt: null,
+        escalationCount: 0,
+        advisorMessages: [],
+
+        // Bot
+        botDeactivatedAt: null,
+        botDeactivatedBy: null,
+
+        // Otros
+        escalationMessageSent: convData.status === 'pending_advisor',
+        waitingForHuman: convData.status === 'pending_advisor',
+        lastEscalationMessageAt: null,
+        manuallyReactivated: false,
+        whatsappNameUpdatedAt: null,
+
+        // Contexto y metadatos
+        context: convData.context || { systemPrompt: null, variables: {} },
+        metadata: convData.metadata || {},
+        tags: convData.tags || []
+      };
+
+      conversationsCache.set(cacheKey, memoryConversation);
+      loadedCount++;
+      logger.info(`✅ Cargada: ${cacheKey} (${memoryConversation.phoneNumber})`);
+    }
+
+    logger.info(`✅ ${loadedCount} conversaciones cargadas desde DynamoDB a memoria`);
+  } catch (error) {
+    logger.error('❌ Error cargando conversaciones desde DynamoDB:', error);
+    logger.error(`   Stack: ${error.stack}`);
+  }
+}
+
+/**
+ * Persiste una conversación en DynamoDB (Asíncrono/Fondo)
+ * @param {Object} conversation - Objeto de conversación del caché
+ */
+async function persistConversation(conversation) {
+  try {
+    // Validar que tenga datos mínimos
+    if (!conversation || !conversation.userId) return;
+
+    // Guardar directamente con saveRaw para preservar todos los campos de memoria
+    await conversationRepository.saveRaw(conversation);
+
+    logger.info(`💾 Conversación guardada en DynamoDB: ${conversation.userId} (${conversation.phoneNumber || conversation.participantId})`);
+  } catch (error) {
+    logger.error(`❌ Error persistiendo conversación ${conversation?.userId}:`, error);
+  }
+}
+
+/**
+ * Inicializar la persistencia al cargar el módulo
+ * DESACTIVADO: Ahora usamos Baileys directamente para leer chats y mensajes
+ */
+// loadConversationsFromDB().then(() => {
+//   logger.info('✅ Sistema de estado sincronizado con DynamoDB');
+// });
+logger.info('✅ Sistema de estado usando Baileys como fuente de verdad');
+
+// ===========================================
+// Lógica de Negocio
+// ===========================================
 
 /**
  * Obtiene o crea una conversación para un usuario
- *
- * ✅ CORREGIDO: Ahora acepta un objeto opcional con datos adicionales
- * como whatsappName para incluirlo al momento de crear la conversación
- *
+ * 
  * @param {string} userId - ID del usuario de WhatsApp
  * @param {Object} options - Opciones adicionales
- * @param {string} options.whatsappName - Nombre del contacto (pushName)
- * @param {string} options.realPhoneNumber - Número real del contacto (wa_id del contacto)
- * @returns {Object} Conversación
+ * @returns {Object} Conversación (referencia al caché)
  */
 function getOrCreateConversation(userId, options = {}) {
   const { whatsappName, realPhoneNumber } = options;
 
-  if (!conversations.has(userId)) {
-    // ✅ CORRECCIÓN: Usar el número real si está disponible, sino extraer del userId
+  if (!conversationsCache.has(userId)) {
     const phoneNumber = realPhoneNumber || extractPhoneNumber(userId);
 
     const conversation = {
       userId,
+      participantId: userId, // Compatibilidad con modelo DB
       phoneNumber,
       cycleStart: Date.now(),
       lastInteraction: Date.now(),
@@ -91,111 +181,72 @@ function getOrCreateConversation(userId, options = {}) {
       consentMessageSent: false,
       lastMessage: '',
       messageCount: 0,
-      // Nuevos campos para escalación
       needsHuman: false,
       needsHumanReason: null,
       assignedTo: null,
       advisorName: null,
       takenAt: null,
       escalationCount: 0,
-      // NUEVOS CAMPOS PARA CONTROL DEL BOT (PUNTO DE CONTROL 2)
-      bot_active: true,                  // ✅ Bot activo por defecto
-      advisorMessages: [],               // Historial de mensajes de asesores
-      botDeactivatedAt: null,            // Timestamp de desactivación
-      botDeactivatedBy: null,            // ID del asesor que desactivó
-      messages: [],                      // Historial completo de mensajes
-      // NUEVOS CAMPOS PARA EVITAR REPETICIÓN
-      escalationMessageSent: false,      // No se ha enviado mensaje de escalación
-      waitingForHuman: false,            // No está esperando asesor
-      lastEscalationMessageAt: null,     // Sin timestamp de escalación
-      // ✅ NUEVO: Flag para controlar reactivación manual
-      manuallyReactivated: false,        // Indica si fue reactivada manualmente por asesor
-      // ✅ CORREGIDO: Nombre de WhatsApp - ahora se incluye al crear
+      bot_active: true,
+      advisorMessages: [],
+      botDeactivatedAt: null,
+      botDeactivatedBy: null,
+      messages: [], // Los mensajes se guardan en tabla aparte, esto es solo caché reciente
+      escalationMessageSent: false,
+      waitingForHuman: false,
+      lastEscalationMessageAt: null,
+      manuallyReactivated: false,
       whatsappName: (whatsappName && whatsappName.trim()) ? whatsappName.trim() : null,
-      whatsappNameUpdatedAt: whatsappName ? Date.now() : null
+      whatsappNameUpdatedAt: whatsappName ? Date.now() : null,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
-    conversations.set(userId, conversation);
+    conversationsCache.set(userId, conversation);
 
-    if (whatsappName) {
-      logger.info(`✅ Nueva conversación creada: ${userId} con nombre: "${whatsappName}"`);
-    } else {
-      logger.info(`Nueva conversación creada: ${userId}`);
-    }
+    logger.info(`✅ Nueva conversación creada en memoria: ${userId}`);
+
+    // Persistir inmediatamente
+    persistConversation(conversation);
+
   } else {
-    // ✅ CORREGIDO: Si la conversación ya existe, actualizar nombre y/o número si es necesario
-    const conversation = conversations.get(userId);
+    // Actualizar datos existentes si es necesario
+    const conversation = conversationsCache.get(userId);
+    let changed = false;
 
-    // Actualizar nombre de WhatsApp si no existe
     if (whatsappName && whatsappName.trim() && !conversation.whatsappName) {
       conversation.whatsappName = whatsappName.trim();
       conversation.whatsappNameUpdatedAt = Date.now();
-      logger.info(`✅ Nombre actualizado para conversación existente ${userId}: "${whatsappName}"`);
+      changed = true;
     }
 
-    // ✅ NUEVO: Actualizar número de teléfono si se proporciona uno real diferente
-    // Esto corrige casos donde el userId tiene un wa_id interno pero ahora tenemos el número real
     if (realPhoneNumber && realPhoneNumber !== conversation.phoneNumber) {
-      const oldPhone = conversation.phoneNumber;
-      // Solo actualizar si el número nuevo parece ser más correcto (menor longitud = número real vs wa_id interno)
-      if (realPhoneNumber.length <= 13 && oldPhone.length > 13) {
+      if (realPhoneNumber.length <= 13 && conversation.phoneNumber.length > 13) {
         conversation.phoneNumber = realPhoneNumber;
-        logger.info(`✅ Número corregido para ${userId}: ${oldPhone} → ${realPhoneNumber}`);
+        logger.info(`✅ Número corregido: ${conversation.phoneNumber} → ${realPhoneNumber}`);
+        changed = true;
       }
+    }
+
+    if (changed) {
+      persistConversation(conversation);
     }
   }
 
-  return conversations.get(userId);
+  return conversationsCache.get(userId);
 }
 
 /**
  * Extrae el número de teléfono del userId de WhatsApp
- * ✅ CORRECCIÓN PROBLEMA 2: Manejar diferentes formatos de wa_id
- *
- * userId puede tener diferentes formatos:
- * - "573001234567@s.whatsapp.net" → "573001234567"
- * - "151771427143897@s.whatsapp.net" → wa_id interno de Meta (15 dígitos)
- *
- * IMPORTANT: El wa_id de Meta a veces es un número interno largo.
- * Para Colombia: wa_id suele ser de 12 dígitos (57 + número de 10 dígitos)
- * Para otros países puede variar.
- *
- * Esta función hace lo siguiente:
- * 1. Extrae la parte antes de @
- * 2. Si tiene más de 12 dígitos, probablemente es un wa_id interno
- * 3. Para wa_id internos largos, intentar extraer el número real
- *
- * @param {string} userId - ID de usuario de WhatsApp
- * @returns {string} Número de teléfono extraído
  */
 function extractPhoneNumber(userId) {
   if (!userId) return '';
-
-  // Extraer parte antes del @
   const beforeAt = userId.split('@')[0];
-
-  // Si tiene formato "whatsapp:XXX", limpiarlo primero
   let cleaned = beforeAt.replace(/^whatsapp:/i, '');
 
-  // ===========================================
-  // ✅ CORRECCIÓN: Manejar wa_id interno de Meta
-  // ===========================================
-  // Los wa_id de Meta pueden ser:
-  // - 12 dígitos para Colombia: 573001234567 (código de país + número)
-  // - 15 dígitos para wa_id interno: 151771427143897 (ID único global)
-
-  // Si tiene más de 13 dígitos, es probablemente un wa_id interno largo
-  // En ese caso, intentar extraer el número real
   if (cleaned.length > 13) {
-    logger.warn(`⚠️ Posible wa_id interno detectado: ${cleaned} (${cleaned.length} dígitos)`);
-    logger.warn(`   Usando el valor tal cual. Puede que necesite limpieza manual.`);
-    // Por ahora, retornar tal cual (no podemos adivinar el número real)
-    // El frontend se encargará de normalizar la visualización
-    return cleaned;
+    // logger.warn(`⚠️ Posible wa_id interno: ${cleaned}`);
   }
-
-  // Si tiene 12-13 dígitos, probablemente ya incluye el código de país
-  // Para Colombia: 57 + número de 10 dígitos = 12 dígitos
   return cleaned;
 }
 
@@ -230,7 +281,6 @@ function getRemainingTimeFormatted(conversation) {
 
 /**
  * Verifica y actualiza el ciclo de una conversación
- * Retorna true si se reinició el ciclo
  */
 function checkAndUpdateCycle(userId) {
   const conversation = getOrCreateConversation(userId);
@@ -238,42 +288,41 @@ function checkAndUpdateCycle(userId) {
   if (hasCycleExpired(conversation)) {
     logger.info(`Ciclo expirado para ${userId}, reiniciando...`);
     resetConversation(userId);
-    return true;
+    return true; // Ciclo reiniciado
   }
 
   // Actualizar última interacción
   conversation.lastInteraction = Date.now();
   conversation.messageCount++;
 
+  // Persistir actualización
+  persistConversation(conversation);
+
   return false;
 }
 
 /**
  * Reinicia una conversación (nuevo ciclo)
- *
- * ✅ NUEVO: Preserva mensajes del mismo día para mantener contexto
  */
 function resetConversation(userId) {
-  if (!conversations.has(userId)) {
+  if (!conversationsCache.has(userId)) {
     return getOrCreateConversation(userId);
   }
 
-  const oldConversation = conversations.get(userId);
+  const oldConversation = conversationsCache.get(userId);
   const phoneNumber = oldConversation.phoneNumber;
 
-  // ✅ NUEVO: Preservar mensajes del día actual
+  // Preservar mensajes del día actual
   const now = Date.now();
   const oneDayMs = 24 * 60 * 60 * 1000;
   const todayStart = now - oneDayMs;
 
-  // Filtrar mensajes de hoy
   const todayMessages = (oldConversation.messages || [])
     .filter(msg => msg.timestamp >= todayStart);
 
-  logger.info(`📜 Preservando ${todayMessages.length} mensajes de hoy para ${userId}`);
-
   const newConversation = {
     userId,
+    participantId: userId,
     phoneNumber,
     cycleStart: Date.now(),
     lastInteraction: Date.now(),
@@ -284,31 +333,30 @@ function resetConversation(userId) {
     consentMessageSent: false,
     lastMessage: '',
     messageCount: 0,
-    // Nuevos campos para escalación (resetear)
     needsHuman: false,
     needsHumanReason: null,
     assignedTo: null,
     advisorName: null,
     takenAt: null,
     escalationCount: 0,
-    // NUEVOS CAMPOS PARA CONTROL DEL BOT (resetear al reiniciar ciclo)
-    bot_active: true,                  // ✅ Reactivar bot al reiniciar
-    advisorMessages: [],               // Limpiar historial de asesores
-    botDeactivatedAt: null,            // Limpiar timestamp de desactivación
-    botDeactivatedBy: null,            // Limpiar quién desactivó
-    messages: todayMessages,           // ✅ NUEVO: Preservar mensajes de hoy
-    // NUEVOS CAMPOS PARA EVITAR REPETICIÓN (resetear)
-    escalationMessageSent: false,      // Resetear flag de escalación
-    waitingForHuman: false,            // Resetear espera
-    lastEscalationMessageAt: null,      // Resetear timestamp
-    manuallyReactivated: false,         // ✅ NUEVO: Resetear flag de reactivación manual
-    // ✅ CORREGIDO: PRESERVAR nombre de WhatsApp (NO se debe perder al resetear)
+    bot_active: true,
+    advisorMessages: [],
+    botDeactivatedAt: null,
+    botDeactivatedBy: null,
+    messages: todayMessages,
+    escalationMessageSent: false,
+    waitingForHuman: false,
+    lastEscalationMessageAt: null,
+    manuallyReactivated: false,
     whatsappName: oldConversation.whatsappName || null,
-    whatsappNameUpdatedAt: oldConversation.whatsappNameUpdatedAt || null
+    whatsappNameUpdatedAt: oldConversation.whatsappNameUpdatedAt || null,
+    updatedAt: new Date()
   };
 
-  conversations.set(userId, newConversation);
-  logger.info(`Conversación reiniciada: ${userId} (${todayMessages.length} mensajes preservados)`);
+  conversationsCache.set(userId, newConversation);
+
+  logger.info(`Conversación reiniciada: ${userId}`);
+  persistConversation(newConversation);
 
   return newConversation;
 }
@@ -320,6 +368,7 @@ function updateConsentStatus(userId, status) {
   const conversation = getOrCreateConversation(userId);
   conversation.consentStatus = status;
   conversation.consentMessageSent = true;
+  persistConversation(conversation);
 }
 
 /**
@@ -328,6 +377,7 @@ function updateConsentStatus(userId, status) {
 function markWelcomeSent(userId) {
   const conversation = getOrCreateConversation(userId);
   conversation.welcomeSent = true;
+  persistConversation(conversation);
 }
 
 /**
@@ -336,15 +386,30 @@ function markWelcomeSent(userId) {
 function markConsentSent(userId) {
   const conversation = getOrCreateConversation(userId);
   conversation.consentMessageSent = true;
+  persistConversation(conversation);
 }
 
 /**
  * Guarda el último mensaje de una conversación
+ * NOTA: Los mensajes individuales se guardan vía conversationRepository.saveMessage en el procesador,
+ * aquí solo actualizamos la referencia "último mensaje" en la cabecera de la conversación.
  */
 function updateLastMessage(userId, message) {
   const conversation = getOrCreateConversation(userId);
-  conversation.lastMessage = message;
+
+  // Guardar en caché local de mensajes (para contexto inmediato)
+  if (!conversation.messages) conversation.messages = [];
+  conversation.messages.push(message);
+
+  // Limitar caché local a últimos 50 mensajes para no explotar memoria
+  if (conversation.messages.length > 50) {
+    conversation.messages = conversation.messages.slice(-50);
+  }
+
+  conversation.lastMessage = message.content?.text || '[Multimedia]';
   conversation.lastInteraction = Date.now();
+
+  persistConversation(conversation);
 }
 
 /**
@@ -353,13 +418,14 @@ function updateLastMessage(userId, message) {
 function incrementInteractionCount(userId) {
   const conversation = getOrCreateConversation(userId);
   conversation.interactionCount++;
+  persistConversation(conversation);
 }
 
 /**
- * Obtiene todas las conversaciones
+ * Obtiene todas las conversaciones (del caché)
  */
 function getAllConversations() {
-  return Array.from(conversations.values()).map(conv => ({
+  return Array.from(conversationsCache.values()).map(conv => ({
     ...conv,
     remainingTime: getRemainingTime(conv),
     remainingTimeFormatted: getRemainingTimeFormatted(conv),
@@ -371,26 +437,23 @@ function getAllConversations() {
  * Obtiene una conversación por userId
  */
 function getConversation(userId) {
-  return conversations.get(userId) || null;
+  return conversationsCache.get(userId) || null;
 }
 
 /**
- * Obtiene estadísticas de conversaciones
+ * Obtiene estadísticas
  */
 function getStats() {
   const all = getAllConversations();
-  const now = Date.now();
 
   const active = all.filter(c => !hasCycleExpired(c)).length;
   const expired = all.filter(c => hasCycleExpired(c)).length;
   const total = all.length;
 
-  // Consentimiento
   const accepted = all.filter(c => c.consentStatus === 'accepted').length;
   const pending = all.filter(c => c.consentStatus === 'pending').length;
   const rejected = all.filter(c => c.consentStatus === 'rejected').length;
 
-  // NUEVO: Estadísticas de escalación
   const pendingAdvisor = all.filter(c => c.status === 'pending_advisor').length;
   const advisorHandled = all.filter(c => c.status === 'advisor_handled').length;
   const outOfHours = all.filter(c => c.status === 'out_of_hours').length;
@@ -399,126 +462,78 @@ function getStats() {
     total,
     active,
     expired,
-    consent: {
-      accepted,
-      pending,
-      rejected
-    },
-    escalation: {
-      pendingAdvisor,
-      advisorHandled,
-      outOfHours
-    }
+    consent: { accepted, pending, rejected },
+    escalation: { pendingAdvisor, advisorHandled, outOfHours },
+    source: 'DynamoDB (Cached)'
   };
 }
 
 /**
- * Limpia conversaciones expiradas (mantenimiento)
+ * Limpia conversaciones expiradas de memoria (no de DB)
  */
 function cleanExpiredConversations() {
   const now = Date.now();
   let cleaned = 0;
 
-  for (const [userId, conversation] of conversations.entries()) {
-    // Si expiró hace más de 24 horas, eliminar
+  for (const [userId, conversation] of conversationsCache.entries()) {
     const timeSinceLastInteraction = now - conversation.lastInteraction;
+    // Si expiró hace más de 24 horas, quitar de memoria
     if (timeSinceLastInteraction > 24 * 60 * 60 * 1000) {
-      conversations.delete(userId);
+      conversationsCache.delete(userId);
       cleaned++;
     }
   }
 
   if (cleaned > 0) {
-    logger.info(`Limpiadas ${cleaned} conversaciones expiradas (24h+)`);
+    logger.info(`🧹 Limpiadas ${cleaned} conversaciones inactivas de memoria`);
   }
-
   return cleaned;
 }
 
 // ===========================================
-// NUEVOS MÉTODOS PARA ESCALACIÓN A HUMANO
+// Métodos de Escalación y Control
 // ===========================================
 
-/**
- * Marca una conversación para escalación a humano
- *
- * @param {string} userId - ID del usuario
- * @param {Object} escalationData - Datos de la escalación
- * @returns {Object} Conversación actualizada
- */
 function markForEscalation(userId, escalationData = {}) {
   const conversation = getOrCreateConversation(userId);
-
   conversation.status = 'pending_advisor';
   conversation.needsHuman = true;
   conversation.needsHumanReason = escalationData.reason || 'unknown';
   conversation.escalationCount = (conversation.escalationCount || 0) + 1;
   conversation.lastInteraction = Date.now();
 
-  logger.info(`🚨 Usuario ${userId} marcado para escalación: ${escalationData.reason || 'unknown'} (escalación #${conversation.escalationCount})`);
-
+  logger.info(`🚨 Escalación para ${userId}: ${escalationData.reason}`);
+  persistConversation(conversation);
   return conversation;
 }
 
-/**
- * Marca una conversación como fuera de horario
- *
- * @param {string} userId - ID del usuario
- * @returns {Object} Conversación actualizada
- */
 function markOutOfHours(userId) {
   const conversation = getOrCreateConversation(userId);
   conversation.status = 'out_of_hours';
   conversation.lastInteraction = Date.now();
-
-  logger.info(`🌙 Usuario ${userId} marcado como fuera de horario`);
-
+  persistConversation(conversation);
   return conversation;
 }
 
-/**
- * Asigna un asesor a una conversación
- *
- * @param {string} userId - ID del usuario
- * @param {Object} advisorData - Datos del asesor { id, name, email }
- * @returns {Object|null} Conversación actualizada o null si no existe
- */
 function assignAdvisor(userId, advisorData = {}) {
   const conversation = getConversation(userId);
-
-  if (!conversation) {
-    logger.warn(`No se encontró conversación para ${userId} al asignar asesor`);
-    return null;
-  }
+  if (!conversation) return null;
 
   conversation.status = 'advisor_handled';
   conversation.assignedTo = advisorData.id || null;
   conversation.advisorName = advisorData.name || null;
   conversation.takenAt = Date.now();
   conversation.lastInteraction = Date.now();
-
-  // ✅ CORRECCIÓN: Resetear contador de interacciones cuando el asesor toma la conversación
-  // Esto evita que se escale nuevamente por "multiple_retries" después de que el asesor responda
   conversation.interactionCount = 0;
-  logger.info(`✅ Asesor ${advisorData.name || advisorData.id} tomó conversación de ${userId}`);
-  logger.info(`   ✅ interactionCount reseteado a 0`);
 
+  logger.info(`✅ Asesor asignado a ${userId}`);
+  persistConversation(conversation);
   return conversation;
 }
 
-/**
- * Libera una conversación de vuelta al bot
- *
- * @param {string} userId - ID del usuario
- * @returns {Object|null} Conversación actualizada o null si no existe
- */
 function releaseFromAdvisor(userId) {
   const conversation = getConversation(userId);
-
-  if (!conversation) {
-    logger.warn(`No se encontró conversación para ${userId} al liberar`);
-    return null;
-  }
+  if (!conversation) return null;
 
   conversation.status = 'active';
   conversation.assignedTo = null;
@@ -527,194 +542,81 @@ function releaseFromAdvisor(userId) {
   conversation.needsHuman = false;
   conversation.needsHumanReason = null;
   conversation.lastInteraction = Date.now();
-
-  // ✅ CORRECCIÓN: Reactivar el bot cuando se libera la conversación
   conversation.bot_active = true;
-
-  // ✅ CORRECCIÓN: Resetear flags de escalación para permitir nueva respuesta
   conversation.escalationMessageSent = false;
   conversation.waitingForHuman = false;
   conversation.lastEscalationMessageAt = null;
   conversation.botDeactivatedAt = null;
   conversation.botDeactivatedBy = null;
 
-  logger.info(`🔄 Conversación de ${userId} liberada de vuelta al bot`);
-  logger.info(`   ✅ bot_active: true`);
-  logger.info(`   ✅ status: active`);
-  logger.info(`   ✅ waitingForHuman: false`);
-
+  logger.info(`🔄 Conversación liberada: ${userId}`);
+  persistConversation(conversation);
   return conversation;
 }
 
-/**
- * Obtiene todas las conversaciones que necesitan atención humana
- *
- * @returns {Array} Lista de conversaciones pendientes
- */
 function getPendingConversations() {
-  const all = getAllConversations();
-  return all.filter(c =>
-    c.status === 'pending_advisor' && c.needsHuman
-  );
+  return getAllConversations().filter(c => c.status === 'pending_advisor' && c.needsHuman);
 }
 
-/**
- * Obtiene todas las conversaciones atendidas por asesores
- *
- * @returns {Array} Lista de conversaciones con asesores
- */
 function getAdvisorHandledConversations() {
-  const all = getAllConversations();
-  return all.filter(c => c.status === 'advisor_handled');
+  return getAllConversations().filter(c => c.status === 'advisor_handled');
 }
 
 /**
- * Obtiene mensajes de una conversación en un rango de fechas
- *
- * @param {string} userId - ID del usuario
- * @param {Date} startDate - Fecha de inicio (opcional, default: inicio del día)
- * @param {Date} endDate - Fecha de fin (opcional, default: ahora)
- * @returns {Array} Lista de mensajes en el rango de fechas
- */
-function getMessagesByDateRange(userId, startDate = null, endDate = null) {
-  const conversation = getConversation(userId);
-
-  if (!conversation || !conversation.messages || conversation.messages.length === 0) {
-    return [];
-  }
-
-  const now = Date.now();
-  const oneDayMs = 24 * 60 * 60 * 1000;
-
-  // Si no se proporciona startDate, usar inicio de hoy
-  const start = startDate ? startDate.getTime() : (now - oneDayMs);
-  // Si no se proporciona endDate, usar ahora
-  const end = endDate ? endDate.getTime() : now;
-
-  // Filtrar mensajes en el rango de fechas
-  const filteredMessages = conversation.messages
-    .filter(msg => msg.timestamp >= start && msg.timestamp <= end)
-    .sort((a, b) => a.timestamp - b.timestamp); // Ordenar cronológicamente
-
-  logger.debug(`📜 Mensajes filtrados para ${userId}: ${filteredMessages.length} en rango`);
-
-  return filteredMessages;
-}
-
-/**
- * Limpia mensajes antiguos (de días anteriores)
- *
- * @param {string} userId - ID del usuario
- * @param {number} daysToKeep - Días a preservar (default: 1 = solo hoy)
- * @returns {number} Cantidad de mensajes eliminados
- */
-function cleanOldMessages(userId, daysToKeep = 1) {
-  const conversation = getConversation(userId);
-
-  if (!conversation || !conversation.messages || conversation.messages.length === 0) {
-    return 0;
-  }
-
-  const now = Date.now();
-  const cutoffTime = now - (daysToKeep * 24 * 60 * 60 * 1000);
-
-  const initialCount = conversation.messages.length;
-  conversation.messages = conversation.messages.filter(msg => msg.timestamp >= cutoffTime);
-  const removedCount = initialCount - conversation.messages.length;
-
-  if (removedCount > 0) {
-    logger.info(`🧹 Limpiados ${removedCount} mensajes antiguos para ${userId}`);
-  }
-
-  return removedCount;
-}
-
-// ===========================================
-// ✅ NUEVO: GESTIÓN DE NOMBRES DE WHATSAPP
-// ===========================================
-
-/**
- * Actualiza el nombre de WhatsApp de una conversación
- * Solo actualiza si no existe o si se fuerza la actualización
- *
- * @param {string} userId - ID del usuario
- * @param {string} whatsappName - Nombre del contacto en WhatsApp
- * @param {boolean} force - Forzar actualización incluso si ya existe
- * @returns {Object|null} Conversación actualizada o null si no existe
+ * Actualiza nombre de WhatsApp
  */
 function updateWhatsappName(userId, whatsappName, force = false) {
   const conversation = getConversation(userId);
+  if (!conversation) return null;
 
-  if (!conversation) {
-    logger.warn(`⚠️ Conversación no encontrada para actualizar nombre: ${userId}`);
-    return null;
-  }
+  if (!whatsappName || whatsappName.trim() === '') return conversation;
 
-  // ✅ MEJORADO: Solo actualizar si el nombre es válido (no null, undefined o vacío)
-  if (!whatsappName || whatsappName.trim() === '') {
-    logger.debug(`ℹ️ Nombre de WhatsApp inválido (null/vacío) para ${userId}, se ignora`);
-    return conversation;
-  }
-
-  // Si no hay nombre guardado, siempre actualizar
-  if (!conversation.whatsappName) {
+  if (!conversation.whatsappName || force) {
     conversation.whatsappName = whatsappName.trim();
     conversation.whatsappNameUpdatedAt = Date.now();
-    logger.info(`✅ Nombre de WhatsApp guardado para ${userId}: "${whatsappName}"`);
-    return conversation;
+    persistConversation(conversation);
   }
-
-  // Si ya existe y no se fuerza, no sobrescribir
-  if (!force) {
-    logger.debug(`ℹ️ Nombre ya existe para ${userId}, no se sobrescribe: "${conversation.whatsappName}"`);
-    return conversation;
-  }
-
-  // Forzar actualización
-  const oldName = conversation.whatsappName;
-  conversation.whatsappName = whatsappName.trim();
-  conversation.whatsappNameUpdatedAt = Date.now();
-  logger.info(`🔄 Nombre de WhatsApp actualizado para ${userId}: "${oldName}" → "${whatsappName}"`);
-
   return conversation;
 }
 
-module.exports = {
-  // Gestión de conversaciones
-  getOrCreateConversation,
-  getConversation,
-  getAllConversations,
-  resetConversation,
+// Métodos legacy para mantener compatibilidad si se llaman desde algún lado
+// (aunque ya no hacen nada relevante o usan la nueva lógica)
+function getMessagesByDateRange(userId, startDate, endDate) {
+  const conversation = getConversation(userId);
+  if (!conversation || !conversation.messages) return [];
+  // Implementación simplificada sobre caché
+  return conversation.messages;
+}
 
-  // Ciclos
-  checkAndUpdateCycle,
+function cleanOldMessages(userId, daysToKeep = 1) {
+  return 0; // Ya se maneja en lógica de reset
+}
+
+module.exports = {
+  getOrCreateConversation,
+  extractPhoneNumber,
   hasCycleExpired,
   getRemainingTime,
   getRemainingTimeFormatted,
-
-  // Estado
+  checkAndUpdateCycle,
+  resetConversation,
   updateConsentStatus,
-  updateLastMessage,
   markWelcomeSent,
   markConsentSent,
+  updateLastMessage,
   incrementInteractionCount,
-
-  // Estadísticas
+  getAllConversations,
+  getConversation,
   getStats,
   cleanExpiredConversations,
-
-  // NUEVO: Escalación a humano
+  // Nuevos métodos exportados
   markForEscalation,
   markOutOfHours,
   assignAdvisor,
   releaseFromAdvisor,
   getPendingConversations,
   getAdvisorHandledConversations,
-
-  // ✅ NUEVO: Gestión de mensajes por fecha
+  updateWhatsappName,
   getMessagesByDateRange,
-  cleanOldMessages,
-
-  // ✅ NUEVO: Gestión de nombres de WhatsApp
-  updateWhatsappName
+  cleanOldMessages
 };

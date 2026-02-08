@@ -1,0 +1,47 @@
+[
+  {
+    "userId": "573503267342@s.whatsapp.net",
+    "phoneNumber": "573503267342",
+    "cycleStart": 1736284800000,
+    "lastInteraction": 1736284800000,
+    "status": "active",
+    "consentStatus": "accepted",
+    "interactionCount": 3,
+    "welcomeSent": true,
+    "consentMessageSent": true,
+    "lastMessage": "Hola, necesito información",
+    "messageCount": 5,
+    "needsHuman": false,
+    "whatsappName": "Carlos Pérez"
+  },
+  {
+    "userId": "573012345678@s.whatsapp.net",
+    "phoneNumber": "573012345678",
+    "cycleStart": 1736284800000,
+    "lastInteraction": 1736284800000,
+    "status": "active",
+    "consentStatus": "pending",
+    "interactionCount": 1,
+    "welcomeSent": true,
+    "consentMessageSent": true,
+    "lastMessage": "Buenas tardes",
+    "messageCount": 2,
+    "needsHuman": false,
+    "whatsappName": "María González"
+  },
+  {
+    "userId": "573209876543@s.whatsapp.net",
+    "phoneNumber": "573209876543",
+    "cycleStart": 1736284800000,
+    "lastInteraction": 1736284800000,
+    "status": "pending_advisor",
+    "consentStatus": "accepted",
+    "interactionCount": 5,
+    "welcomeSent": true,
+    "consentMessageSent": true,
+    "lastMessage": "Necesito hablar con un humano",
+    "messageCount": 7,
+    "needsHuman": true,
+    "whatsappName": "Juan Rodríguez"
+  }
+]

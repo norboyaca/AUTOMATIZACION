@@ -10,9 +10,10 @@
     "timezone": "America/Bogota",
     "totalBlockedMessages": 1,
     "lastMessage": "👋 ¡Hola! Soy tu asistente virtual, te doy la bienvenida a Claro Empresas y Negocios. ✨ El ícono de ",
-    "active": true,
-    "reactivatedAt": null,
-    "reactivatedBy": null
+    "active": false,
+    "reactivatedAt": 1770485417568,
+    "reactivatedBy": "Admin Dashboard",
+    "reactivatedAtFormatted": "2026-02-07 12:30:17"
   },
   "151771427143897": {
     "phoneNumber": "151771427143897",

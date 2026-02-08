@@ -17,6 +17,7 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('../../utils/logger');
 const EventEmitter = require('events');
+const conversationStateService = require('../../services/conversation-state.service');
 
 class BaileysProvider extends EventEmitter {
   constructor() {
@@ -28,6 +29,8 @@ class BaileysProvider extends EventEmitter {
     this.miNumero = null;
     this.isConnecting = false;
     this.authPath = path.join(process.cwd(), 'baileys_auth');
+    // ✅ NUEVO: Almacenamiento local de chats (para el dashboard)
+    this.localChats = new Map(); // id -> chat data
   }
 
   /**
@@ -77,13 +80,73 @@ class BaileysProvider extends EventEmitter {
         keepAliveIntervalMs: 30000,
         defaultQueryTimeoutMs: undefined,
         browser: ['Chrome (Linux)', '', ''],
-        syncFullHistory: false,
+        syncFullHistory: true,  // ✅ CAMBIADO: true para obtener historial
         markOnlineOnConnect: true,
         emitOwnEvents: false
       });
 
       // Guardar credenciales cuando se actualicen
       this.sock.ev.on('creds.update', saveCreds);
+
+      // ✅ NUEVO: Store en memoria para capturar chats del historial
+      const chatsStore = {};
+      const store = {
+        get: (id) => chatsStore[id],
+        set: (id) => chatsStore[id] = id,
+        all: () => Object.keys(chatsStore)
+      };
+
+      // ✅ NUEVO: Escuchar eventos de actualización de chats (historial de WhatsApp)
+      this.sock.ev.on('chats.set', async ({ chats, lastMsg, isLatest }) => {
+        if (!chats || chats.length === 0) {
+          logger.debug('📂 No hay chats en el evento chats.set');
+          return;
+        }
+
+        logger.info(`📂 Recibiendo ${chats.length} chats desde WhatsApp (isLatest: ${isLatest})`);
+
+        let importedCount = 0;
+        for (const chat of chats) {
+          const chatId = chat.id;
+          if (!chatId) continue;
+
+          // ✅ Guardar en almacenamiento local
+          this.localChats.set(chatId, chat);
+
+          // Solo procesar chats individuales (no grupos)
+          if (!chatId.endsWith('@s.whatsapp.net')) {
+            continue;
+          }
+
+          store.set(chatId, chatId);
+
+          // Extraer número de teléfono
+          const phoneNumber = chatId.replace('@s.whatsapp.net', '');
+
+          // Obtener nombre del chat
+          const chatName = chat.name || chat.notify || null;
+
+          // Crear o actualizar conversación
+          const existingConv = conversationStateService.getConversation(chatId);
+
+          if (!existingConv) {
+            conversationStateService.getOrCreateConversation(chatId, {
+              whatsappName: chatName,
+              realPhoneNumber: phoneNumber
+            });
+            importedCount++;
+            logger.debug(`📂 Chat importado: ${phoneNumber} (${chatName || 'Sin nombre'})`);
+          } else {
+            // Actualizar nombre si no existe
+            if (chatName && !existingConv.whatsappName) {
+              existingConv.whatsappName = chatName;
+              existingConv.whatsappNameUpdatedAt = Date.now();
+            }
+          }
+        }
+
+        logger.info(`✅ ${importedCount} nuevos chats importados desde WhatsApp`);
+      });
 
       // Manejar eventos de conexión
       this.sock.ev.on('connection.update', async (update) => {
@@ -93,6 +156,149 @@ class BaileysProvider extends EventEmitter {
       // Manejar mensajes entrantes
       this.sock.ev.on('messages.upsert', async (m) => {
         await this._handleMessages(m);
+      });
+
+      // ✅ NUEVO: Escuchar evento de sincronización de historial
+      this.sock.ev.on('messaging-history:sync', async ({ chats, messages, contacts }) => {
+        logger.info('📂 Sincronización de historial recibida de WhatsApp');
+
+        if (chats && chats.length > 0) {
+          logger.info(`📂 Procesando ${chats.length} chats del historial...`);
+          let importedCount = 0;
+
+          for (const chat of chats) {
+            // chat tiene estructura: { id, name, t (timestamp), ... }
+            const chatId = chat.id;
+
+            // Solo procesar chats individuales (no grupos)
+            if (!chatId.endsWith('@s.whatsapp.net')) {
+              continue;
+            }
+
+            const phoneNumber = chatId.replace('@s.whatsapp.net', '');
+            const chatName = chat.name || chat.notify || null;
+
+            const existingConv = conversationStateService.getConversation(chatId);
+
+            if (!existingConv) {
+              conversationStateService.getOrCreateConversation(chatId, {
+                whatsappName: chatName,
+                realPhoneNumber: phoneNumber
+              });
+              importedCount++;
+            } else {
+              // Actualizar nombre si no existe
+              if (chatName && !existingConv.whatsappName) {
+                existingConv.whatsappName = chatName;
+                existingConv.whatsappNameUpdatedAt = Date.now();
+              }
+            }
+          }
+
+          logger.info(`✅ ${importedCount} nuevos chats importados desde historial`);
+
+          // Guardar las conversaciones importadas
+          if (importedCount > 0) {
+            const { saveConversationsToFile } = require('../../services/conversation-state.service');
+            await saveConversationsToFile();
+          }
+        }
+      });
+
+      // ✅ NUEVO: Escuchar evento chat.upsert (cuando se actualiza un chat individual)
+      this.sock.ev.on('chat.upsert', (chat) => {
+        const chatId = chat.id;
+        if (!chatId || !chatId.endsWith('@s.whatsapp.net')) {
+          return;
+        }
+
+        // ✅ Guardar en almacenamiento local
+        this.localChats.set(chatId, chat);
+
+        const phoneNumber = chatId.replace('@s.whatsapp.net', '');
+        const chatName = chat.name || chat.notify || null;
+
+        const existingConv = conversationStateService.getConversation(chatId);
+
+        if (!existingConv) {
+          conversationStateService.getOrCreateConversation(chatId, {
+            whatsappName: chatName,
+            realPhoneNumber: phoneNumber
+          });
+          logger.debug(`📂 Chat upsert: ${phoneNumber} (${chatName || 'Sin nombre'})`);
+        } else {
+          if (chatName && !existingConv.whatsappName) {
+            existingConv.whatsappName = chatName;
+            existingConv.whatsappNameUpdatedAt = Date.now();
+          }
+        }
+      });
+
+      // ✅ NUEVO: Escuchar evento chats.upsert (cuando se agregan múltiples chats)
+      this.sock.ev.on('chats.upsert', (chats) => {
+        if (!chats || chats.length === 0) return;
+
+        logger.info(`📂 chats.upsert: ${chats.length} chats recibidos`);
+
+        for (const chat of chats) {
+          const chatId = chat.id;
+          if (!chatId || !chatId.endsWith('@s.whatsapp.net')) {
+            continue;
+          }
+
+          // ✅ Guardar en almacenamiento local
+          this.localChats.set(chatId, chat);
+
+          const phoneNumber = chatId.replace('@s.whatsapp.net', '');
+          const chatName = chat.name || chat.notify || null;
+
+          const existingConv = conversationStateService.getConversation(chatId);
+
+          if (!existingConv) {
+            conversationStateService.getOrCreateConversation(chatId, {
+              whatsappName: chatName,
+              realPhoneNumber: phoneNumber
+            });
+            logger.debug(`📂 Chat upsert: ${phoneNumber} (${chatName || 'Sin nombre'})`);
+          } else {
+            if (chatName && !existingConv.whatsappName) {
+              existingConv.whatsappName = chatName;
+              existingConv.whatsappNameUpdatedAt = Date.now();
+            }
+          }
+        }
+      });
+
+      // ✅ NUEVO: Escuchar evento "messaging-history:set" que contiene los chats
+      this.sock.ev.on('messaging-history:set', ({ chats, contacts }) => {
+        if (chats && chats.length > 0) {
+          logger.info(`📂 messaging-history:set: ${chats.length} chats recibidos`);
+
+          for (const chat of chats) {
+            const chatId = chat.id;
+            if (!chatId || !chatId.endsWith('@s.whatsapp.net')) {
+              continue;
+            }
+
+            const phoneNumber = chatId.replace('@s.whatsapp.net', '');
+            const chatName = chat.name || chat.notify || null;
+
+            const existingConv = conversationStateService.getConversation(chatId);
+
+            if (!existingConv) {
+              conversationStateService.getOrCreateConversation(chatId, {
+                whatsappName: chatName,
+                realPhoneNumber: phoneNumber
+              });
+              logger.debug(`📂 Chat from history: ${phoneNumber} (${chatName || 'Sin nombre'})`);
+            } else {
+              if (chatName && !existingConv.whatsappName) {
+                existingConv.whatsappName = chatName;
+                existingConv.whatsappNameUpdatedAt = Date.now();
+              }
+            }
+          }
+        }
       });
 
       logger.info('Socket de Baileys inicializado');
@@ -224,6 +430,12 @@ class BaileysProvider extends EventEmitter {
       logger.warn('No se pudo obtener el número');
     }
 
+    // ✅ NUEVO: Cargar chats históricos después de conectar
+    // Esperar más tiempo para que Baileys termine de sincronizar (25 segundos)
+    setTimeout(async () => {
+      await this._loadHistoricalChats();
+    }, 25000);
+
     this.isReady = true;
     this.isConnecting = false;
     this.status = 'ready';
@@ -234,6 +446,98 @@ class BaileysProvider extends EventEmitter {
   }
 
   /**
+   * ✅ NUEVO: Cargar chats históricos desde WhatsApp
+   * Se ejecuta automáticamente después de conectar
+   */
+  async _loadHistoricalChats() {
+    if (!this.sock || !this.isReady) {
+      logger.warn('⚠️ No se pueden cargar chats: WhatsApp no está listo');
+      return;
+    }
+
+    try {
+      logger.info('📂 Cargando chats históricos desde WhatsApp...');
+
+      let chats = null;
+      let source = '';
+
+      // MÉTODO 1: Intentar obtener desde this.sock.chats
+      if (this.sock.chats && Object.keys(this.sock.chats).length > 0) {
+        chats = this.sock.chats;
+        source = 'sock.chats';
+        logger.info(`📂 Chats encontrados en sock.chats: ${Object.keys(chats).length}`);
+      }
+
+      // MÉTODO 2: Intentar usar fetchChats si existe
+      if (!chats && typeof this.sock.fetchChats === 'function') {
+        try {
+          logger.info('📂 Intentando fetchChats()...');
+          const fetchedChats = await this.sock.fetchChats(undefined, true);
+          if (fetchedChats && fetchedChats.length > 0) {
+            // Convertir array a Map para procesamiento uniforme
+            chats = {};
+            for (const chat of fetchedChats) {
+              chats[chat.id] = chat;
+            }
+            source = 'fetchChats()';
+            logger.info(`📂 Chats obtenidos via fetchChats(): ${fetchedChats.length}`);
+          }
+        } catch (e) {
+          logger.debug(`fetchChats() falló: ${e.message}`);
+        }
+      }
+
+      if (!chats || Object.keys(chats).length === 0) {
+        logger.warn('⚠️ No se encontraron chats en la sesión de WhatsApp');
+        logger.info('💡 Los chats se cargarán automáticamente cuando lleguen nuevos mensajes');
+        return;
+      }
+
+      let importedCount = 0;
+      let updatedCount = 0;
+
+      for (const [chatId, chatData] of Object.entries(chats)) {
+        // Solo procesar chats individuales (no grupos)
+        if (!chatId.endsWith('@s.whatsapp.net')) {
+          continue;
+        }
+
+        const phoneNumber = chatId.replace('@s.whatsapp.net', '');
+        const chatName = chatData.name || chatData.notify || null;
+
+        const existingConv = conversationStateService.getConversation(chatId);
+
+        if (!existingConv) {
+          conversationStateService.getOrCreateConversation(chatId, {
+            whatsappName: chatName,
+            realPhoneNumber: phoneNumber
+          });
+          importedCount++;
+          logger.debug(`📂 Chat importado: ${phoneNumber} (${chatName || 'Sin nombre'})`);
+        } else {
+          // Actualizar nombre si no existe
+          if (chatName && !existingConv.whatsappName) {
+            existingConv.whatsappName = chatName;
+            existingConv.whatsappNameUpdatedAt = Date.now();
+            updatedCount++;
+          }
+        }
+      }
+
+      logger.info(`✅ Importación de chats completada (${source}): ${importedCount} nuevos, ${updatedCount} actualizados`);
+
+      // Guardar las conversaciones importadas
+      const { saveConversationsToFile } = require('../../services/conversation-state.service');
+      if (importedCount > 0 || updatedCount > 0) {
+        await saveConversationsToFile();
+      }
+
+    } catch (error) {
+      logger.error('Error cargando chats históricos:', error);
+    }
+  }
+
+  /**
    * Maneja mensajes entrantes
    */
   async _handleMessages(m) {
@@ -241,22 +545,65 @@ class BaileysProvider extends EventEmitter {
       if (m.type !== 'notify') return;
 
       const msg = m.messages[0];
-      if (!msg.message) return;
+      if (!msg || !msg.message) return;
+
+      // ✅ NUEVO: Ignorar mensajes de protocolo (HISTORY_SYNC, etc.)
+      if (msg.message.protocolMessage) {
+        logger.debug('📨 Mensaje de protocolo ignorado (HISTORY_SYNC)');
+        return;
+      }
+
+      // ✅ Verificar que el mensaje tenga la estructura mínima necesaria
+      if (!msg.key || !msg.key.remoteJid) {
+        logger.debug('📨 Mensaje sin remoteJid, ignorando...');
+        return;
+      }
 
       // Ignorar mensajes propios
-      if (msg.key.fromMe) return;
+      if (msg.key.fromMe) {
+        logger.debug('📤 Mensaje propio ignorado');
+        return;
+      }
 
       // Ignorar mensajes de broadcast
       if (msg.key.remoteJid === 'status@broadcast') return;
 
+      // ✅ LOG CRÍTICO ANTES DE TRANSFORMAR
+      logger.info(`📨 [RAW MESSAGE] remoteJid="${msg.key.remoteJid}", hasConversation=${!!msg.message.conversation}`);
+
       // Transformar mensaje al formato esperado por server.js
       const transformedMessage = this._transformMessage(msg);
 
-      logger.debug(`📨 Mensaje recibido: from=${transformedMessage.from}, type=${transformedMessage.type}`);
+      if (!transformedMessage) {
+        logger.error('❌ [HANDLE] _transformMessage retornó NULL');
+        return;
+      }
+
+      if (!transformedMessage.from) {
+        logger.error('❌ [HANDLE] Mensaje transformado SIN "from"');
+
+        // Escribir a archivo para debug seguro
+        try {
+          fs.writeFileSync('debug_message.json', JSON.stringify({
+            key: msg.key,
+            message: msg.message,
+            full: msg,
+            transformed: transformedMessage
+          }, null, 2));
+          logger.error('❌ Estructura del mensaje guardada en debug_message.json');
+        } catch (e) {
+          logger.error('Error escribiendo debug_message.json', e);
+        }
+
+        return;
+      }
+
+      // ✅ LOG ANTES DE EMITIR
+      logger.info(`🚀 [EMIT] Emitiendo evento 'message': from="${transformedMessage.from}", body="${transformedMessage.body?.substring(0, 30)}"`);
       this.emit('message', transformedMessage);
 
     } catch (error) {
-      logger.error('Error procesando mensaje:', error);
+      logger.error('❌ [HANDLE] Error procesando mensaje:', error);
     }
   }
 
@@ -265,72 +612,62 @@ class BaileysProvider extends EventEmitter {
    * (compatible con web.provider.js)
    */
   _transformMessage(msg) {
-    const from = msg.key.remoteJid;
-    const body = msg.message.conversation ||
-                msg.message.extendedTextMessage?.text ||
-                '';
+    // ✅ Validar estructura mínima del mensaje
+    if (!msg || !msg.key) {
+      logger.warn('❌ MSG o MSG.KEY FALTANTE');
+      return null;
+    }
+
+    // Extraer remoteJid - este es el campo crítico
+    let from = msg.key.remoteJid;
+
+    logger.info(`📨 [TRANSFORM] remoteJid="${from}", fromMe=${msg.key.fromMe}`);
+
+    if (!from) {
+      logger.error('❌ remoteJid es vacío, intentando participant...');
+      if (msg.key.participant) {
+        from = msg.key.participant;
+        logger.info(`✅ Recuperado from de participant: ${from}`);
+      } else {
+        logger.error('❌ Imposible recuperar from - RETORNANDO NULL');
+        return null;
+      }
+    }
+
+    const body = msg.message?.conversation ||
+      msg.message?.extendedTextMessage?.text ||
+      '';
 
     let type = 'chat';
-    if (msg.message.imageMessage) type = 'image';
-    else if (msg.message.videoMessage) type = 'video';
-    else if (msg.message.audioMessage || msg.message.pttMessage) type = 'audio';
-    else if (msg.message.documentMessage) type = 'document';
-    else if (msg.message.buttonsResponseMessage) type = 'button_response';
+    if (msg.message?.imageMessage) type = 'image';
+    else if (msg.message?.videoMessage) type = 'video';
+    else if (msg.message?.audioMessage || msg.message?.pttMessage) type = 'audio';
+    else if (msg.message?.documentMessage) type = 'document';
+    else if (msg.message?.buttonsResponseMessage) type = 'button_response';
 
-    // ✅ MEJORADO: Extraer pushName/profileName (nombre del contacto en WhatsApp)
-    // El pushName viene en diferentes partes según el tipo de mensaje
+    // ✅ Extraer pushName del mensaje o del objeto completo
     let pushName = msg.pushName || null;
 
-    // ✅ NUEVO: Buscar profileName en notificaciones
-    if (!pushName && msg.pushName) {
-      pushName = msg.pushName;
-    }
-
-    // Si no hay pushName, intentar obtenerlo de otros campos
     if (!pushName) {
-      // Para mensajes con contexto (reenviados, citados, etc.)
-      if (msg.message?.extendedTextMessage?.contextInfo?.participant) {
-        const participant = msg.message.extendedTextMessage.contextInfo.participant;
-        pushName = participant.split('@')[0] || null;
-      }
-
-      // Para mensajes de contacto
-      if (!pushName && msg.message?.contactMessage) {
-        const contact = msg.message.contactMessage;
-        if (contact.displayName) {
-          pushName = contact.displayName;
-        }
-      }
-
-      // Para mensajes con vCard
-      if (!pushName && msg.message?.contactsArrayMessage) {
-        const contacts = msg.message.contactsArrayMessage;
-        if (contacts.contacts && contacts.contacts.length > 0) {
-          pushName = contacts.contacts[0].displayName || null;
-        }
-      }
-
-      // ✅ NUEVO: Buscar en notificaciones de grupos
-      if (!pushName && msg.key?.participant) {
-        const participant = msg.key.participant;
-        pushName = participant.split('@')[0] || null;
+      const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+      if (contextInfo?.participant) {
+        pushName = contextInfo.participant.split('@')[0] || null;
+      } else if (msg.message?.contactMessage?.displayName) {
+        pushName = msg.message.contactMessage.displayName;
+      } else if (msg.key?.participant) {
+        pushName = msg.key.participant.split('@')[0] || null;
       }
     }
 
-    // Limpiar el nombre (eliminar caracteres inválidos)
+    // Limpiar el nombre
     if (pushName) {
       pushName = String(pushName).trim();
-      // Si es un número telefónico, no usarlo como nombre
-      if (/^\d+$/.test(pushName)) {
-        pushName = null;
-      }
-      // Si está vacío después de trim
-      if (pushName === '') {
+      if (/^\d+$/.test(pushName) || pushName === '') {
         pushName = null;
       }
     }
 
-    return {
+    const result = {
       from: from,
       to: msg.key.toJid || null,
       body: body,
@@ -339,18 +676,19 @@ class BaileysProvider extends EventEmitter {
       id: msg.key.id,
       timestamp: msg.messageTimestamp || Date.now(),
       hasMedia: !!(
-        msg.message.imageMessage ||
-        msg.message.videoMessage ||
-        msg.message.audioMessage ||
-        msg.message.documentMessage
+        msg.message?.imageMessage ||
+        msg.message?.videoMessage ||
+        msg.message?.audioMessage ||
+        msg.message?.documentMessage
       ),
-      // ✅ NUEVO: Nombre del contacto en WhatsApp
       pushName: pushName,
-      // Referencia al mensaje original para reply()
       _original: msg,
-      // Para respuestas de botones
       message: msg.message
     };
+
+    logger.info(`✅ [TRANSFORM] Mensaje transformado: from=${result.from}, body="${body.substring(0, 30)}"`);
+
+    return result;
   }
 
   /**
@@ -435,6 +773,37 @@ class BaileysProvider extends EventEmitter {
       return result;
     } catch (error) {
       logger.error('Error enviando imagen:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ✅ NUEVO: Envía un audio
+   */
+  async sendAudio(to, audioPath) {
+    if (!this.isReady || !this.sock) {
+      throw new Error('WhatsApp no está conectado');
+    }
+
+    try {
+      const chatId = this._formatNumber(to);
+
+      // Leer audio como buffer
+      const audioBuffer = fs.readFileSync(audioPath);
+
+      // Enviar audio
+      const result = await this.sock.sendMessage(
+        chatId,
+        {
+          audio: audioBuffer,
+          mimetype: 'audio/mpeg'  // MP3 es el formato más común
+        }
+      );
+
+      logger.debug(`Audio enviado a ${to}`);
+      return result;
+    } catch (error) {
+      logger.error('Error enviando audio:', error);
       throw error;
     }
   }
@@ -570,6 +939,256 @@ class BaileysProvider extends EventEmitter {
       fs.rmSync(this.authPath, { recursive: true, force: true });
       logger.info('Sesión de Baileys eliminada');
     }
+  }
+
+  // ===========================================
+  // ✅ NUEVO: OBTENER CHATS DESDE WHATSAPP
+  // ===========================================
+
+  /**
+   * Obtiene chats desde WhatsApp con límite
+   * @param {number} limit - Cantidad de chats a obtener (default: 20)
+   * @returns {Promise<Array>} Lista de chats
+   */
+  async fetchChats(limit = 20) {
+    if (!this.isReady || !this.sock) {
+      throw new Error('WhatsApp no está conectado');
+    }
+
+    try {
+      logger.info(`📱 Obteniendo ${limit} chats desde WhatsApp...`);
+
+      // Obtener chats desde el almacenamiento local (se llena con eventos)
+      let allChats = Array.from(this.localChats.values());
+
+      // Si localChats está vacío, intentar con sock.chats
+      if (allChats.length === 0 && this.sock.chats) {
+        const chatsMap = this.sock.chats;
+        allChats = Object.values(chatsMap);
+      }
+
+      logger.info(`📱 Total de chats en almacenamiento local: ${allChats.length}`);
+
+      // Ordenar por último mensaje (más recientes primero)
+      const sortedChats = allChats.sort((a, b) => {
+        const timeA = a.lastMessageRecvTimestamp || 0;
+        const timeB = b.lastMessageRecvTimestamp || 0;
+        return timeB - timeA;
+      });
+
+      // Aplicar límite
+      const limitedChats = sortedChats.slice(0, limit);
+
+      logger.info(`📱 Retornando ${limitedChats.length} chats`);
+
+      // Transformar al formato que espera el dashboard
+      return limitedChats.map(chat => this._transformChat(chat));
+    } catch (error) {
+      logger.error('Error obteniendo chats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene todos los chats desde WhatsApp
+   * @returns {Promise<Array>} Lista de chats
+   */
+  async fetchAllChats() {
+    if (!this.isReady || !this.sock) {
+      throw new Error('WhatsApp no está conectado');
+    }
+
+    try {
+      // Obtener chats desde el almacenamiento local
+      let allChats = Array.from(this.localChats.values());
+
+      // Si localChats está vacío, intentar con sock.chats
+      if (allChats.length === 0 && this.sock.chats) {
+        const chatsMap = this.sock.chats;
+        allChats = Object.values(chatsMap);
+      }
+
+      logger.info(`📱 Chats obtenidos desde almacenamiento local: ${allChats.length}`);
+
+      // Transformar al formato que espera el dashboard
+      return chats.map(chat => this._transformChat(chat));
+    } catch (error) {
+      logger.error('Error obteniendo chats:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Obtiene mensajes de un chat específico
+   * @param {string} jid - JID del chat (ej: 573001234567@s.whatsapp.net)
+   * @param {number} limit - Cantidad de mensajes (default: 20)
+   * @param {string} cursor - Cursor para paginación
+   * @returns {Promise<Object>} Mensajes y metadata de paginación
+   */
+  async fetchChatMessages(jid, limit = 20, cursor = null) {
+    if (!this.isReady || !this.sock) {
+      throw new Error('WhatsApp no está conectado');
+    }
+
+    try {
+      logger.info(`📜 Obteniendo mensajes para ${jid}...`);
+
+      // Obtener mensajes desde this.sock.messages (si está disponible)
+      let messages = [];
+
+      if (this.sock.messages && this.sock.messages[jid]) {
+        // Los mensajes están en un Map por chat
+        const chatMessages = this.sock.messages[jid];
+        messages = Object.values(chatMessages);
+        logger.info(`📜 Mensajes encontrados en sock.messages[${jid}]: ${messages.length}`);
+      } else if (typeof this.sock.fetchMessages === 'function') {
+        // Fallback a fetchMessages si existe
+        const options = { limit };
+        if (cursor) {
+          options.cursor = cursor;
+        }
+        messages = await this.sock.fetchMessages(jid, options);
+        logger.info(`📜 Mensajes obtenidos via fetchMessages: ${messages.length}`);
+      }
+
+      // Ordenar por timestamp (más recientes primero)
+      messages.sort((a, b) => (b.messageTimestamp || 0) - (a.messageTimestamp || 0));
+
+      // Aplicar límite
+      const limitedMessages = messages.slice(0, limit);
+
+      logger.info(`📜 Retornando ${limitedMessages.length} mensajes para ${jid}`);
+
+      // Transformar mensajes al formato del dashboard
+      const transformedMessages = limitedMessages.map(msg => this._transformMessageForDashboard(msg, jid));
+
+      // Determinar si hay más mensajes
+      const hasMore = messages.length > limit;
+
+      // Obtener cursor del último mensaje para siguiente página
+      const nextCursor = limitedMessages.length > 0
+        ? limitedMessages[limitedMessages.length - 1].key.id
+        : null;
+
+      return {
+        messages: transformedMessages,
+        hasMore: hasMore,
+        nextCursor: nextCursor
+      };
+    } catch (error) {
+      logger.error('Error obteniendo mensajes:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Transforma un chat de Baileys al formato del dashboard
+   */
+  _transformChat(chat) {
+    const jid = chat.id;
+    const phoneNumber = jid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+
+    // Obtener último mensaje
+    let lastMessage = '';
+    let lastMessageTime = Date.now();
+
+    if (chat.messages && chat.messages.length > 0) {
+      const lastMsg = chat.messages[chat.messages.length - 1];
+      if (lastMsg.message) {
+        const msgType = Object.keys(lastMsg.message)[0];
+        if (msgType === 'conversation') {
+          lastMessage = lastMsg.message.conversation;
+        } else if (msgType === 'extendedTextMessage') {
+          lastMessage = lastMsg.message.extendedTextMessage.text;
+        } else if (msgType === 'imageMessage') {
+          lastMessage = '[Foto]';
+        } else if (msgType === 'audioMessage') {
+          lastMessage = '[Audio]';
+        } else if (msgType === 'videoMessage') {
+          lastMessage = '[Video]';
+        } else if (msgType === 'documentMessage') {
+          lastMessage = `[${lastMsg.message.documentMessage.fileName || 'Documento'}]`;
+        } else {
+          lastMessage = `[${msgType}]`;
+        }
+        lastMessageTime = lastMsg.messageTimestamp * 1000;
+      }
+    }
+
+    return {
+      userId: jid,
+      phoneNumber: phoneNumber,
+      whatsappName: chat.name || chat.notify || null,
+      registeredName: chat.name || chat.notify || null,  // Para compatibilidad con frontend
+      lastMessage: lastMessage,
+      lastInteraction: lastMessageTime,
+      unreadCount: chat.unreadCount || 0,
+      // Campos compatibles con el formato existente
+      status: 'active',
+      consentStatus: 'accepted',
+      bot_active: true,
+      messages: []
+    };
+  }
+
+  /**
+   * Transforma un mensaje de Baileys al formato del dashboard
+   * (versión para mensajes históricos fetchChatMessages)
+   */
+  _transformMessageForDashboard(msg, jid) {
+    const message = msg.message || {};
+    const msgType = Object.keys(message)[0];
+
+    let text = '';
+    let type = 'text';
+    let mediaUrl = null;
+    let fileName = null;
+
+    switch (msgType) {
+      case 'conversation':
+        text = message.conversation;
+        type = 'text';
+        break;
+      case 'extendedTextMessage':
+        text = message.extendedTextMessage.text;
+        type = 'text';
+        break;
+      case 'imageMessage':
+        text = message.imageMessage.caption || '[Foto]';
+        type = 'image';
+        // Nota: Para obtener la URL real habría que descargar el media
+        break;
+      case 'audioMessage':
+        text = '[Audio]';
+        type = 'audio';
+        break;
+      case 'videoMessage':
+        text = message.videoMessage.caption || '[Video]';
+        type = 'video';
+        break;
+      case 'documentMessage':
+        text = `[${message.documentMessage.fileName || 'Documento'}]`;
+        type = 'document';
+        fileName = message.documentMessage.fileName;
+        break;
+      default:
+        text = `[${msgType}]`;
+        type = 'text';
+    }
+
+    // Determinar si es mensaje entrante o saliente
+    const isFromMe = msg.key.fromMe;
+    const sender = isFromMe ? 'admin' : 'user';
+
+    return {
+      id: msg.key.id,
+      message: text,
+      sender: sender,
+      timestamp: (msg.messageTimestamp || Math.floor(Date.now() / 1000)) * 1000,
+      type: type,
+      mediaUrl: mediaUrl,
+      fileName: fileName
+    };
   }
 }
 

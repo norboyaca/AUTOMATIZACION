@@ -87,6 +87,36 @@ module.exports = {
   sendDocument: (to, documentUrl, filename) => getProvider().sendDocument(to, documentUrl, filename),
 
   /**
+   * ✅ NUEVO: Envía un audio
+   * @param {string} to - Número de destino
+   * @param {string} audioUrl - URL del audio
+   */
+  sendAudio: (to, audioUrl) => getProvider().sendAudio(to, audioUrl),
+
+  /**
+   * ✅ NUEVO: Envía un mensaje multimedia genérico
+   * @param {string} to - Número de destino
+   * @param {Object} mediaData - Datos del multimedia { type, url, filepath, filename, caption }
+   */
+  sendMediaMessage: async (to, mediaData) => {
+    const provider = getProvider();
+
+    // Usar filepath si está disponible (ruta absoluta), si no convertir URL
+    const fsPath = mediaData.filepath || require('path').join(process.cwd(), mediaData.url);
+
+    switch (mediaData.type) {
+      case 'audio':
+        return await provider.sendAudio(to, fsPath);
+      case 'image':
+        return await provider.sendImage(to, fsPath, mediaData.caption || '');
+      case 'document':
+        return await provider.sendDocument(to, fsPath, mediaData.filename, mediaData.caption || '');
+      default:
+        throw new Error(`Tipo multimedia no soportado: ${mediaData.type}`);
+    }
+  },
+
+  /**
    * Obtiene la URL de descarga de un archivo multimedia
    * @param {string} mediaId - ID del archivo
    * @returns {Promise<string>} URL de descarga
@@ -105,6 +135,22 @@ module.exports = {
    * @param {string} messageId - ID del mensaje
    */
   markAsRead: (messageId) => getProvider().markAsRead(messageId),
+
+  /**
+   * ✅ NUEVO: Obtiene los chats desde WhatsApp
+   * @param {number} limit - Cantidad de chats
+   * @returns {Promise<Array>} Lista de chats
+   */
+  fetchChats: (limit) => getProvider().fetchChats(limit),
+
+  /**
+   * ✅ NUEVO: Obtiene mensajes de un chat
+   * @param {string} jid - JID del chat
+   * @param {number} limit - Cantidad de mensajes
+   * @param {string} cursor - Cursor para paginación
+   * @returns {Promise<Object>} Mensajes y metadata
+   */
+  fetchChatMessages: (jid, limit, cursor) => getProvider().fetchChatMessages(jid, limit, cursor),
 
   // Exponer factory por si se necesita acceso directo
   getProvider

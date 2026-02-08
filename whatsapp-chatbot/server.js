@@ -109,6 +109,13 @@ whatsappWeb.on('disconnected', (reason) => {
 // ===========================================
 whatsappWeb.on('message', async (message) => {
   try {
+    // ✅ LOG CRÍTICO AL RECIBIR MENSAJE
+    logger.info(`🔔 [SERVER] Evento 'message' recibido`);
+    logger.info(`   message.from="${message.from}"`);
+    logger.info(`   message.body="${message.body?.substring(0, 30)}"`);
+    logger.info(`   message.type="${message.type}"`);
+    logger.info(`   message completo:`, JSON.stringify(message, null, 2));
+
     const from = message.from;
     const body = message.body;
     const type = message.type;

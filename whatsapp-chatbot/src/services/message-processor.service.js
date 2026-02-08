@@ -921,6 +921,10 @@ function getOutOfHoursMessage() {
 /**
  * Guarda un mensaje en el historial
  *
+ * ✅ OPCIÓN 3 - HÍBRIDA:
+ * - Guarda en memoria (últimos 50) para acceso rápido
+ * - Guarda en DynamoDB para persistencia real
+ *
  * @param {string} userId - ID del usuario
  * @param {string|Object} message - Contenido del mensaje (objeto si tiene type especial)
  * @param {string} sender - 'user' | 'bot' | 'admin' | 'system'
@@ -956,26 +960,74 @@ async function saveMessage(userId, message, sender, messageType = 'text') {
     const messageRecord = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       conversationId: userId,
+      participantId: userId, // Para DynamoDB
       sender: sender,
       message: messageText,
       timestamp: Date.now(),
-      type: messageActualType  // ✅ CORREGIDO: Usar el type correcto
+      type: messageActualType,
+      direction: sender === 'user' ? 'incoming' : 'outgoing'
     };
 
-    // Guardar en el array de mensajes de la conversación
+    // ===========================================
+    // ✅ OPCIÓN 3 - HÍBRIDA
+    // ===========================================
+
+    // 1. Guardar en memoria (últimos 50 para acceso rápido)
     if (!conversation.messages) {
       conversation.messages = [];
     }
     conversation.messages.push(messageRecord);
 
+    // Limitar a últimos 50 en memoria
+    if (conversation.messages.length > 50) {
+      conversation.messages = conversation.messages.slice(-50);
+    }
+
     // Actualizar último mensaje
     conversationStateService.updateLastMessage(userId, messageText);
     conversation.lastInteraction = Date.now();
 
+    // 2. Guardar en DynamoDB (persistencia real) - asíncrono, no bloquea
+    // Usamos setImmediate para no bloquear la respuesta del webhook
+    setImmediate(async () => {
+      try {
+        const conversationRepository = require('../repositories/conversation.repository');
+
+        // Crear modelo Message para DynamoDB
+        const { Message } = require('../models/message.model');
+        const dynamoMessage = new Message({
+          id: messageRecord.id,
+          conversationId: userId,
+          participantId: userId,
+          direction: sender === 'user' ? 'incoming' : 'outgoing',
+          type: messageActualType === 'text' ? 'text' : messageActualType,
+          content: { text: messageText },
+          from: sender === 'user' ? userId : undefined,
+          to: sender === 'bot' ? userId : undefined,
+          status: 'delivered',
+          metadata: {
+            sender: sender,
+            originalType: messageActualType
+          },
+          createdAt: new Date(messageRecord.timestamp),
+          updatedAt: new Date()
+        });
+
+        // Guardar en DynamoDB
+        await conversationRepository.saveMessage(dynamoMessage);
+        logger.info(`💾 [DYNAMODB] Mensaje guardado: ${messageRecord.id} (total: ${Math.min(history.length + 1, MAX_MESSAGES)})`);
+
+      } catch (dbError) {
+        logger.error(`❌ [DYNAMODB] Error guardando mensaje ${messageRecord.id}:`, dbError.message);
+        // No lanzamos el error para no interrumpir el flujo
+      }
+    });
+
     // ✅ MEJORADO: Log detallado para depuración
-    logger.info(`💾 Mensaje guardado: [${sender}] type=${messageActualType} "${messageText.substring(0, 50)}"`);
+    logger.info(`💾 [MEMORIA] Mensaje guardado: [${sender}] type=${messageActualType} "${messageText.substring(0, 50)}"`);
     logger.info(`   → ID: ${messageRecord.id}`);
     logger.info(`   → Usuario: ${userId}`);
+    logger.info(`   → Total en memoria: ${conversation.messages.length}/50`);
 
     // ✅ NUEVO: Emitir evento Socket.IO para actualizar dashboard en tiempo real
     if (io) {
