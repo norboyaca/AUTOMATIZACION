@@ -17,7 +17,7 @@
 const logger = require('../utils/logger');
 const { Conversation } = require('../models/conversation.model');
 const { Message } = require('../models/message.model');
-const { docClient, TABLES } = require('../providers/dynamodb.provider');
+const { docClient, isConfigured, TABLES } = require('../providers/dynamodb.provider');
 const { PutCommand, GetCommand, UpdateCommand, DeleteCommand, QueryCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
 const { v4: uuidv4 } = require('uuid');
 
@@ -25,6 +25,17 @@ const { v4: uuidv4 } = require('uuid');
  * Repositorio de Conversaciones con DynamoDB
  */
 class ConversationRepository {
+
+  /**
+   * Verifica si DynamoDB está configurado
+   * @returns {boolean}
+   */
+  _isAvailable() {
+    if (!isConfigured || !docClient) {
+      return false;
+    }
+    return true;
+  }
 
   // ===========================================
   // OPERACIONES DE CONVERSACIÓN
@@ -36,6 +47,7 @@ class ConversationRepository {
    * @returns {Promise<Conversation|null>}
    */
   async findByParticipantId(participantId) {
+    if (!this._isAvailable()) return null;
     try {
       const command = new GetCommand({
         TableName: TABLES.CONVERSATIONS,
@@ -78,6 +90,7 @@ class ConversationRepository {
    * @returns {Promise<Conversation>}
    */
   async save(conversation) {
+    if (!this._isAvailable()) return conversation;
     try {
       conversation.updatedAt = new Date();
 
@@ -112,6 +125,7 @@ class ConversationRepository {
    * @returns {Promise<Object>}
    */
   async saveRaw(data) {
+    if (!this._isAvailable()) return data;
     try {
       // Asegurar que tiene participantId
       if (!data.participantId && !data.userId) {
@@ -279,6 +293,7 @@ class ConversationRepository {
    * @returns {Promise<Message>}
    */
   async saveMessage(message) {
+    if (!this._isAvailable()) return message;
     try {
       // ✅ Asegurar que el mensaje tenga un ID antes de proceder
       if (!message.id) {
@@ -359,6 +374,7 @@ class ConversationRepository {
    * @returns {Promise<Array<Message>>}
    */
   async getHistory(participantId, options = { limit: 20 }) {
+    if (!this._isAvailable()) return [];
     try {
       const command = new QueryCommand({
         TableName: TABLES.MESSAGES,

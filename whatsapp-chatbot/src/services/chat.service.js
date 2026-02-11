@@ -30,6 +30,99 @@ let openAIAvailable = true;
 const USE_EMBEDDINGS = process.env.USE_EMBEDDINGS !== 'false'; // Por defecto: true
 
 // ===========================================
+// ✅ NUEVO: ENRIQUECIMIENTO DE QUERIES DE SEGUIMIENTO
+// ===========================================
+
+/**
+ * Detecta si una pregunta es de seguimiento y la enriquece con contexto previo.
+ * Esto mejora la búsqueda RAG para preguntas cortas como "y cuándo?", "dónde es?"
+ *
+ * @param {string} message - Mensaje actual del usuario
+ * @param {string} userId - ID del usuario
+ * @returns {string} Query enriquecida para RAG (o el mensaje original si no es seguimiento)
+ */
+const enrichQueryWithContext = (message, userId) => {
+  const normalized = message.toLowerCase().trim();
+  const words = normalized.split(/\s+/);
+
+  // Solo enriquecer si la pregunta es corta (≤ 8 palabras)
+  if (words.length > 8) {
+    return message;
+  }
+
+  // Indicadores de pregunta de seguimiento
+  const followUpStarters = [
+    'y ', 'pero ', 'entonces ', 'tambien ', 'también ',
+    'cuando', 'cuándo', 'donde', 'dónde', 'como', 'cómo',
+    'quien', 'quién', 'cual', 'cuál', 'cuanto', 'cuánto',
+    'que ', 'qué ', 'a que', 'a qué'
+  ];
+
+  const followUpPronouns = [
+    'eso', 'esa', 'ese', 'esto', 'esta', 'este',
+    'lo mismo', 'igual', 'otra vez', 'más', 'mas'
+  ];
+
+  const isFollowUp = followUpStarters.some(s => normalized.startsWith(s)) ||
+    followUpPronouns.some(p => normalized.includes(p)) ||
+    (words.length <= 4 && normalized.endsWith('?'));
+
+  if (!isFollowUp) {
+    return message;
+  }
+
+  // Obtener los últimos mensajes de la conversación
+  try {
+    const conversation = conversationStateService.getConversation(userId);
+    if (!conversation || !conversation.messages || conversation.messages.length < 2) {
+      return message;
+    }
+
+    // Tomar los últimos 4 mensajes (2 intercambios user/bot)
+    const recentMessages = conversation.messages
+      .filter(m => m.timestamp >= Date.now() - 10 * 60 * 1000) // últimos 10 min
+      .slice(-4);
+
+    if (recentMessages.length === 0) {
+      return message;
+    }
+
+    // Extraer keywords de los mensajes recientes del usuario
+    const stopWords = new Set([
+      'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas',
+      'de', 'del', 'en', 'con', 'por', 'para', 'al', 'a',
+      'y', 'o', 'que', 'es', 'son', 'fue', 'ser', 'hay',
+      'me', 'te', 'se', 'nos', 'le', 'lo', 'su', 'mi',
+      'si', 'no', 'más', 'muy', 'ya', 'como', 'pero',
+      'hola', 'gracias', 'ok', 'bueno', 'bien', 'sumercé'
+    ]);
+
+    const contextKeywords = recentMessages
+      .filter(m => m.sender === 'user')
+      .map(m => m.message)
+      .join(' ')
+      .toLowerCase()
+      .replace(/[¿?!¡.,;:()"']/g, '')
+      .split(/\s+/)
+      .filter(w => w.length > 2 && !stopWords.has(w))
+      .slice(0, 6); // máximo 6 keywords
+
+    if (contextKeywords.length === 0) {
+      return message;
+    }
+
+    // Combinar pregunta actual con keywords del contexto
+    const enrichedQuery = `${message} ${contextKeywords.join(' ')}`;
+    logger.info(`🔗 Query enriquecida con contexto: "${message}" → "${enrichedQuery}"`);
+
+    return enrichedQuery;
+  } catch (error) {
+    logger.debug(`⚠️ Error enriqueciendo query: ${error.message}`);
+    return message;
+  }
+};
+
+// ===========================================
 // SEGUIMIENTO DE CONSENTIMIENTO DE USUARIOS
 // ===========================================
 const userInteractionCount = new Map(); // userId → número de interacciones
@@ -268,8 +361,11 @@ const generateWithAI = async (userId, message, options = {}) => {
       try {
         logger.info('🔍 Usando RAG optimizado con re-ranking...');
 
+        // ✅ MEJORADO: Enriquecer query corta con contexto de conversación para mejor RAG
+        const ragQuery = enrichQueryWithContext(message, userId);
+
         // Usar el servicio RAG optimizado
-        const ragResult = await ragOptimized.findRelevantChunksOptimized(message, {
+        const ragResult = await ragOptimized.findRelevantChunksOptimized(ragQuery, {
           topK: 7,           // Más chunks finales
           useCache: true,    // Usar cache
           useHybrid: true,   // Búsqueda híbrida
