@@ -586,6 +586,9 @@ async function initializeEmbeddingsInBackground() {
       // Cargar chunks en memoria (lee JSON existentes, no genera embeddings nuevos)
       await embeddingsService.loadAllChunks();
 
+      // ✅ Pre-calentar modelo de embeddings para eliminar latencia en primera consulta
+      await embeddingsService.warmup();
+
       // Obtener estadísticas actuales
       const stats = embeddingsService.getEmbeddingStats();
       const totalChunks = stats.totalChunks;

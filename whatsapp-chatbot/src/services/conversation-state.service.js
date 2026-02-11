@@ -21,6 +21,10 @@ const CYCLE_DURATION_MS = 60 * 60 * 1000;
 // Caché en memoria para acceso rápido y compatibilidad síncrona
 const conversationsCache = new Map();
 
+// ✅ OPTIMIZACIÓN: Debounce de persistencia para evitar escrituras excesivas a DynamoDB
+const persistTimers = new Map();
+const PERSIST_DEBOUNCE_MS = 2000; // Esperar 2 segundos antes de persistir
+
 // ===========================================
 // ✅ Funciones de Persistencia (DynamoDB)
 // ===========================================
@@ -125,18 +129,46 @@ async function loadConversationsFromDB() {
 }
 
 /**
- * Persiste una conversación en DynamoDB (Asíncrono/Fondo)
+ * Persiste una conversación en DynamoDB (Debounced)
+ * Agrupa múltiples cambios en una sola escritura
  * @param {Object} conversation - Objeto de conversación del caché
+ * @param {boolean} immediate - Si true, persiste inmediatamente sin debounce
  */
-async function persistConversation(conversation) {
+async function persistConversation(conversation, immediate = false) {
   try {
     // Validar que tenga datos mínimos
     if (!conversation || !conversation.userId) return;
 
-    // Guardar directamente con saveRaw para preservar todos los campos de memoria
-    await conversationRepository.saveRaw(conversation);
+    const userId = conversation.userId;
 
-    logger.info(`💾 Conversación guardada en DynamoDB: ${conversation.userId} (${conversation.phoneNumber || conversation.participantId})`);
+    // Si es inmediato (ej: nueva conversación), persistir sin debounce
+    if (immediate) {
+      // Cancelar timer pendiente si existe
+      if (persistTimers.has(userId)) {
+        clearTimeout(persistTimers.get(userId));
+        persistTimers.delete(userId);
+      }
+      await conversationRepository.saveRaw(conversation);
+      logger.info(`💾 Conversación guardada en DynamoDB: ${conversation.userId} (${conversation.phoneNumber || conversation.participantId})`);
+      return;
+    }
+
+    // ✅ DEBOUNCE: Cancelar timer anterior y crear uno nuevo
+    if (persistTimers.has(userId)) {
+      clearTimeout(persistTimers.get(userId));
+    }
+
+    const timer = setTimeout(async () => {
+      persistTimers.delete(userId);
+      try {
+        await conversationRepository.saveRaw(conversation);
+        logger.debug(`💾 Conversación persistida (debounced): ${userId}`);
+      } catch (err) {
+        logger.error(`❌ Error persistiendo conversación (debounced) ${userId}:`, err);
+      }
+    }, PERSIST_DEBOUNCE_MS);
+
+    persistTimers.set(userId, timer);
   } catch (error) {
     logger.error(`❌ Error persistiendo conversación ${conversation?.userId}:`, error);
   }
@@ -206,8 +238,8 @@ function getOrCreateConversation(userId, options = {}) {
 
     logger.info(`✅ Nueva conversación creada en memoria: ${userId}`);
 
-    // Persistir inmediatamente
-    persistConversation(conversation);
+    // Persistir inmediatamente (nueva conversación)
+    persistConversation(conversation, true);
 
   } else {
     // Actualizar datos existentes si es necesario

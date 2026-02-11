@@ -176,9 +176,9 @@ https://www.whatsapp.com/legal
 
 Por favor, digita:
 
-Si
+1. Si
 
-No`;
+2. No`;
 
       return {
         message: consentMessage,

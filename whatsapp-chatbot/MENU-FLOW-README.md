@@ -51,9 +51,9 @@ https://www.whatsapp.com/legal
 
 Por favor, digita:
 
-Si
-
-No
+1. Si
+ 
+2. No
 ```
 
 ### Paso 3: Procesamiento según Opción Elegida

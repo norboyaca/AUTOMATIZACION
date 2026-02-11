@@ -5,15 +5,15 @@
     "name": "David Castella",
     "reason": "Spam repetitivo (4 repeticiones)",
     "consecutiveCount": 4,
-    "blockedAt": 1770754546959,
-    "blockedAtFormatted": "2026-02-10 15:15:46",
+    "blockedAt": 1770825790975,
+    "blockedAtFormatted": "2026-02-11 11:03:10",
     "timezone": "America/Bogota",
     "totalBlockedMessages": 1,
-    "lastMessage": "1",
+    "lastMessage": "¿Cuánto dinero necesito para asociarme?",
     "active": false,
-    "reactivatedAt": 1770832258000,
-    "reactivatedAtFormatted": "2026-02-11 08:50:58",
-    "reactivatedBy": "Fix automático - flujo corregido"
+    "reactivatedAt": 1770825828563,
+    "reactivatedBy": "Admin Dashboard",
+    "reactivatedAtFormatted": "2026-02-11 11:03:48"
   },
   "151771427143897": {
     "phoneNumber": "151771427143897",

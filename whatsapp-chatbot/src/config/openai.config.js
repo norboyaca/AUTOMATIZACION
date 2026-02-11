@@ -14,7 +14,7 @@ module.exports = {
   apiKey: process.env.OPENAI_API_KEY,
 
   // Modelo a utilizar
-  model: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+  model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
 
   // Parámetros de generación
   maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS, 10) || 1000,
@@ -27,7 +27,7 @@ module.exports = {
   // (Preparado para diferentes prompts/modelos)
   // ===========================================
   models: {
-    chat: process.env.OPENAI_MODEL || 'gpt-4-turbo-preview',
+    chat: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     vision: 'gpt-4-vision-preview', // Para análisis de imágenes
     audio: 'whisper-1'              // Para transcripción de audio
   },

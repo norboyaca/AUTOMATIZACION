@@ -1055,7 +1055,7 @@ async function saveMessage(userId, message, sender, messageType = 'text') {
 
           // Guardar en DynamoDB (con protección attribute_not_exists en el repo)
           await conversationRepository.saveMessage(dynamoMessage);
-          logger.info(`✅ [DYNAMODB] Mensaje guardado: ${messageRecord.id}`);
+          // Log se emite desde el repositorio para evitar duplicación
 
         } catch (dbError) {
           logger.error(`❌ [DYNAMODB] Error guardando mensaje ${messageRecord.id}:`, dbError.message);

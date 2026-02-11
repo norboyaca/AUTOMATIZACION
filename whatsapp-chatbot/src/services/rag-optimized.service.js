@@ -337,6 +337,8 @@ async function findRelevantChunksOptimized(query, options = {}) {
     useReranking = RAG_CONFIG.reranking.enabled,
   } = options;
 
+  const pipelineStart = Date.now();
+
   try {
     // 0. Validar longitud mínima de query
     const cleanQuery = query?.trim() || '';
@@ -356,6 +358,8 @@ async function findRelevantChunksOptimized(query, options = {}) {
     if (useCache) {
       const cached = getCachedResult(query);
       if (cached) {
+        const cacheElapsed = Date.now() - pipelineStart;
+        logger.info(`⚡ RAG cache HIT (${cacheElapsed}ms)`);
         return {
           ...cached,
           fromCache: true
@@ -367,12 +371,15 @@ async function findRelevantChunksOptimized(query, options = {}) {
     const embeddingsService = require('./embeddings.service');
 
     // 3. Búsqueda vectorial inicial (ampliada)
+    const vectorStart = Date.now();
     const initialResults = await embeddingsService.findRelevantChunks(
       query,
       RAG_CONFIG.retrieval.topK_initial
     );
+    const vectorElapsed = Date.now() - vectorStart;
 
     if (initialResults.length === 0) {
+      logger.info(`🔍 RAG: Sin resultados vectoriales (${vectorElapsed}ms)`);
       return {
         chunks: [],
         quality: 'none',
@@ -383,14 +390,18 @@ async function findRelevantChunksOptimized(query, options = {}) {
     }
 
     // 4. Búsqueda híbrida (vectorial + BM25)
+    const hybridStart = Date.now();
     let results = useHybrid
       ? hybridSearch(initialResults, query)
       : initialResults;
+    const hybridElapsed = Date.now() - hybridStart;
 
     // 5. Re-ranking
+    const rerankStart = Date.now();
     if (useReranking) {
       results = rerankChunks(results, query);
     }
+    const rerankElapsed = Date.now() - rerankStart;
 
     // 6. Filtrar por umbral mínimo
     results = results.filter(r => r.similarity >= RAG_CONFIG.retrieval.minSimilarity);
@@ -438,10 +449,12 @@ async function findRelevantChunksOptimized(query, options = {}) {
       setCacheResult(query, result);
     }
 
-    // 12. Log de diagnóstico
+    // 12. ✅ OPTIMIZADO: Log de diagnóstico con tiempos
+    const totalElapsed = Date.now() - pipelineStart;
     logger.info(`🔍 RAG Optimizado: "${query.substring(0, 40)}..."`);
     logger.info(`   📊 Calidad: ${quality.toUpperCase()} (top: ${topSimilarity.toFixed(4)}, avg: ${avgSimilarity.toFixed(4)})`);
     logger.info(`   📦 Chunks: ${initialResults.length} inicial → ${finalResults.length} final`);
+    logger.info(`   ⏱️ Tiempos: vector=${vectorElapsed}ms, hybrid=${hybridElapsed}ms, rerank=${rerankElapsed}ms, total=${totalElapsed}ms`);
 
     if (finalResults.length > 0) {
       logger.debug(`   🏆 Top 3: ${finalResults.slice(0, 3).map(r =>

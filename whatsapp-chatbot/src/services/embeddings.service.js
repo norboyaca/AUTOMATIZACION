@@ -42,10 +42,13 @@ let openaiClient = null;
 // ===========================================
 
 /**
- * Cache de embeddings en memoria para evitar regeneración
- * Estructura: { chunkId: embedding }
+ * ✅ OPTIMIZADO: Cache de embeddings de QUERIES para evitar API calls repetidos
+ * Estructura: { normalizedQuery: { embedding, timestamp } }
+ * TTL: 5 minutos
  */
-const embeddingCache = new Map();
+const queryEmbeddingCache = new Map();
+const QUERY_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+const QUERY_CACHE_MAX_SIZE = 200; // Máximo queries cacheadas
 
 /**
  * Chunks cargados en memoria
@@ -57,6 +60,14 @@ let loadedChunks = [];
  * Flag para saber si los chunks están cargados
  */
 let chunksLoaded = false;
+
+/**
+ * ✅ OPTIMIZADO: Cache del proveedor de embeddings detectado
+ * Se invalida cuando cambian los settings
+ */
+let cachedProvider = null;
+let cachedProviderTimestamp = 0;
+const PROVIDER_CACHE_TTL = 60 * 1000; // Re-evaluar cada 60 segundos
 
 // ===========================================
 // INICIALIZACIÓN
@@ -86,27 +97,61 @@ function initializeClient() {
 }
 
 /**
- * ✅ NUEVO: Detecta qué proveedor de embeddings usar
+ * ✅ CRITICAL FIX: Detecta qué proveedor de embeddings usar
  *
- * Lógica de prioridad:
- * - Si ChatGPT enabled Y Grok disabled → OpenAI embeddings
- * - Si ChatGPT disabled O Grok enabled → @xenova/transformers (local)
+ * PRIORIDAD #1: Debe coincidir con las dimensiones de los embeddings almacenados.
+ * Si los chunks tienen embeddings de 384 dims (Xenova), las queries DEBEN usar Xenova.
+ * Si los chunks tienen embeddings de 1536 dims (OpenAI), las queries DEBEN usar OpenAI.
+ * Mezclar proveedores causa que cosine similarity retorne 0 (dimensiones ≠).
  *
  * @returns {string} 'openai' o 'xenova'
  */
 function detectEmbeddingProvider() {
-  const settings = settingsService.getApiKeys();
+  const now = Date.now();
 
+  // Usar cache si no ha expirado
+  if (cachedProvider && (now - cachedProviderTimestamp) < PROVIDER_CACHE_TTL) {
+    return cachedProvider;
+  }
+
+  // ✅ CRITICAL: Auto-detectar desde embeddings almacenados
+  // Si ya hay chunks cargados, usar el MISMO proveedor que generó esos embeddings
+  if (loadedChunks.length > 0) {
+    const sampleChunk = loadedChunks.find(c => c.embedding && c.embedding.length > 0);
+    if (sampleChunk) {
+      const dims = sampleChunk.embedding.length;
+      if (dims === 384) {
+        // Xenova/all-MiniLM-L6-v2 usa 384 dimensiones
+        cachedProvider = 'xenova';
+        cachedProviderTimestamp = now;
+        logger.info(`🔍 Proveedor detectado desde chunks almacenados: xenova (${dims} dims)`);
+        return cachedProvider;
+      } else if (dims === 1536) {
+        // OpenAI text-embedding-3-small usa 1536 dimensiones
+        cachedProvider = 'openai';
+        cachedProviderTimestamp = now;
+        logger.info(`🔍 Proveedor detectado desde chunks almacenados: openai (${dims} dims)`);
+        return cachedProvider;
+      }
+      // Si dimensiones no coinciden con ningún proveedor conocido, seguir con la lógica normal
+      logger.warn(`⚠️ Dimensiones de embedding desconocidas: ${dims}. Usando lógica por defecto.`);
+    }
+  }
+
+  // Fallback: lógica basada en settings (solo para NUEVOS embeddings sin chunks previos)
+  const settings = settingsService.getApiKeys();
   const chatGPTEnabled = settings.openai.enabled && settings.openai.apiKey;
   const grokEnabled = settings.groq.enabled && settings.groq.apiKey;
 
-  // Si ChatGPT está habilitado y Grok NO está habilitado → usar OpenAI
   if (chatGPTEnabled && !grokEnabled) {
-    return 'openai';
+    cachedProvider = 'openai';
+  } else {
+    cachedProvider = 'xenova';
   }
 
-  // Si ChatGPT está deshabilitado, o si ambos están habilitados (Grok activo) → usar local
-  return 'xenova';
+  cachedProviderTimestamp = now;
+  logger.info(`🔍 Proveedor de embeddings (por settings): ${cachedProvider}`);
+  return cachedProvider;
 }
 
 // ===========================================
@@ -362,13 +407,62 @@ function cosineSimilarity(vecA, vecB) {
 }
 
 /**
+ * ✅ OPTIMIZADO: Obtiene embedding de una query, usando cache si está disponible
+ *
+ * @param {string} query - Texto de la consulta
+ * @returns {Promise<number[]>} Embedding vector
+ */
+async function getQueryEmbedding(query) {
+  // Normalizar query para cache
+  const cacheKey = query.toLowerCase().trim().replace(/[¿?!¡.,;:]/g, '').replace(/\s+/g, ' ');
+
+  // Verificar cache
+  const cached = queryEmbeddingCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < QUERY_CACHE_TTL) {
+    logger.debug(`⚡ Query embedding cache HIT: "${query.substring(0, 30)}..."`);
+    return cached.embedding;
+  }
+
+  // Generar nuevo embedding
+  const provider = detectEmbeddingProvider();
+  let queryEmbeddings;
+
+  const startTime = Date.now();
+
+  if (provider === 'openai') {
+    queryEmbeddings = await generateEmbeddingsBatch([query]);
+  } else {
+    queryEmbeddings = await generateEmbeddingsLocal([query]);
+  }
+
+  const elapsed = Date.now() - startTime;
+  logger.info(`🔄 Query embedding generado en ${elapsed}ms (proveedor: ${provider})`);
+
+  const embedding = queryEmbeddings[0];
+
+  // Guardar en cache
+  if (queryEmbeddingCache.size >= QUERY_CACHE_MAX_SIZE) {
+    // Eliminar la entrada más antigua
+    const oldestKey = queryEmbeddingCache.keys().next().value;
+    queryEmbeddingCache.delete(oldestKey);
+  }
+  queryEmbeddingCache.set(cacheKey, { embedding, timestamp: Date.now() });
+
+  return embedding;
+}
+
+/**
  * Busca los chunks más relevantes usando embeddings
+ *
+ * ✅ OPTIMIZADO: Usa cache de query embeddings y logging de tiempos
  *
  * @param {string} query - Pregunta del usuario
  * @param {number} limit - Cantidad de resultados (default: 15 para re-ranking)
  * @returns {Promise<Array>} Chunks más relevantes con similitud
  */
 async function findRelevantChunks(query, limit = 15) {
+  const totalStart = Date.now();
+
   try {
     // Asegurar que los chunks estén cargados
     if (!chunksLoaded) {
@@ -381,22 +475,12 @@ async function findRelevantChunks(query, limit = 15) {
       return [];
     }
 
-    // Generar embedding de la consulta
-    logger.debug(`🔍 Generando embedding para consulta: "${query.substring(0, 50)}..."`);
-
-    // ✅ NUEVO: Detectar proveedor para la consulta también
-    const provider = detectEmbeddingProvider();
-    let queryEmbeddings;
-
-    if (provider === 'openai') {
-      queryEmbeddings = await generateEmbeddingsBatch([query]);
-    } else {
-      queryEmbeddings = await generateEmbeddingsLocal([query]);
-    }
-
-    const queryVector = queryEmbeddings[0];
+    // ✅ OPTIMIZADO: Usar cache de query embeddings
+    logger.debug(`🔍 Obteniendo embedding para consulta: "${query.substring(0, 50)}..."`);
+    const queryVector = await getQueryEmbedding(query);
 
     // Calcular similitud con todos los chunks (100% local, sin API)
+    const searchStart = Date.now();
     logger.debug(`📊 Calculando similitud con ${loadedChunks.length} chunks...`);
 
     const results = loadedChunks
@@ -409,7 +493,10 @@ async function findRelevantChunks(query, limit = 15) {
       .sort((a, b) => b.similarity - a.similarity) // Ordenar por similitud descendente
       .slice(0, limit); // Top K
 
-    logger.info(`✅ Encontrados ${results.length} chunks relevantes`);
+    const searchElapsed = Date.now() - searchStart;
+    const totalElapsed = Date.now() - totalStart;
+
+    logger.info(`✅ Encontrados ${results.length} chunks relevantes (búsqueda: ${searchElapsed}ms, total: ${totalElapsed}ms)`);
     logger.debug(`📊 Top 3 similitudes: ${results.slice(0, 3).map(r => r.similarity.toFixed(4)).join(', ')}`);
 
     return results;
@@ -473,12 +560,16 @@ async function loadAllChunks() {
 
 /**
  * Recarga los chunks desde archivos
+ * ✅ OPTIMIZADO: También limpia cache de query embeddings y provider cache
  */
 function reloadChunks() {
   logger.info('🔄 Recargando chunks...');
   chunksLoaded = false;
-  embeddingCache.clear();
+  queryEmbeddingCache.clear();
   loadedChunks = [];
+  // Invalidar provider cache para re-evaluar
+  cachedProvider = null;
+  cachedProviderTimestamp = 0;
   return loadAllChunks();
 }
 
@@ -496,6 +587,30 @@ function getEmbeddingStats() {
     loaded: chunksLoaded,
     embeddingDimension: chunksWithEmbeddings.length > 0 ? chunksWithEmbeddings[0].embedding.length : 0,
   };
+}
+
+// ===========================================
+// WARMUP
+// ===========================================
+
+/**
+ * Pre-calienta el modelo de embeddings al iniciar el servidor
+ * Evita latencia de ~645ms en la primera consulta real
+ */
+async function warmup() {
+  try {
+    const provider = detectEmbeddingProvider();
+    if (provider === 'xenova' && !xenovaPipeline) {
+      logger.info('🔥 Pre-calentando modelo de embeddings local...');
+      const start = Date.now();
+      await generateEmbeddingsLocal(['warmup']);
+      logger.info(`✅ Modelo de embeddings listo (${Date.now() - start}ms)`);
+    } else if (provider === 'xenova') {
+      logger.info('✅ Modelo de embeddings ya inicializado');
+    }
+  } catch (error) {
+    logger.warn(`⚠️ Error en warmup de embeddings: ${error.message}`);
+  }
 }
 
 // ===========================================
@@ -533,12 +648,16 @@ module.exports = {
 
   // Búsqueda
   findRelevantChunks,
+  getQueryEmbedding,
   cosineSimilarity,
 
   // Gestión de chunks
   loadAllChunks,
   reloadChunks,
   getEmbeddingStats,
+
+  // Warmup
+  warmup,
 
   // Configuración
   EMBEDDING_CONFIG,

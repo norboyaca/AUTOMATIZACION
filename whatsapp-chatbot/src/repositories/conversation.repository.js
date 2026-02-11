@@ -323,7 +323,7 @@ class ConversationRepository {
       });
 
       await docClient.send(command);
-      logger.debug(`✅ [DYNAMODB] Mensaje guardado: ${message.id}`);
+      logger.info(`✅ [DYNAMODB] Mensaje guardado: ${message.id}`);
 
       return message;
     } catch (error) {

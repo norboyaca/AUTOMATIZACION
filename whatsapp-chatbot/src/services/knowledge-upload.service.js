@@ -23,6 +23,11 @@ if (!fs.existsSync(KNOWLEDGE_DIR)) {
 // Índice de archivos cargados
 let knowledgeIndex = loadIndex();
 
+// ✅ OPTIMIZADO: Cache en memoria de datos de archivos procesados
+// Evita leer y parsear JSON del disco en cada búsqueda
+// Estructura: { fileId: { data, timestamp } }
+const fileDataCache = new Map();
+
 /**
  * Carga el índice de archivos
  */
@@ -406,6 +411,9 @@ async function uploadFile(file, stageId = null) {
     // Ignorar error si el servicio no está inicializado
   }
 
+  // ✅ OPTIMIZADO: Invalidar cache de datos de archivo
+  fileDataCache.delete(fileEntry.id);
+
   return fileEntry;
 }
 
@@ -469,14 +477,43 @@ function deleteFile(fileId) {
   knowledgeIndex.files.splice(fileIndex, 1);
   saveIndex();
 
+  // ✅ OPTIMIZADO: Invalidar cache de datos de archivo
+  fileDataCache.delete(file.id);
+
   logger.info(`Archivo eliminado: ${file.originalName}`);
   return true;
 }
 
 /**
+ * ✅ OPTIMIZADO: Obtiene datos de archivo desde cache o disco
+ * @param {string} fileId - ID del archivo
+ * @param {string} dataPath - Ruta al archivo JSON en disco
+ * @returns {Object|null} Datos parseados
+ */
+function getCachedFileData(fileId, dataPath) {
+  // Verificar cache
+  const cached = fileDataCache.get(fileId);
+  if (cached) {
+    return cached.data;
+  }
+
+  // Leer del disco y cachear
+  if (!fs.existsSync(dataPath)) return null;
+
+  try {
+    const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    fileDataCache.set(fileId, { data, timestamp: Date.now() });
+    return data;
+  } catch (error) {
+    logger.warn(`Error leyendo datos de archivo ${fileId}:`, error.message);
+    return null;
+  }
+}
+
+/**
  * Busca en todos los archivos cargados
  *
- * ✅ MEJORADO: Búsqueda más flexible e inteligente
+ * ✅ OPTIMIZADO: Usa cache en memoria para evitar I/O de disco
  */
 function searchInFiles(query) {
   const results = [];
@@ -516,11 +553,11 @@ function searchInFiles(query) {
       }
     }
 
-    if (!fs.existsSync(dataPath)) continue;
+    // ✅ OPTIMIZADO: Usar cache en memoria
+    const data = getCachedFileData(file.id, dataPath);
+    if (!data) continue;
 
     try {
-      const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-
       for (const chunk of data.chunks) {
         // Calcular relevancia
         let score = 0;

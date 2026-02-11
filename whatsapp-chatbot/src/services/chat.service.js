@@ -419,7 +419,7 @@ const generateWithAI = async (userId, message, options = {}) => {
   const messages = buildMessages(message, conversationHistory, relevantContext, options, { contextQuality, searchResults });
 
   // Aumentar tokens cuando hay contexto de documentos
-  const maxTokens = hasDocuments ? 400 : 150;
+  const maxTokens = hasDocuments ? 250 : 150;
 
   const response = await aiProvider.chat(messages, {
     maxTokens: maxTokens,
