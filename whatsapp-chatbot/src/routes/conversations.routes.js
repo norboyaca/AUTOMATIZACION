@@ -1594,4 +1594,164 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
   }
 });
 
+// ===========================================
+// ✅ NUEVO: ENVIAR AUDIO DESDE EL DASHBOARD
+// ===========================================
+
+/**
+ * POST /api/conversations/:userId/send-audio
+ *
+ * Envía un audio grabado desde el dashboard al usuario de WhatsApp.
+ * Recibe el audio como multipart/form-data con campo 'audio'.
+ */
+router.post('/:userId/send-audio', requireAuth, single('audio'), async (req, res) => {
+  let filePath = null;
+
+  try {
+    const { userId } = req.params;
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'Archivo de audio requerido'
+      });
+    }
+
+    filePath = req.file.path;
+    logger.info(`🎤 Enviando audio a ${userId} desde dashboard (${req.file.originalname})`);
+
+    // Enviar audio vía WhatsApp
+    await whatsappProvider.sendAudio(userId, filePath);
+
+    // Guardar mensaje en la conversación
+    const conversation = conversationStateService.getConversation(userId);
+    if (conversation) {
+      if (!conversation.messages) conversation.messages = [];
+      conversation.messages.push({
+        id: `audio_${Date.now()}`,
+        sender: 'admin',
+        type: 'audio',
+        message: '[Audio enviado]',
+        timestamp: Date.now()
+      });
+    }
+
+    logger.info(`✅ Audio enviado exitosamente a ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Audio enviado correctamente'
+    });
+
+  } catch (error) {
+    logger.error('Error enviando audio:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+
+  } finally {
+    // Limpiar archivo temporal
+    if (filePath) {
+      try {
+        const fs = require('fs');
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          logger.debug(`🗑️ Archivo temporal eliminado: ${filePath}`);
+        }
+      } catch (cleanupError) {
+        logger.warn(`⚠️ Error eliminando archivo temporal: ${cleanupError.message}`);
+      }
+    }
+  }
+});
+
+// ===========================================
+// ✅ NUEVO: ENVIAR ARCHIVO DESDE EL DASHBOARD
+// ===========================================
+
+/**
+ * POST /api/conversations/:userId/send-file
+ *
+ * Envía un archivo (imagen, documento, audio) desde el dashboard al usuario de WhatsApp.
+ * Recibe el archivo como multipart/form-data con campo 'file'.
+ * Body adicional: type (image, document, audio)
+ */
+router.post('/:userId/send-file', requireAuth, single('file'), async (req, res) => {
+  let filePath = null;
+
+  try {
+    const { userId } = req.params;
+    const fileType = req.body.type || 'document';
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'Archivo requerido'
+      });
+    }
+
+    filePath = req.file.path;
+    const originalName = req.file.originalname;
+    logger.info(`📎 Enviando archivo (${fileType}) a ${userId}: ${originalName}`);
+
+    // Enviar según tipo
+    const path = require('path');
+    switch (fileType) {
+      case 'image':
+        await whatsappProvider.sendImage(userId, filePath, '');
+        break;
+      case 'audio':
+        await whatsappProvider.sendAudio(userId, filePath);
+        break;
+      case 'document':
+      default:
+        await whatsappProvider.sendDocument(userId, filePath, originalName);
+        break;
+    }
+
+    // Guardar mensaje en la conversación
+    const conversation = conversationStateService.getConversation(userId);
+    if (conversation) {
+      if (!conversation.messages) conversation.messages = [];
+      conversation.messages.push({
+        id: `file_${Date.now()}`,
+        sender: 'admin',
+        type: fileType,
+        message: `[${fileType === 'image' ? 'Imagen' : fileType === 'audio' ? 'Audio' : 'Documento'} enviado: ${originalName}]`,
+        fileName: originalName,
+        timestamp: Date.now()
+      });
+    }
+
+    logger.info(`✅ Archivo enviado exitosamente a ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Archivo enviado correctamente'
+    });
+
+  } catch (error) {
+    logger.error('Error enviando archivo:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+
+  } finally {
+    // Limpiar archivo temporal
+    if (filePath) {
+      try {
+        const fs = require('fs');
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          logger.debug(`🗑️ Archivo temporal eliminado: ${filePath}`);
+        }
+      } catch (cleanupError) {
+        logger.warn(`⚠️ Error eliminando archivo temporal: ${cleanupError.message}`);
+      }
+    }
+  }
+});
+
 module.exports = router;

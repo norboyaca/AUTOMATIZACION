@@ -184,9 +184,125 @@ Mientras tanto, en qué podemos ayudarle?`;
     }
 
     // ===========================================
+    // PUNTO DE CONTROL 0.5: VERIFICAR SI HAY UN FLUJO ACTIVO (ANTES DE SPAM Y NUMBER-CONTROL)
+    // ===========================================
+    // ✅ CORREGIDO: El flujo activo se verifica PRIMERO, antes de spam y number-control.
+    // Esto evita que inputs válidos del menú ("1", "2", "si", "no") se bloqueen como spam.
+    if (flowManager.hasActiveFlow(userId) && USE_NEW_MENU_FLOW) {
+      logger.info(`🔄 Procesando mensaje a través del flujo activo para ${userId}`);
+
+      try {
+        // Guardar mensaje del usuario (solo una vez)
+        if (!userMessageSaved) {
+          await saveMessage(userId, message, 'user');
+          userMessageSaved = true;
+        }
+
+        // ✅ Reiniciar estado de spam al procesar un flujo válido
+        spamControlService.resetUserState(userId);
+
+        // Procesar input a través del flujo activo
+        const flowResult = await flowManager.handleInput(userId, message);
+
+        if (flowResult) {
+          // ✅ CASO 1: Si el flujo se completó o fue cancelado
+          if (flowResult.isCompleted || flowResult.isCancelled) {
+            // Finalizar flujo
+            await flowManager.endFlow(userId);
+            conversation.activeFlow = null;
+
+            // Si el usuario rechazó el consentimiento
+            if (flowResult.data && flowResult.data.consentGiven === false) {
+              conversation.consentStatus = 'rejected';
+              conversation.bot_active = false;
+
+              const rejectionMsg = `Entendido, sumercé. Su decisión ha sido registrada.\n\nSi cambia de opinión, puede escribirnos nuevamente.`;
+
+              await whatsappProvider.sendMessage(userId, rejectionMsg);
+              await saveMessage(userId, rejectionMsg, 'bot', 'system');
+
+              logger.info(`❌ Usuario rechazó consentimiento - conversación finalizada`);
+            }
+
+            return null;
+          }
+
+          // ✅ CASO 2: El flujo llegó al paso final (process) con opción seleccionada
+          if (flowResult.actionRequired && flowResult.selectedOption) {
+            const selectedOption = flowResult.selectedOption;
+            logger.info(`📊 Opción seleccionada: ${selectedOption}`);
+
+            if (flowResult.step === 'process') {
+              conversation.consentStatus = 'accepted';
+              conversation.consentMessageSent = true;
+
+              if (selectedOption === 1) {
+                // Opción 1: Enviar confirmación y permitir IA/RAG
+                logger.info(`✅ Opción 1 seleccionada - Continuando con IA/RAG`);
+                await whatsappProvider.sendMessage(userId, flowResult.message);
+                await saveMessage(userId, flowResult.message, 'bot', 'system');
+
+                // Finalizar flujo para que los siguientes mensajes vayan a IA
+                await flowManager.endFlow(userId);
+                conversation.activeFlow = null;
+
+                return null;
+              } else {
+                // Opciones 2, 3, 4: Redirigir a asesor
+                const advisorMsg = `El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...`;
+
+                conversation.status = 'pending_advisor';
+                conversation.bot_active = false;
+                conversation.needs_human = true;
+                conversation.needsHumanReason = `menu_option_${selectedOption}`;
+                conversation.escalationMessageSent = true;
+                conversation.waitingForHuman = true;
+
+                await whatsappProvider.sendMessage(userId, advisorMsg);
+                await saveMessage(userId, advisorMsg, 'bot', 'escalation');
+
+                // Finalizar flujo
+                await flowManager.endFlow(userId);
+                conversation.activeFlow = null;
+
+                logger.info(`✅ Opción ${selectedOption} - Redirigiendo a asesor`);
+                return null;
+              }
+            }
+          }
+
+          // ✅ CASO 3: Error en el flujo (opción inválida, respuesta inválida)
+          if (flowResult.isError && flowResult.message) {
+            await whatsappProvider.sendMessage(userId, flowResult.message);
+            await saveMessage(userId, flowResult.message, 'bot', 'flow_error');
+            return null;
+          }
+
+          // ✅ CASO 4: Mensaje normal del flujo (consent, waiting for input, etc.)
+          if (flowResult.message) {
+            await whatsappProvider.sendMessage(userId, flowResult.message);
+            await saveMessage(userId, flowResult.message, 'bot', 'flow');
+            return null;
+          }
+        }
+
+        // Si el flujo retornó null, continuar con procesamiento normal
+        logger.info(`🔄 Flujo procesado correctamente, continuando con procesamiento normal`);
+
+      } catch (flowError) {
+        logger.error(`❌ Error procesando flujo activo: ${flowError.message}`);
+        logger.error(flowError.stack);
+
+        // Finalizar flujo en caso de error
+        await flowManager.endFlow(userId);
+        conversation.activeFlow = null;
+      }
+    }
+
+    // ===========================================
     // PUNTO DE CONTROL 0: CONTROL DE NÚMEROS (IA DESACTIVADA)
     // ===========================================
-    // IMPORTANTE: Esta validación se ejecuta ANTES de cualquier procesamiento de IA
+    // IMPORTANTE: Esta validación se ejecuta DESPUÉS de verificar flujo activo
     // Si el número está en la lista de control con IA desactivada:
     // - NO se genera respuesta con el modelo
     // - NO se consumen tokens
@@ -235,7 +351,7 @@ Mientras tanto, en qué podemos ayudarle?`;
       conversation.possibleSpam = true;
       conversation.spamConsecutiveCount = spamCheck.consecutiveCount;
 
-      // ✅ NUEVO: Emitir evento al dashboard para notificar bloqueo por spam
+      // Emitir evento al dashboard para notificar bloqueo por spam
       if (io) {
         io.emit('spam-blocked', {
           userId: userId,
@@ -255,125 +371,6 @@ Mientras tanto, en qué podemos ayudarle?`;
     if (spamCheck.isSpam && !spamCheck.shouldBlock) {
       logger.warn(`⚠️ ANTI-SPAM: Advertencia para ${userId} - ${spamCheck.reason}`);
       logger.warn(`   Próxima repetición será BLOQUEADA (sin tokens)`);
-    }
-
-    // ===========================================
-    // PUNTO DE CONTROL 0.5: VERIFICAR SI HAY UN FLUJO ACTIVO
-    // ===========================================
-    // ✅ NUEVO: Si hay un flujo activo (menú NORBOY), procesar el mensaje a través del flujo
-    if (flowManager.hasActiveFlow(userId) && USE_NEW_MENU_FLOW) {
-      logger.info(`🔄 Procesando mensaje a través del flujo activo para ${userId}`);
-
-      try {
-        // Guardar mensaje del usuario (solo una vez)
-        if (!userMessageSaved) {
-          await saveMessage(userId, message, 'user');
-          userMessageSaved = true;
-        }
-
-        // Procesar input a través del flujo activo
-        const flowResult = await flowManager.handleInput(userId, message);
-
-        if (flowResult) {
-          // Verificar si el flujo requiere intervención humana
-          if (flowResult.actionRequired && flowResult.selectedOption) {
-            const selectedOption = flowResult.selectedOption;
-
-            logger.info(`📊 Opción seleccionada: ${selectedOption}`);
-
-            // Si el flujo indica que el usuario aceptó el consentimiento
-            if (flowResult.step === 'process') {
-              // Actualizar estado de la conversación
-              conversation.consentStatus = 'accepted';
-              conversation.consentMessageSent = true;
-
-              // Ahora procesar según la opción seleccionada
-              if (selectedOption === 1) {
-                // Opción 1: Continuar con el flujo normal de IA/RAG
-                logger.info(`✅ Opción 1 seleccionada - Continuando con IA/RAG`);
-
-                // Enviar confirmación y dejar que el flujo continue
-                await whatsappProvider.sendMessage(userId, flowResult.message);
-                await saveMessage(userId, flowResult.message, 'bot', 'system');
-
-                // Dejar que el flujo continue normalmente hacia abajo
-                return null;
-              } else if (selectedOption === 2 || selectedOption === 3 || selectedOption === 4) {
-                // Opciones 2, 3, 4: Redirigir a asesor
-                const advisorMsg = `El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...`;
-
-                conversation.status = 'pending_advisor';
-                conversation.bot_active = false;
-                conversation.needs_human = true;
-                conversation.needsHumanReason = `menu_option_${selectedOption}`;
-                conversation.escalationMessageSent = true;
-                conversation.waitingForHuman = true;
-
-                await whatsappProvider.sendMessage(userId, advisorMsg);
-                await saveMessage(userId, advisorMsg, 'bot', 'escalation');
-
-                logger.info(`✅ Opción ${selectedOption} - Redirigiendo a asesor`);
-
-                return null;
-              }
-            }
-
-            // Si el flujo se completó
-            if (flowResult.isCompleted || flowResult.isCancelled) {
-              // Finalizar flujo
-              await flowManager.endFlow(userId);
-              conversation.activeFlow = null;
-
-              // Si el usuario rechazó el consentimiento
-              if (flowResult.data && flowResult.data.consentGiven === false) {
-                conversation.consentStatus = 'rejected';
-                conversation.bot_active = false;
-
-                const rejectionMsg = `Entendido, sumercé. Su decisión ha sido registrada.
-
-Si cambia de opinión, puede escribirnos nuevamente.`;
-
-                await whatsappProvider.sendMessage(userId, rejectionMsg);
-                await saveMessage(userId, rejectionMsg, 'bot', 'system');
-
-                logger.info(`❌ Usuario rechazó consentimiento - conversación finalizada`);
-
-                return null;
-              }
-
-              // Si el flujo se completó exitosamente, continuar con el procesamiento normal
-              return null;
-            }
-
-            // Si el flujo devuelve un mensaje normal, enviarlo
-            if (flowResult.message && !flowResult.isError && !flowResult.isCompleted) {
-              await whatsappProvider.sendMessage(userId, flowResult.message);
-              await saveMessage(userId, flowResult.message, 'bot', 'flow');
-
-              return null;
-            }
-          }
-
-          // Si hay un error en el flujo, reenviar el mensaje
-          if (flowResult.isError && flowResult.message) {
-            await whatsappProvider.sendMessage(userId, flowResult.message);
-            await saveMessage(userId, flowResult.message, 'bot', 'flow_error');
-
-            return null;
-          }
-        }
-
-        // Si el flujo retornó null, significa que debemos continuar con el procesamiento normal
-        logger.info(`🔄 Flujo procesado correctamente, continuando con procesamiento normal`);
-
-      } catch (flowError) {
-        logger.error(`❌ Error procesando flujo activo: ${flowError.message}`);
-        logger.error(flowError.stack);
-
-        // Finalizar flujo en caso de error
-        await flowManager.endFlow(userId);
-        conversation.activeFlow = null;
-      }
     }
 
     // ===========================================

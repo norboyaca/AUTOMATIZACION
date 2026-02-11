@@ -17,10 +17,12 @@ const authRoutes = require('./auth.routes');
 const conversationsRoutes = require('./conversations.routes');
 const holidaysRoutes = require('./holidays.routes');
 const { requireAuth } = require('../middlewares/auth.middleware');
+const { messageLimiter } = require('../middlewares/rate-limit.middleware');
 const chatService = require('../services/chat.service');
 const settingsService = require('../services/settings.service');
 const knowledgeUploadService = require('../services/knowledge-upload.service');
 const stagesService = require('../services/stages.service');
+const metricsService = require('../services/metrics.service');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -50,11 +52,33 @@ router.use('/webhook', webhookRoutes);
 // Rutas de autenticación: /api/auth/*
 router.use('/auth', authRoutes);
 
+// ✅ Rate limiting estricto para envío de mensajes (20 req/min)
+router.use('/conversations', messageLimiter);
+
 // Rutas de conversaciones: /api/conversations/*
 router.use('/conversations', conversationsRoutes);
 
 // Rutas de días festivos: /api/holidays/*
 router.use('/holidays', holidaysRoutes);
+
+// ===========================================
+// ✅ ENDPOINT DE MÉTRICAS
+// ===========================================
+router.get('/metrics', requireAuth, (req, res) => {
+  try {
+    const metrics = metricsService.getMetrics();
+    const rateLimitStats = require('../middlewares/rate-limit.middleware').getStats();
+
+    res.json({
+      success: true,
+      metrics,
+      rateLimit: rateLimitStats
+    });
+  } catch (error) {
+    logger.error('Error obteniendo métricas:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // ===========================================
 // ENDPOINT DE PRUEBA DEL CHAT

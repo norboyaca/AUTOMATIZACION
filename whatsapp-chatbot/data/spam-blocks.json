@@ -10,9 +10,10 @@
     "timezone": "America/Bogota",
     "totalBlockedMessages": 1,
     "lastMessage": "1",
-    "active": true,
-    "reactivatedAt": null,
-    "reactivatedBy": null
+    "active": false,
+    "reactivatedAt": 1770832258000,
+    "reactivatedAtFormatted": "2026-02-11 08:50:58",
+    "reactivatedBy": "Fix automático - flujo corregido"
   },
   "151771427143897": {
     "phoneNumber": "151771427143897",

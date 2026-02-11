@@ -61,7 +61,7 @@ class NorboyMenuFlow extends BaseFlow {
       logger.info(`📋 Iniciando flujo NORBOY para ${this.context.userId}`);
 
       // Mensaje 1: Saludo
-      const message1 = `Hola! Aquí el equipo NORBOY 👋`;
+      const message1 = `Hola, soy AntonIA Santos, su asesor en línea`;
 
       // Mensaje 2: Menú de opciones enumerados con negrilla
       const message2 = `Escribe el número de la opción 👇
@@ -193,7 +193,7 @@ No`;
 
     // Verificar si acepta
     if (normalizedInput === 'si' || normalizedInput === 'sí' ||
-        normalizedInput === '1' || normalizedInput.includes('acept')) {
+      normalizedInput === '1' || normalizedInput.includes('acept')) {
       logger.info(`✅ Usuario ${this.context.userId} ACEPTÓ el consentimiento`);
       this.data.consentGiven = true;
       this.waitingForConsent = false;
@@ -207,7 +207,7 @@ No`;
 
     // Verificar si rechaza
     if (normalizedInput === 'no' || normalizedInput === '2' ||
-        normalizedInput.includes('rechaz')) {
+      normalizedInput.includes('rechaz')) {
       logger.info(`❌ Usuario ${this.context.userId} RECHAZÓ el consentimiento`);
       this.data.consentGiven = false;
 

@@ -55,35 +55,35 @@ transports.push(
   })
 );
 
-// File transports (solo en producción)
-if (NODE_ENV === 'production') {
-  // Archivo para todos los logs
-  transports.push(
-    new winston.transports.File({
-      filename: path.join(LOG_DIR, 'combined.log'),
-      format: winston.format.combine(
-        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-        winston.format.json()
-      ),
-      maxsize: 5242880, // 5MB
-      maxFiles: 5
-    })
-  );
+// File transports (✅ MEJORADO: activos en TODOS los ambientes con rotación)
+// Archivo para todos los logs
+transports.push(
+  new winston.transports.File({
+    filename: path.join(LOG_DIR, 'combined.log'),
+    format: winston.format.combine(
+      winston.format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }),
+      winston.format.json()
+    ),
+    maxsize: 10 * 1024 * 1024, // 10MB
+    maxFiles: 10,
+    tailable: true
+  })
+);
 
-  // Archivo solo para errores
-  transports.push(
-    new winston.transports.File({
-      filename: path.join(LOG_DIR, 'error.log'),
-      level: 'error',
-      format: winston.format.combine(
-        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-        winston.format.json()
-      ),
-      maxsize: 5242880,
-      maxFiles: 5
-    })
-  );
-}
+// Archivo solo para errores
+transports.push(
+  new winston.transports.File({
+    filename: path.join(LOG_DIR, 'error.log'),
+    level: 'error',
+    format: winston.format.combine(
+      winston.format.timestamp({ format: 'YYYY-MM-DDTHH:mm:ss.SSSZ' }),
+      winston.format.json()
+    ),
+    maxsize: 10 * 1024 * 1024, // 10MB
+    maxFiles: 10,
+    tailable: true
+  })
+);
 
 // ===========================================
 // CREAR INSTANCIA DE LOGGER

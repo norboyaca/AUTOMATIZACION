@@ -124,9 +124,9 @@ whatsappWeb.on('message', async (message) => {
     // Detectar tipo de chat
     // ✅ CORREGIDO: Baileys usa @s.whatsapp.net para chats normales
     const chatType = from.includes('@lid') ? 'LID' :
-                     from.includes('@g.us') ? 'Grupo' :
-                     from.includes('@s.whatsapp.net') ? 'Normal' :
-                     from.includes('@c.us') ? 'Normal' : 'Desconocido';
+      from.includes('@g.us') ? 'Grupo' :
+        from.includes('@s.whatsapp.net') ? 'Normal' :
+          from.includes('@c.us') ? 'Normal' : 'Desconocido';
 
     logger.info(`📩 Mensaje [${chatType}] de ${from}: ${body?.substring(0, 50)}...`);
     logger.info(`📝 Tipo de mensaje: ${type} | fromMe: ${message.fromMe}`);
@@ -151,9 +151,10 @@ whatsappWeb.on('message', async (message) => {
 
     // ===========================================
     // IGNORAR MENSAJES VACÍOS (eventos históricos de Baileys)
+    // ✅ Solo para mensajes de texto - multimedia (audio, imagen, etc.) puede tener body vacío
     // ===========================================
-    if (!body || body.trim() === '') {
-      logger.debug('⏭️ Mensaje vacío, ignorando (probablemente evento histórico)');
+    if ((type === 'chat' || type === 'conversation') && (!body || body.trim() === '')) {
+      logger.debug('⏭️ Mensaje de texto vacío, ignorando (probablemente evento histórico)');
       return;
     }
 
@@ -363,7 +364,7 @@ whatsappWeb.on('message', async (message) => {
     // - Y GUARDA LOS MENSAJES en conversation.messages
 
     if (type === 'chat' || type === 'conversation') {
-      logger.info('🔄 Procesando mensaje con messageProcessor...');
+      logger.info('🔄 Procesando mensaje de texto con messageProcessor...');
 
       // Usar messageProcessor que ya maneja todo:
       // - consentimiento
@@ -394,6 +395,44 @@ whatsappWeb.on('message', async (message) => {
 
       // Notificar a la interfaz web
       io.emit('bot-response', { to: from, response: response, chatType });
+
+      // ===========================================
+      // ✅ NUEVO: Procesar mensajes de audio, imagen, documento y video
+      // ===========================================
+    } else if (type === 'audio' || type === 'image' || type === 'document' || type === 'video') {
+      logger.info(`🔄 Procesando mensaje multimedia (${type}) con messageProcessor...`);
+
+      // Para mensajes multimedia, pasar el tipo y datos del mensaje original
+      const mediaBody = type === 'audio' ? '[Audio recibido]' :
+        type === 'image' ? '[Imagen recibida]' :
+          type === 'document' ? '[Documento recibido]' :
+            '[Video recibido]';
+
+      const response = await messageProcessor.processIncomingMessage(from, mediaBody, {
+        pushName,
+        messageType: type,
+        originalMessage: message
+      });
+
+      if (!response) {
+        logger.debug('⏭️ Sin respuesta externa para multimedia (ya procesada internamente)');
+        return;
+      }
+
+      // Si hay respuesta, enviarla
+      logger.info(`✅ Respuesta generada para ${type}: ${response.substring(0, 50)}...`);
+
+      try {
+        const client = whatsappWeb.getClient();
+        await client.sendMessage(from, { text: response });
+        logger.info(`✅ Respuesta enviada a ${from} [${chatType}]`);
+      } catch (sendError) {
+        logger.error(`❌ Error enviando respuesta: ${sendError.message}`);
+        throw sendError;
+      }
+
+      io.emit('bot-response', { to: from, response: response, chatType });
+
     } else {
       logger.warn(`⚠️ Tipo de mensaje no soportado: ${type}`);
     }
@@ -555,8 +594,8 @@ async function initializeEmbeddingsInBackground() {
 
       logger.info(`📊 Estadísticas de embeddings:`);
       logger.info(`   Total chunks: ${totalChunks}`);
-      logger.info(`   ✅ Con embeddings: ${withEmbeddings} (${totalChunks > 0 ? ((withEmbeddings/totalChunks)*100).toFixed(1) : 0}%)`);
-      logger.info(`   ❌ Sin embeddings: ${withoutEmbeddings} (${totalChunks > 0 ? ((withoutEmbeddings/totalChunks)*100).toFixed(1) : 0}%)`);
+      logger.info(`   ✅ Con embeddings: ${withEmbeddings} (${totalChunks > 0 ? ((withEmbeddings / totalChunks) * 100).toFixed(1) : 0}%)`);
+      logger.info(`   ❌ Sin embeddings: ${withoutEmbeddings} (${totalChunks > 0 ? ((withoutEmbeddings / totalChunks) * 100).toFixed(1) : 0}%)`);
 
       // Si hay chunks sin embeddings, generarlos
       if (withoutEmbeddings > 0) {
@@ -610,7 +649,7 @@ async function initializeEmbeddingsInBackground() {
 
         const finalStats = embeddingsService.getEmbeddingStats();
         logger.info(`📊 Estadísticas finales:`);
-        logger.info(`   ✅ Con embeddings: ${finalStats.withEmbeddings}/${finalStats.totalChunks} (${((finalStats.withEmbeddings/finalStats.totalChunks)*100).toFixed(1)}%)`);
+        logger.info(`   ✅ Con embeddings: ${finalStats.withEmbeddings}/${finalStats.totalChunks} (${((finalStats.withEmbeddings / finalStats.totalChunks) * 100).toFixed(1)}%)`);
         logger.info(`🎯 Búsqueda vectorial activa`);
       } else {
         logger.info('✅ Todos los chunks ya tienen embeddings');

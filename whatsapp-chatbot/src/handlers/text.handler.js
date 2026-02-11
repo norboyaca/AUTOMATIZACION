@@ -12,15 +12,18 @@ const chatService = require('../services/chat.service');
 const conversationStateService = require('../services/conversation-state.service');
 const messageProcessor = require('../services/message-processor.service');
 
+// ✅ Verificar si el nuevo flujo de menú está habilitado
+const USE_NEW_MENU_FLOW = process.env.USE_NEW_MENU_FLOW === 'true';
+
 class TextHandler {
   constructor() {
     this.name = 'TextHandler';
 
     // Comandos especiales que no van a la IA
+    // ✅ Cuando USE_NEW_MENU_FLOW está activo, 'hola' y '/hola' NO se interceptan
+    // para que pasen por messageProcessor y activen el flujo de menú correctamente
     this.commands = {
       '/start': this.handleStart.bind(this),
-      '/hola': this.handleStart.bind(this),
-      'hola': this.handleStart.bind(this),
       '/help': this.handleHelp.bind(this),
       '/ayuda': this.handleHelp.bind(this),
       'ayuda': this.handleHelp.bind(this),
@@ -31,6 +34,12 @@ class TextHandler {
       '/asamblea': this.handleAsamblea.bind(this),
       '/organos': this.handleOrganos.bind(this)
     };
+
+    // Solo interceptar 'hola' como comando cuando NO se usa el nuevo flujo
+    if (!USE_NEW_MENU_FLOW) {
+      this.commands['/hola'] = this.handleStart.bind(this);
+      this.commands['hola'] = this.handleStart.bind(this);
+    }
   }
 
   /**
@@ -60,8 +69,10 @@ class TextHandler {
         return await command(message);
       }
 
-      // 2. Detectar saludos simples (también se procesan directamente)
-      if (this._isGreeting(text)) {
+      // 2. Detectar saludos simples
+      // ✅ Cuando USE_NEW_MENU_FLOW está activo, los saludos pasan al messageProcessor
+      // para que activen el flujo de menú (no se interceptan aquí)
+      if (!USE_NEW_MENU_FLOW && this._isGreeting(text)) {
         return await this.handleStart(message);
       }
 
@@ -103,7 +114,7 @@ Puedes intentar de nuevo o escribir "menu" para ver las opciones disponibles.`;
    */
   _isGreeting(text) {
     const greetings = ['hola', 'buenos dias', 'buenas tardes', 'buenas noches',
-                       'hey', 'hi', 'hello', 'saludos', 'que tal'];
+      'hey', 'hi', 'hello', 'saludos', 'que tal'];
     const normalized = text.toLowerCase().trim();
     return greetings.some(g => normalized === g || normalized.startsWith(g + ' '));
   }
@@ -112,8 +123,21 @@ Puedes intentar de nuevo o escribir "menu" para ver las opciones disponibles.`;
    * Comando: /start o Hola
    */
   async handleStart(message) {
-    // Marcar que se envió el mensaje de bienvenida
     const userId = message.from;
+
+    // ✅ Si el nuevo flujo de menú está activo, delegar al messageProcessor
+    // para que active el flujo de bienvenida + menú + consentimiento
+    if (USE_NEW_MENU_FLOW) {
+      logger.info(`🔄 handleStart: Delegando a messageProcessor (USE_NEW_MENU_FLOW=true)`);
+      const pushName = message.pushName || null;
+      const realPhoneNumber = message.realPhoneNumber || message.from;
+      return await messageProcessor.processIncomingMessage(userId, message.content?.text || 'hola', {
+        pushName,
+        realPhoneNumber
+      });
+    }
+
+    // Flujo antiguo: marcar bienvenida y responder directamente
     if (userId) {
       conversationStateService.markWelcomeSent(userId);
     }

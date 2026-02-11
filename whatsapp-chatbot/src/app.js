@@ -8,6 +8,7 @@ const express = require('express');
 const path = require('path');
 const routes = require('./routes');
 const errorMiddleware = require('./middlewares/error.middleware');
+const { apiLimiter } = require('./middlewares/rate-limit.middleware');
 
 const app = express();
 
@@ -37,6 +38,9 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// ✅ Rate limiting para todos los endpoints API (100 req/min por IP)
+app.use('/api', apiLimiter);
 
 // Rutas API
 app.use('/api', routes);
