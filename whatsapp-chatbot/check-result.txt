@@ -1,0 +1,165 @@
+­ƒöì Verificando mensajes en DynamoDB...
+
+­ƒôè TABLA: norboy-messages
+============================================================
+
+Ô£à Mensajes encontrados: 20
+
+├Ültimos mensajes:
+
+1. ID: msg_1770501514746_9doxk7x0u
+   Participant: 151771427143897@lid
+   Direction: incoming
+   Content: Hola
+   Timestamp: 7/2/2026, 4:58:34 p.┬ám.
+
+2. ID: msg_1770591813839_qh9yx830t
+   Participant: 573028599105@s.whatsapp.net
+   Direction: incoming
+   Content: 1
+   Timestamp: 8/2/2026, 6:03:33 p.┬ám.
+
+3. ID: msg_1770733855945_i829rbk68
+   Participant: 573028599105@s.whatsapp.net
+   Direction: incoming
+   Content: hola
+   Timestamp: 10/2/2026, 9:30:55 a.┬ám.
+
+4. ID: msg_1770605378300_rawaq87bk
+   Participant: 573028599105@s.whatsapp.net
+   Direction: outgoing
+   Content: El asesor de NORBOY ­ƒæ®ÔÇì­ƒÆ╝ encargado de este tema l
+   Timestamp: 8/2/2026, 9:49:38 p.┬ám.
+
+5. ID: msg_1770501521127_9e21b9ph9
+   Participant: 151771427143897@lid
+   Direction: outgoing
+   Content: ­ƒæï ┬íGracias por escribirnos!
+
+Para poder asesorart
+   Timestamp: 7/2/2026, 4:58:41 p.┬ám.
+
+6. ID: 07ff12bc-b1b4-4712-9e28-cdab757b4d33
+   Participant: +573001234567@s.whatsapp.net
+   Direction: incoming
+   Content: Hola, mensaje de prueba
+   Timestamp: 7/2/2026, 3:09:39 p.┬ám.
+
+7. ID: msg_1770611113006_lc7m16ao1
+   Participant: 573028599105@s.whatsapp.net
+   Direction: incoming
+   Content: hola
+   Timestamp: 8/2/2026, 11:25:13 p.┬ám.
+
+8. ID: msg_1770501099027_e64075pg3
+   Participant: 573028599105@s.whatsapp.net
+   Direction: outgoing
+   Content: Escribe el n├║mero de la opci├│n ­ƒæç
+
+*1.* Elegimos J
+   Timestamp: 7/2/2026, 4:51:39 p.┬ám.
+
+9. ID: msg_1770591792875_q0ym60jl6
+   Participant: 573028599105@s.whatsapp.net
+   Direction: outgoing
+   Content: ­ƒÄë Hoy es D├¡a de San Blas
+
+Nuestro horario de aten
+   Timestamp: 8/2/2026, 6:03:12 p.┬ám.
+
+10. ID: msg_1770733872876_46cgkr2yd
+   Participant: 573028599105@s.whatsapp.net
+   Direction: incoming
+   Content: 1
+   Timestamp: 10/2/2026, 9:31:12 a.┬ám.
+
+11. ID: msg_1770611862675_0enr6wjw5
+   Participant: 573028599105@s.whatsapp.net
+   Direction: outgoing
+   Content: Hola! Aqu├¡ el equipo NORBOY ­ƒæï
+   Timestamp: 8/2/2026, 11:37:42 p.┬ám.
+
+12. ID: msg_1770584728133_xp3znvklh
+   Participant: 573028599105@s.whatsapp.net
+   Direction: outgoing
+   Content: Hola! Aqu├¡ el equipo NORBOY ­ƒæï
+   Timestamp: 8/2/2026, 4:05:28 p.┬ám.
+
+13. ID: msg_1770593996528_dg8modu53
+   Participant: 573028599105@s.whatsapp.net
+   Direction: incoming
+   Content: fechas
+   Timestamp: 8/2/2026, 6:39:56 p.┬ám.
+
+14. ID: msg_1770593993494_hsr639lni
+   Participant: 573028599105@s.whatsapp.net
+   Direction: incoming
+   Content: 1
+   Timestamp: 8/2/2026, 6:39:53 p.┬ám.
+
+15. ID: msg_1770611862244_88dc0j6jl
+   Participant: 573028599105@s.whatsapp.net
+   Direction: incoming
+   Content: hola
+   Timestamp: 8/2/2026, 11:37:42 p.┬ám.
+
+16. ID: msg_1770585643381_dg9o3tgbp
+   Participant: 573028599105@s.whatsapp.net
+   Direction: incoming
+   Content: para que me sirve lo de las fechas?
+   Timestamp: 8/2/2026, 4:20:43 p.┬ám.
+
+17. ID: msg_1770605358752_10xwbzfkx
+   Participant: 573028599105@s.whatsapp.net
+   Direction: incoming
+   Content: 1
+   Timestamp: 8/2/2026, 9:49:18 p.┬ám.
+
+18. ID: msg_1770733881943_2ipaayai2
+   Participant: 573028599105@s.whatsapp.net
+   Direction: incoming
+   Content: acuerdos
+   Timestamp: 10/2/2026, 9:31:21 a.┬ám.
+
+19. ID: msg_1770521143016_eqe5e2soj
+   Participant: 573028599105@s.whatsapp.net
+   Direction: outgoing
+   Content: Escribe el n├║mero de la opci├│n ­ƒæç
+
+*1.* Elegimos J
+   Timestamp: 7/2/2026, 10:25:43 p.┬ám.
+
+20. ID: msg_1770593965400_hucmucvnk
+   Participant: 573028599105@s.whatsapp.net
+   Direction: outgoing
+   Content: En qu├® le podemos servir?
+   Timestamp: 8/2/2026, 6:39:25 p.┬ám.
+
+
+­ƒôè TABLA: norboy-conversations
+============================================================
+
+Ô£à Conversaciones encontradas: 4
+
+Conversaciones activas:
+
+1. Participant: 573028599105@s.whatsapp.net
+   Name: David Castella
+   Status: new_cycle
+   Last message: [Multimedia]
+
+2. Participant: 151771427143897@lid
+   Name: Sin nombre
+   Status: active
+   Last message: N/A
+
+3. Participant: +573001234567@s.whatsapp.net
+   Name: Sin nombre
+   Status: active
+   Last message: N/A
+
+4. Participant: 573000000000@s.whatsapp.net
+   Name: Test User
+   Status: active
+   Last message: N/A
+

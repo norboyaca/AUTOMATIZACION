@@ -1,0 +1,1245 @@
+/**
+ * CHAT PAGE - WhatsApp Web Style
+ * Standalone JS for the 2-column chat layout
+ */
+(function () {
+    'use strict';
+
+    // ==========================================
+    // STATE
+    // ==========================================
+    let socket = null;
+    let conversations = [];
+    let currentChatUserId = null;
+    let currentConvData = null;
+    let conversationsOffset = 0;
+    const CONVERSATIONS_LIMIT = 30;
+    let totalConversations = 0;
+    let hasMoreConversations = false;
+    let renderedMessageIds = new Set();
+    let activeFilter = 'all';
+    let searchQuery = '';
+
+    // Audio recording state
+    let audioRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+    let recordingStartTime = null;
+    let recordingTimer = null;
+
+    // UI state
+    let isEmojiPickerOpen = false;
+    let isAttachMenuOpen = false;
+
+    // ==========================================
+    // AUTH
+    // ==========================================
+    async function authenticatedFetch(url, options = {}) {
+        let token = localStorage.getItem('token');
+        if (!token) {
+            try {
+                const loginResponse = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'norboy2026' })
+                });
+                if (loginResponse.ok) {
+                    const loginData = await loginResponse.json();
+                    if (loginData.token) {
+                        token = loginData.token;
+                        localStorage.setItem('token', token);
+                        localStorage.setItem('authUser', JSON.stringify({
+                            id: 'admin', username: 'admin', name: 'Administrador', email: 'admin@norboy.coop'
+                        }));
+                    }
+                }
+            } catch (e) {
+                console.warn('⚠️ No se pudo obtener token:', e);
+            }
+        }
+        if (!options.headers) options.headers = {};
+        if (!(options.body instanceof FormData)) {
+            options.headers['Content-Type'] = options.headers['Content-Type'] || 'application/json';
+        }
+        if (token) {
+            options.headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch(url, options);
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('token');
+            window.location.reload();
+        }
+        return response;
+    }
+
+    function getCurrentAdvisor() {
+        try {
+            const authUser = JSON.parse(localStorage.getItem('authUser') || '{}');
+            return {
+                id: authUser.id || 'advisor_' + Date.now(),
+                name: authUser.name || authUser.username || 'Asesor',
+                email: authUser.email || 'advisor@norboy.coop'
+            };
+        } catch (e) {
+            return { id: 'advisor_' + Date.now(), name: 'Asesor', email: 'advisor@norboy.coop' };
+        }
+    }
+
+    // ==========================================
+    // UTILITY
+    // ==========================================
+    function normalizePhoneNumber(phoneNumber) {
+        if (!phoneNumber) return '';
+        let normalized = String(phoneNumber).trim();
+        normalized = normalized.replace(/^whatsapp:/i, '');
+        if (normalized.includes('@')) normalized = normalized.split('@')[0];
+        normalized = normalized.replace(/[^\d]/g, '');
+        return normalized;
+    }
+
+    function formatPhoneDisplay(phone) {
+        let n = normalizePhoneNumber(phone);
+        if (n.startsWith('57') && n.length > 10) {
+            return `+57 ${n.substring(2, 5)} ${n.substring(5, 8)} ${n.substring(8)}`;
+        }
+        return '+' + n;
+    }
+
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text || '';
+        return d.innerHTML;
+    }
+
+    function normalizeMediaUrl(url) {
+        if (!url) return '';
+        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        if (url.startsWith('/uploads/')) return window.location.origin + url;
+        return url;
+    }
+
+    function getInitials(name) {
+        if (!name) return '??';
+        const words = name.trim().split(/\s+/);
+        if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+        return name.substring(0, 2).toUpperCase();
+    }
+
+    function timeAgo(timestamp) {
+        if (!timestamp) return '';
+        const d = new Date(timestamp);
+        const now = new Date();
+        const diff = now - d;
+        if (diff < 60000) return 'ahora';
+        if (diff < 3600000) return Math.floor(diff / 60000) + ' min';
+        if (diff < 86400000) {
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        if (diff < 172800000) return 'ayer';
+        return d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
+    }
+
+    function showToast(message, type = 'success') {
+        let container = document.getElementById('toast-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'toast-container';
+            container.className = 'toast-container';
+            document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+    }
+
+    // Expose showAlert as alias for compatibility with chat-complete.js
+    window.showAlert = function (msg, type) { showToast(msg, type); };
+
+    // ==========================================
+    // LOGIN
+    // ==========================================
+    function initLogin() {
+        const overlay = document.getElementById('login-overlay');
+        const token = localStorage.getItem('token');
+        if (token) {
+            overlay.classList.add('hidden');
+            setTimeout(() => overlay.style.display = 'none', 500);
+            return;
+        }
+        overlay.style.display = 'flex';
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorEl = document.getElementById('login-error');
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (data.token) {
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('authUser', JSON.stringify(data.user || { id: username, username, name: username }));
+                    overlay.classList.add('hidden');
+                    setTimeout(() => {
+                        overlay.style.display = 'none';
+                        initApp();
+                    }, 500);
+                } else {
+                    errorEl.textContent = data.error || 'Credenciales incorrectas';
+                }
+            } catch (err) {
+                errorEl.textContent = 'Error de conexión: ' + err.message;
+            }
+        });
+    }
+
+    // ==========================================
+    // DARK MODE
+    // ==========================================
+    function initDarkMode() {
+        const btn = document.getElementById('theme-toggle');
+        const saved = localStorage.getItem('theme');
+        if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+
+        if (btn) {
+            btn.addEventListener('click', () => {
+                const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+                if (isDark) {
+                    document.documentElement.removeAttribute('data-theme');
+                    localStorage.setItem('theme', 'light');
+                    btn.textContent = '🌙';
+                } else {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                    localStorage.setItem('theme', 'dark');
+                    btn.textContent = '☀️';
+                }
+            });
+            btn.textContent = localStorage.getItem('theme') === 'dark' ? '☀️' : '🌙';
+        }
+    }
+
+    // ==========================================
+    // CLOCK
+    // ==========================================
+    function initClock() {
+        function update() {
+            const now = new Date();
+            const el = document.getElementById('clock-time');
+            if (el) el.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+        update();
+        setInterval(update, 1000);
+    }
+
+    // ==========================================
+    // STATS
+    // ==========================================
+    async function loadStats() {
+        try {
+            const res = await authenticatedFetch('/api/conversations/stats');
+            const data = await res.json();
+            if (data.success) {
+                const s = data.stats;
+                setStatValue('stat-total', s.total);
+                setStatValue('stat-active', s.active);
+                setStatValue('stat-pending', s.escalation?.pendingAdvisor || 0);
+                setStatValue('stat-advisor', s.escalation?.advisorHandled || 0);
+                setStatValue('stat-expired', s.expired);
+                setStatValue('stat-consent', s.consent?.accepted || 0);
+            }
+        } catch (e) {
+            console.error('Error loading stats:', e);
+        }
+    }
+
+    function setStatValue(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    // ==========================================
+    // CONVERSATION LIST
+    // ==========================================
+    async function loadConversationList(offset = 0) {
+        const scrollEl = document.getElementById('conv-list-scroll');
+        const loadMoreEl = document.getElementById('conv-load-more');
+
+        if (offset === 0) {
+            scrollEl.innerHTML = `
+        <div class="conv-list-loading">
+          <div class="spinner"></div>
+          <div>Cargando conversaciones...</div>
+        </div>`;
+        }
+
+        try {
+            const res = await authenticatedFetch(`/api/conversations/whatsapp-chats?limit=${CONVERSATIONS_LIMIT}&offset=${offset}`);
+            const data = await res.json();
+
+            if (data.success) {
+                totalConversations = data.total;
+                hasMoreConversations = data.hasMore;
+                conversationsOffset = offset;
+
+                if (offset === 0) {
+                    conversations = data.conversations;
+                } else {
+                    conversations = conversations.concat(data.conversations);
+                }
+
+                renderConversationList();
+
+                // Show/hide load more
+                if (loadMoreEl) {
+                    loadMoreEl.style.display = hasMoreConversations ? 'block' : 'none';
+                }
+            }
+        } catch (e) {
+            console.error('Error loading conversations:', e);
+            if (offset === 0) {
+                scrollEl.innerHTML = `
+          <div class="conv-list-empty">
+            <div style="font-size:40px;margin-bottom:12px">⚠️</div>
+            <div>Error al cargar conversaciones</div>
+            <div style="font-size:12px;margin-top:4px">${e.message}</div>
+          </div>`;
+            }
+        }
+    }
+
+    function renderConversationList() {
+        const scrollEl = document.getElementById('conv-list-scroll');
+
+        // Apply filters
+        let filtered = conversations;
+
+        if (activeFilter !== 'all') {
+            filtered = filtered.filter(c => {
+                switch (activeFilter) {
+                    case 'pending': return c.status === 'pending_advisor' || c.status === 'out_of_hours';
+                    case 'advisor': return c.status === 'advisor_handled';
+                    case 'active': return c.status === 'active';
+                    case 'expired': return c.status === 'expired';
+                    default: return true;
+                }
+            });
+        }
+
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(c =>
+                (c.whatsappName || '').toLowerCase().includes(q) ||
+                (c.registeredName || '').toLowerCase().includes(q) ||
+                normalizePhoneNumber(c.phoneNumber).includes(q)
+            );
+        }
+
+        if (filtered.length === 0) {
+            scrollEl.innerHTML = `
+        <div class="conv-list-empty">
+          <div style="font-size:40px;margin-bottom:12px">💬</div>
+          <div>${searchQuery || activeFilter !== 'all' ? 'Sin resultados' : 'No hay conversaciones'}</div>
+        </div>`;
+            return;
+        }
+
+        scrollEl.innerHTML = filtered.map(conv => {
+            const name = conv.whatsappName || conv.registeredName || 'Sin nombre';
+            const phone = formatPhoneDisplay(conv.phoneNumber);
+            const initials = getInitials(name !== 'Sin nombre' ? name : normalizePhoneNumber(conv.phoneNumber));
+            const lastMsg = conv.lastMessage
+                ? (conv.lastMessage.length > 40 ? conv.lastMessage.substring(0, 40) + '...' : conv.lastMessage)
+                : 'Sin mensajes';
+            const time = timeAgo(conv.lastMessageTime || conv.timestamp);
+
+            const statusConfig = {
+                'active': { text: 'Activa', cls: 'active' },
+                'expired': { text: 'Expirada', cls: 'expired' },
+                'pending_advisor': { text: '⚠️ Pendiente', cls: 'pending_advisor' },
+                'out_of_hours': { text: '🌙 Fuera horario', cls: 'out_of_hours' },
+                'advisor_handled': { text: '👨‍💼 Con Asesor', cls: 'advisor_handled' },
+                'new_cycle': { text: 'Nuevo Ciclo', cls: 'new_cycle' }
+            };
+            const status = statusConfig[conv.status] || { text: conv.status || '', cls: '' };
+
+            const isActive = currentChatUserId === conv.userId ? 'active' : '';
+            const isPending = conv.status === 'pending_advisor' ? 'pending' : '';
+
+            return `
+        <div class="conv-item ${isActive} ${isPending}" data-userid="${conv.userId}" onclick="ChatPage.selectConversation('${conv.userId}')">
+          <div class="conv-avatar">${initials}</div>
+          <div class="conv-info">
+            <div class="conv-info-top">
+              <span class="conv-name">${escapeHtml(name)}</span>
+              <span class="conv-time">${time}</span>
+            </div>
+            <div class="conv-info-bottom">
+              <span class="conv-last-msg">${escapeHtml(lastMsg)}</span>
+              ${status.text ? `<span class="conv-status-badge ${status.cls}">${status.text}</span>` : ''}
+            </div>
+          </div>
+        </div>`;
+        }).join('');
+    }
+
+    // ==========================================
+    // SELECT CONVERSATION (open chat)
+    // ==========================================
+    async function selectConversation(userId) {
+        currentChatUserId = userId;
+        window.currentChatUserId = userId;
+        renderedMessageIds = new Set();
+
+        // Find conversation data
+        currentConvData = conversations.find(c => c.userId === userId) || null;
+        const name = currentConvData?.whatsappName || currentConvData?.registeredName || 'Sin nombre';
+        const phone = formatPhoneDisplay(currentConvData?.phoneNumber || userId);
+        const initials = getInitials(name !== 'Sin nombre' ? name : normalizePhoneNumber(currentConvData?.phoneNumber || userId));
+
+        // Update conversation list highlight
+        renderConversationList();
+
+        // Show chat panel, hide empty state
+        document.getElementById('chat-empty').style.display = 'none';
+        document.getElementById('chat-active').style.display = 'flex';
+
+        // Mobile: hide list, show chat
+        const listPanel = document.querySelector('.conv-list-panel');
+        const chatPanel = document.querySelector('.chat-panel');
+        if (window.innerWidth <= 900) {
+            listPanel.classList.add('hidden-mobile');
+            chatPanel.classList.remove('hidden-mobile');
+        }
+
+        // Update chat header
+        document.getElementById('chat-header-initials').textContent = initials;
+        document.getElementById('chat-header-name').textContent = name;
+        document.getElementById('chat-header-phone').textContent = phone;
+        updateChatHeaderStatus();
+        updateChatHeaderActions();
+
+        // Show loading
+        const messagesEl = document.getElementById('chat-messages');
+        messagesEl.innerHTML = `
+      <div class="chat-loading-messages">
+        <div class="chat-loading-spinner"></div>
+        <div>Cargando mensajes...</div>
+      </div>`;
+
+        // Load messages
+        try {
+            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(userId)}/whatsapp-messages?limit=50`);
+            const data = await res.json();
+
+            if (data.success && data.messages && data.messages.length > 0) {
+                messagesEl.innerHTML = '';
+                let lastDate = '';
+                data.messages.forEach(msg => {
+                    // Date separator
+                    const msgDate = msg.timestamp ? new Date(msg.timestamp).toLocaleDateString() : '';
+                    if (msgDate && msgDate !== lastDate) {
+                        addDateSeparator(messagesEl, msgDate);
+                        lastDate = msgDate;
+                    }
+                    appendMessage(msg);
+                });
+                scrollToBottom(false);
+            } else {
+                messagesEl.innerHTML = '<div class="chat-loading-messages">No hay mensajes aún. ¡Inicia la conversación!</div>';
+            }
+        } catch (e) {
+            console.error('Error loading messages:', e);
+            messagesEl.innerHTML = '<div class="chat-loading-messages">Error al cargar mensajes</div>';
+        }
+
+        // Focus input
+        const input = document.getElementById('chat-message-input');
+        setTimeout(() => input?.focus(), 150);
+    }
+
+    function updateChatHeaderStatus() {
+        const statusEl = document.getElementById('chat-header-status-badge');
+        if (!statusEl || !currentConvData) return;
+
+        const statusConfig = {
+            'active': { text: 'Activa', bg: '#e8f5e9', color: '#2e7d32' },
+            'pending_advisor': { text: '⚠️ Pendiente Asesor', bg: '#fff3e0', color: '#e65100' },
+            'advisor_handled': { text: '👨‍💼 Con Asesor', bg: '#ede7f6', color: '#6a1b9a' },
+            'expired': { text: 'Expirada', bg: '#fce4ec', color: '#c62828' },
+            'out_of_hours': { text: '🌙 Fuera de Horario', bg: '#e3f2fd', color: '#1565c0' },
+            'new_cycle': { text: 'Nuevo Ciclo', bg: '#e0f7fa', color: '#00838f' }
+        };
+
+        const s = statusConfig[currentConvData.status] || { text: currentConvData.status, bg: '#f5f5f5', color: '#666' };
+        statusEl.textContent = s.text;
+        statusEl.style.background = s.bg;
+        statusEl.style.color = s.color;
+    }
+
+    function updateChatHeaderActions() {
+        const actionsEl = document.getElementById('chat-header-actions');
+        if (!actionsEl || !currentConvData) return;
+
+        let html = '';
+
+        if (currentConvData.status === 'pending_advisor') {
+            html += `<button class="chat-action-btn take" onclick="ChatPage.takeConversation()">👥 Tomar</button>`;
+        }
+
+        if (currentConvData.status === 'advisor_handled') {
+            html += `<button class="chat-action-btn reactivate" onclick="ChatPage.reactivateBot()">🟢 Reactivar Bot</button>`;
+            html += `<button class="chat-action-btn release" onclick="ChatPage.releaseConversation()">↩️ Liberar</button>`;
+        }
+
+        html += `<button class="chat-action-btn reset" onclick="ChatPage.resetConversation()">🔄 Reset</button>`;
+
+        actionsEl.innerHTML = html;
+    }
+
+    // ==========================================
+    // CONVERSATION ACTIONS
+    // ==========================================
+    async function takeConversation() {
+        if (!currentChatUserId) return;
+        try {
+            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/take`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ advisor: getCurrentAdvisor() })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ Conversación tomada');
+                if (currentConvData) currentConvData.status = 'advisor_handled';
+                updateChatHeaderStatus();
+                updateChatHeaderActions();
+                loadConversationList();
+                loadStats();
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    async function releaseConversation() {
+        if (!currentChatUserId) return;
+        if (!confirm('¿Liberar esta conversación de vuelta al bot?')) return;
+        try {
+            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/release`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ Conversación liberada');
+                if (currentConvData) currentConvData.status = 'active';
+                updateChatHeaderStatus();
+                updateChatHeaderActions();
+                loadConversationList();
+                loadStats();
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    async function reactivateBot() {
+        if (!currentChatUserId) return;
+        try {
+            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/reactivate-bot`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ Bot reactivado');
+                if (currentConvData) currentConvData.status = 'active';
+                updateChatHeaderStatus();
+                updateChatHeaderActions();
+                loadConversationList();
+                loadStats();
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    async function resetConversation() {
+        if (!currentChatUserId) return;
+        const phone = formatPhoneDisplay(currentConvData?.phoneNumber || currentChatUserId);
+        if (!confirm(`¿Resetear conversación para ${phone}?\n\nEsto reiniciará el ciclo.`)) return;
+        try {
+            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/reset`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ Conversación reseteada');
+                loadConversationList();
+                loadStats();
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    // ==========================================
+    // MESSAGE RENDERING
+    // ==========================================
+    function addDateSeparator(container, dateStr) {
+        const sep = document.createElement('div');
+        sep.className = 'chat-date-separator';
+        sep.innerHTML = `<span>${dateStr}</span>`;
+        container.appendChild(sep);
+    }
+
+    function appendMessage(msg) {
+        const messagesDiv = document.getElementById('chat-messages');
+        if (!messagesDiv) return;
+
+        // Dedup
+        const msgId = msg.id || msg.messageId;
+        if (msgId && renderedMessageIds.has(msgId)) return;
+        if (msgId) renderedMessageIds.add(msgId);
+
+        const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
+        const senderName = msg.senderName || (senderClass === 'admin' ? 'Asesor' : senderClass === 'bot' ? '🤖 Bot' : 'Usuario');
+
+        const timeStr = msg.timestamp
+            ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        const mediaUrl = normalizeMediaUrl(msg.mediaUrl);
+
+        let messageContent = '';
+        if (msg.type === 'audio') {
+            messageContent = `<div class="message-audio"><audio controls src="${mediaUrl}" style="max-width:260px;height:36px">Audio</audio></div>`;
+        } else if (msg.type === 'image') {
+            messageContent = `<div class="message-image"><img src="${mediaUrl}" alt="Imagen" onclick="window.open('${mediaUrl}','_blank')" style="max-width:280px;border-radius:6px;cursor:pointer"></div>
+      ${msg.message && msg.message !== msg.fileName ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}`;
+        } else if (msg.type === 'document') {
+            messageContent = `<div class="message-document">
+        <span class="message-document-icon">📄</span>
+        <div><div class="message-document-name">${escapeHtml(msg.fileName || 'Documento')}</div>
+        <a class="message-document-link" href="${mediaUrl}" download>Descargar</a></div></div>
+      ${msg.message && msg.message !== msg.fileName ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}`;
+        } else {
+            messageContent = `<div class="message-text">${escapeHtml(msg.message || '')}</div>`;
+        }
+
+        const checksHTML = senderClass !== 'user' ? `
+      <span class="message-checks">
+        <svg class="message-check double ${msg.read ? 'read' : ''}" viewBox="0 0 16 11" width="16" height="11">
+          <path d="M11.5 1.5L5.5 7.5L2.5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M14.5 1.5L8.5 7.5L5.5 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </span>` : '';
+
+        const el = document.createElement('div');
+        el.className = `chat-message ${senderClass}`;
+        if (msgId) el.setAttribute('data-message-id', msgId);
+        el.innerHTML = `
+      <div class="message-sender">${escapeHtml(senderName)}</div>
+      <div class="message-bubble">
+        ${messageContent}
+        <div class="message-meta">
+          <span class="message-time">${timeStr}</span>
+          ${checksHTML}
+        </div>
+      </div>`;
+
+        messagesDiv.appendChild(el);
+    }
+
+    function scrollToBottom(smooth = true) {
+        const el = document.getElementById('chat-messages');
+        if (!el) return;
+        if (smooth) {
+            el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        } else {
+            el.scrollTop = el.scrollHeight;
+        }
+    }
+
+    // ==========================================
+    // SEND MESSAGE
+    // ==========================================
+    async function sendMessage() {
+        const input = document.getElementById('chat-message-input');
+        if (!input || !currentChatUserId) return;
+
+        const message = input.value.trim();
+        if (!message) return;
+
+        const advisor = getCurrentAdvisor();
+        input.value = '';
+        input.style.height = 'auto';
+
+        // Optimistic append
+        appendMessage({
+            id: 'local_' + Date.now(),
+            sender: 'admin',
+            senderName: advisor.name,
+            message,
+            timestamp: Date.now()
+        });
+        scrollToBottom();
+
+        try {
+            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/send-message`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message, advisor })
+            });
+            const data = await res.json();
+            if (!data.success) showToast('Error enviando mensaje: ' + (data.error || ''), 'error');
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        }
+    }
+
+    // ==========================================
+    // EMOJI PICKER
+    // ==========================================
+    function toggleEmojiPicker() {
+        const panel = document.getElementById('emoji-picker-panel');
+        if (!panel) return;
+        isEmojiPickerOpen = !isEmojiPickerOpen;
+        panel.classList.toggle('active', isEmojiPickerOpen);
+        if (isAttachMenuOpen) {
+            isAttachMenuOpen = false;
+            document.getElementById('attach-menu')?.classList.remove('active');
+        }
+    }
+
+    function insertEmoji(emoji) {
+        const input = document.getElementById('chat-message-input');
+        if (input) {
+            const start = input.selectionStart;
+            const end = input.selectionEnd;
+            input.value = input.value.substring(0, start) + emoji + input.value.substring(end);
+            input.selectionStart = input.selectionEnd = start + emoji.length;
+            input.focus();
+        }
+    }
+
+    // ==========================================
+    // ATTACH MENU & FILE UPLOAD
+    // ==========================================
+    function toggleAttachMenu() {
+        const menu = document.getElementById('attach-menu');
+        if (!menu) return;
+        isAttachMenuOpen = !isAttachMenuOpen;
+        menu.classList.toggle('active', isAttachMenuOpen);
+        if (isEmojiPickerOpen) {
+            isEmojiPickerOpen = false;
+            document.getElementById('emoji-picker-panel')?.classList.remove('active');
+        }
+    }
+
+    async function handleFileUpload(input, type) {
+        if (!input.files || input.files.length === 0 || !currentChatUserId) return;
+
+        const file = input.files[0];
+        const advisor = getCurrentAdvisor();
+        const sendBtn = document.getElementById('chat-send-btn');
+        if (sendBtn) { sendBtn.disabled = true; sendBtn.innerHTML = '⏳'; }
+
+        try {
+            // Step 1: Upload
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', type);
+
+            const uploadRes = await authenticatedFetch('/api/conversations/upload-media', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!uploadRes.ok) throw new Error(`Upload error ${uploadRes.status}`);
+            const uploadData = await uploadRes.json();
+            if (!uploadData.success) throw new Error(uploadData.error || 'Upload failed');
+
+            // Step 2: Send
+            const mediaData = {
+                type,
+                url: uploadData.file.url,
+                filepath: uploadData.file.filepath,
+                filename: uploadData.file.filename,
+                size: uploadData.file.size
+            };
+
+            const sendRes = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/send-media`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ media: mediaData, caption: '', advisor })
+            });
+
+            const sendData = await sendRes.json();
+            if (sendData.success) {
+                let mediaUrl = uploadData.file.url;
+                if (mediaUrl.startsWith('/uploads/')) mediaUrl = window.location.origin + mediaUrl;
+
+                appendMessage({
+                    id: 'msg_' + Date.now(),
+                    sender: 'admin',
+                    senderName: advisor.name,
+                    message: type === 'image' ? '' : file.name,
+                    type,
+                    mediaUrl,
+                    fileName: file.name,
+                    timestamp: Date.now()
+                });
+                scrollToBottom();
+                showToast(`✅ ${type === 'image' ? 'Imagen' : type === 'document' ? 'Documento' : 'Audio'} enviado`);
+            } else {
+                throw new Error(sendData.error || 'Send failed');
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+        } finally {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+            }
+            if (isAttachMenuOpen) toggleAttachMenu();
+            input.value = '';
+        }
+    }
+
+    // ==========================================
+    // AUDIO RECORDING
+    // ==========================================
+    async function startAudioRecording() {
+        try {
+            if (!navigator.mediaDevices?.getUserMedia) {
+                showToast('Tu navegador no soporta grabación de audio', 'error');
+                return;
+            }
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            let options = MediaRecorder.isTypeSupported('audio/ogg') ? { mimeType: 'audio/ogg' } : { mimeType: 'audio/webm' };
+
+            audioRecorder = new MediaRecorder(stream, options);
+            audioChunks = [];
+
+            audioRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+            audioRecorder.onstop = async () => {
+                const blob = new Blob(audioChunks, { type: options.mimeType });
+                await sendAudioMessage(blob, options.mimeType);
+            };
+
+            audioRecorder.start();
+            isRecording = true;
+            recordingStartTime = Date.now();
+            updateRecordingUI();
+            recordingTimer = setInterval(updateRecordingTime, 1000);
+        } catch (e) {
+            showToast('No se pudo acceder al micrófono', 'error');
+        }
+    }
+
+    function stopAudioRecording() {
+        if (!audioRecorder || !isRecording) return;
+        audioRecorder.stop();
+        audioRecorder.stream.getTracks().forEach(t => t.stop());
+        isRecording = false;
+        if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+        restoreInputUI();
+    }
+
+    function cancelAudioRecording() {
+        if (!audioRecorder || !isRecording) return;
+        audioRecorder.stop();
+        audioRecorder.stream.getTracks().forEach(t => t.stop());
+        isRecording = false;
+        audioChunks = [];
+        if (recordingTimer) { clearInterval(recordingTimer); recordingTimer = null; }
+        restoreInputUI();
+    }
+
+    async function sendAudioMessage(blob, mimeType) {
+        if (!currentChatUserId) return;
+        const sendBtn = document.getElementById('chat-send-btn');
+        if (sendBtn) { sendBtn.disabled = true; sendBtn.innerHTML = '⏳'; }
+
+        try {
+            const ext = mimeType === 'audio/webm' ? 'webm' : 'ogg';
+            const formData = new FormData();
+            formData.append('file', blob, `audio.${ext}`);
+            formData.append('type', 'audio');
+
+            const uploadRes = await authenticatedFetch('/api/conversations/upload-media', { method: 'POST', body: formData });
+            if (!uploadRes.ok) throw new Error(`Upload error ${uploadRes.status}`);
+            const uploadData = await uploadRes.json();
+            if (!uploadData.success) throw new Error(uploadData.error || 'Upload failed');
+
+            const advisor = getCurrentAdvisor();
+            const sendRes = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/send-media`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    media: { type: 'audio', url: uploadData.file.url, filepath: uploadData.file.filepath, filename: uploadData.file.filename, size: uploadData.file.size },
+                    caption: '',
+                    advisor
+                })
+            });
+
+            const sendData = await sendRes.json();
+            if (sendData.success) {
+                let audioUrl = uploadData.file.url;
+                if (audioUrl.startsWith('/uploads/')) audioUrl = window.location.origin + audioUrl;
+                appendMessage({ id: 'msg_' + Date.now(), sender: 'admin', senderName: advisor.name, message: '🎤 Audio', type: 'audio', mediaUrl: audioUrl, timestamp: Date.now() });
+                scrollToBottom();
+                showToast('✅ Audio enviado');
+            }
+        } catch (e) {
+            showToast('Error enviando audio: ' + e.message, 'error');
+        } finally {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+            }
+        }
+    }
+
+    function toggleAudioRecorder() {
+        if (isRecording) stopAudioRecording();
+        else startAudioRecording();
+    }
+
+    function updateRecordingUI() {
+        const footer = document.querySelector('.chat-footer');
+        if (!footer) return;
+        // Hide normal inputs
+        document.querySelectorAll('.chat-footer > *').forEach(el => el.style.display = 'none');
+        // Show recording indicator
+        const indicator = document.createElement('div');
+        indicator.className = 'audio-recording-indicator';
+        indicator.id = 'audio-recording-indicator';
+        indicator.innerHTML = `
+      <button class="audio-recording-cancel" onclick="ChatPage.cancelAudioRecording()" title="Cancelar">✕</button>
+      <div class="audio-recording-time" id="recording-time">0:00</div>
+      <button class="audio-recording-send" onclick="ChatPage.stopAudioRecording()" title="Enviar">➤</button>`;
+        footer.appendChild(indicator);
+    }
+
+    function updateRecordingTime() {
+        if (!recordingStartTime) return;
+        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+        const el = document.getElementById('recording-time');
+        if (el) el.textContent = `${Math.floor(elapsed / 60)}:${(elapsed % 60).toString().padStart(2, '0')}`;
+    }
+
+    function restoreInputUI() {
+        const indicator = document.getElementById('audio-recording-indicator');
+        if (indicator) indicator.remove();
+        document.querySelectorAll('.chat-footer > *').forEach(el => el.style.display = '');
+    }
+
+    // ==========================================
+    // SOCKET.IO REAL-TIME
+    // ==========================================
+    function initSocket() {
+        socket = io();
+
+        socket.on('connect', () => {
+            console.log('✅ Socket.IO connected');
+            socket.emit('get-status');
+        });
+
+        socket.on('ready', () => {
+            updateConnectionStatus('connected', 'Conectado');
+        });
+
+        socket.on('disconnected', () => {
+            updateConnectionStatus('disconnected', 'Desconectado');
+        });
+
+        socket.on('status', (data) => {
+            if (data.isReady) {
+                updateConnectionStatus('connected', 'Conectado');
+            }
+        });
+
+        // New message
+        socket.on('new-message', (data) => {
+            const msg = data.message;
+            const userId = data.userId;
+
+            // Update conversation list
+            loadConversationList();
+            loadStats();
+
+            // If chat is open for this user, append message
+            if (currentChatUserId === userId) {
+                // ✅ FIX: Skip admin messages - they were already optimistically appended by sendMessage()
+                if (msg.sender === 'admin') return;
+
+                const msgId = msg.id || msg.messageId;
+                if (msgId && renderedMessageIds.has(msgId)) return;
+
+                // Clear loading states
+                const messagesDiv = document.getElementById('chat-messages');
+                if (messagesDiv && (messagesDiv.innerHTML.includes('Cargando') || messagesDiv.innerHTML.includes('No hay mensajes'))) {
+                    messagesDiv.innerHTML = '';
+                }
+
+                appendMessage(msg);
+                scrollToBottom();
+            }
+        });
+
+        // Escalation
+        socket.on('escalation-detected', (data) => {
+            showEscalationBanner(data);
+            loadConversationList();
+            loadStats();
+            updatePendingBadge();
+
+            try {
+                // Generate beep with Web Audio API (no external file needed)
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.value = 880;
+                osc.type = 'sine';
+                gain.gain.value = 0.3;
+                osc.start();
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+                osc.stop(ctx.currentTime + 0.5);
+            } catch (e) { }
+        });
+
+        // Status change
+        socket.on('conversation-status-changed', () => {
+            loadConversationList();
+            loadStats();
+            updatePendingBadge();
+            if (currentChatUserId) {
+                // Refresh header
+                currentConvData = conversations.find(c => c.userId === currentChatUserId);
+                if (currentConvData) {
+                    updateChatHeaderStatus();
+                    updateChatHeaderActions();
+                }
+            }
+        });
+    }
+
+    function updateConnectionStatus(status, text) {
+        const badge = document.getElementById('header-status-badge');
+        const textEl = document.getElementById('header-status-text');
+        if (badge) badge.className = 'header-status-badge ' + status;
+        if (textEl) textEl.textContent = text;
+    }
+
+    function showEscalationBanner(data) {
+        const existing = document.querySelector('.notification-banner');
+        if (existing) existing.remove();
+
+        const banner = document.createElement('div');
+        banner.className = 'notification-banner';
+        banner.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:24px">🚨</span>
+        <div>
+          <strong>¡Requiere atención humana!</strong>
+          <div style="font-size:0.9em;opacity:0.9">Usuario: ${normalizePhoneNumber(data.phoneNumber)} | Razón: ${data.reason}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center">
+        <button class="action-btn" onclick="ChatPage.selectConversation('${data.userId}');this.parentElement.parentElement.remove()">Ver Chat</button>
+        <button class="close-btn" onclick="this.parentElement.parentElement.remove()">×</button>
+      </div>`;
+        document.body.prepend(banner);
+        setTimeout(() => { if (banner.parentNode) banner.remove(); }, 30000);
+    }
+
+    async function updatePendingBadge() {
+        try {
+            const res = await authenticatedFetch('/api/conversations');
+            const data = await res.json();
+            if (data.success && data.conversations) {
+                const count = data.conversations.filter(c => c.status === 'pending_advisor' || c.status === 'out_of_hours').length;
+                const badge = document.getElementById('pending-badge');
+                if (badge) {
+                    badge.textContent = count;
+                    badge.style.display = count > 0 ? 'inline-block' : 'none';
+                }
+            }
+        } catch (e) { }
+    }
+
+    // ==========================================
+    // MOBILE BACK
+    // ==========================================
+    function mobileBack() {
+        const listPanel = document.querySelector('.conv-list-panel');
+        const chatPanel = document.querySelector('.chat-panel');
+        listPanel.classList.remove('hidden-mobile');
+        chatPanel.classList.add('hidden-mobile');
+        currentChatUserId = null;
+        window.currentChatUserId = null;
+    }
+
+    // ==========================================
+    // FILTER & SEARCH
+    // ==========================================
+    function setFilter(filter) {
+        activeFilter = filter;
+        document.querySelectorAll('.conv-filter-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.filter === filter);
+        });
+        renderConversationList();
+    }
+
+    function onSearchInput(value) {
+        searchQuery = value;
+        renderConversationList();
+    }
+
+    // ==========================================
+    // INIT ALL EVENT LISTENERS
+    // ==========================================
+    function initEventListeners() {
+        // Send button
+        const sendBtn = document.getElementById('chat-send-btn');
+        if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+
+        // Input: Enter to send, auto-resize
+        const input = document.getElementById('chat-message-input');
+        if (input) {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            input.addEventListener('input', function () {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+            });
+        }
+
+        // Emoji button
+        const emojiBtn = document.getElementById('emoji-picker-btn');
+        if (emojiBtn) emojiBtn.addEventListener('click', toggleEmojiPicker);
+
+        // Emoji items
+        document.querySelectorAll('.emoji-picker-item').forEach(item => {
+            item.addEventListener('click', function () { insertEmoji(this.textContent); });
+        });
+
+        // Attach button
+        const attachBtn = document.getElementById('chat-attach-btn');
+        if (attachBtn) attachBtn.addEventListener('click', toggleAttachMenu);
+
+        // Attach menu items
+        document.querySelectorAll('.attach-menu-item').forEach(item => {
+            item.addEventListener('click', function () {
+                const action = this.dataset.action;
+                const inputMap = { image: 'file-image-input', document: 'file-document-input', audio: 'file-audio-input' };
+                const inputId = inputMap[action];
+                if (inputId) document.getElementById(inputId)?.click();
+                if (isAttachMenuOpen) toggleAttachMenu();
+            });
+        });
+
+        // File inputs
+        const fileImage = document.getElementById('file-image-input');
+        const fileDoc = document.getElementById('file-document-input');
+        const fileAudio = document.getElementById('file-audio-input');
+        if (fileImage) fileImage.addEventListener('change', (e) => handleFileUpload(e.target, 'image'));
+        if (fileDoc) fileDoc.addEventListener('change', (e) => handleFileUpload(e.target, 'document'));
+        if (fileAudio) fileAudio.addEventListener('change', (e) => handleFileUpload(e.target, 'audio'));
+
+        // Audio button
+        const audioBtn = document.getElementById('chat-audio-btn');
+        if (audioBtn) audioBtn.addEventListener('click', toggleAudioRecorder);
+
+        // Search
+        const searchInput = document.getElementById('conv-search-input');
+        if (searchInput) searchInput.addEventListener('input', (e) => onSearchInput(e.target.value));
+
+        // Filters
+        document.querySelectorAll('.conv-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => setFilter(btn.dataset.filter));
+        });
+
+        // Load more
+        const loadMoreBtn = document.getElementById('conv-load-more-btn');
+        if (loadMoreBtn) loadMoreBtn.addEventListener('click', () => {
+            loadConversationList(conversationsOffset + CONVERSATIONS_LIMIT);
+        });
+
+        // Close menus on outside click
+        document.addEventListener('click', (e) => {
+            const emojiPanel = document.getElementById('emoji-picker-panel');
+            const attachMenu = document.getElementById('attach-menu');
+            if (isEmojiPickerOpen && emojiPanel && !emojiPanel.contains(e.target) && e.target.id !== 'emoji-picker-btn') {
+                toggleEmojiPicker();
+            }
+            if (isAttachMenuOpen && attachMenu && !attachMenu.contains(e.target) && e.target.id !== 'chat-attach-btn') {
+                toggleAttachMenu();
+            }
+        });
+    }
+
+    // ==========================================
+    // APP INIT
+    // ==========================================
+    function initApp() {
+        initDarkMode();
+        initClock();
+        initSocket();
+        initEventListeners();
+        loadConversationList();
+        loadStats();
+        updatePendingBadge();
+    }
+
+    // ==========================================
+    // BOOT
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', () => {
+        initLogin();
+        // If already logged in, init app
+        if (localStorage.getItem('token')) {
+            initApp();
+        }
+    });
+
+    // ==========================================
+    // EXPORT
+    // ==========================================
+    window.ChatPage = {
+        selectConversation,
+        takeConversation,
+        releaseConversation,
+        reactivateBot,
+        resetConversation,
+        mobileBack,
+        setFilter,
+        stopAudioRecording,
+        cancelAudioRecording,
+        loadMore: () => loadConversationList(conversationsOffset + CONVERSATIONS_LIMIT)
+    };
+
+    // For compatibility with chat-complete.js
+    window.currentChatUserId = null;
+    window.openChat = selectConversation;
+
+})();

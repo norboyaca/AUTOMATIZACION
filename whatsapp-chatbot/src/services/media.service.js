@@ -118,8 +118,11 @@ const getExtensionFromMime = (mimeType) => {
     'audio/ogg': '.ogg',
     'audio/mpeg': '.mp3',
     'audio/mp4': '.m4a',
+    'audio/webm': '.webm',  // ✅ Agregado para audio del navegador
+    'audio/wav': '.wav',
     'video/mp4': '.mp4',
     'application/pdf': '.pdf',
+    'application/msword': '.doc',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx'
   };
@@ -175,9 +178,9 @@ const formatBytes = (bytes) => {
  * Tipos de archivo permitidos para carga desde dashboard
  */
 const ALLOWED_UPLOAD_TYPES = {
-  audio: ['audio/mpeg', 'audio/ogg', 'audio/mp4', 'audio/wav'],
+  audio: ['audio/mpeg', 'audio/ogg', 'audio/mp4', 'audio/wav', 'audio/webm'],  // ✅ Agregado webm
   image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-  document: ['application/pdf']
+  document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']  // ✅ Agregado PDF y Word
 };
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -234,7 +237,8 @@ const saveUploadedFile = async (file, type) => {
       mimetype: mimeType,
       size: fileSize,
       type,
-      url: `/uploads/${type}/${filename}`  // URL relativa para frontend
+      // ✅ URL completa para frontend - incluir /api/conversations
+      url: `/api/conversations/uploads/${type}/${filename}`
     };
   } catch (error) {
     logger.error('Error guardando archivo subido:', error);
@@ -287,8 +291,11 @@ const getMimeTypeFromFilename = (filename) => {
     '.mp3': 'audio/mpeg',
     '.ogg': 'audio/ogg',
     '.wav': 'audio/wav',
+    '.webm': 'audio/webm',  // ✅ Agregado para audio del navegador
     '.m4a': 'audio/mp4',
-    '.pdf': 'application/pdf'
+    '.pdf': 'application/pdf',
+    '.doc': 'application/msword',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
   };
 
   return mimeMap[ext] || 'application/octet-stream';

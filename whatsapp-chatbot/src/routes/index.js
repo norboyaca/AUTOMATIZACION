@@ -15,6 +15,7 @@ const multer = require('multer');
 const webhookRoutes = require('./webhook.routes');
 const authRoutes = require('./auth.routes');
 const conversationsRoutes = require('./conversations.routes');
+const holidaysRoutes = require('./holidays.routes');
 const { requireAuth } = require('../middlewares/auth.middleware');
 const chatService = require('../services/chat.service');
 const settingsService = require('../services/settings.service');
@@ -52,6 +53,9 @@ router.use('/auth', authRoutes);
 // Rutas de conversaciones: /api/conversations/*
 router.use('/conversations', conversationsRoutes);
 
+// Rutas de días festivos: /api/holidays/*
+router.use('/holidays', holidaysRoutes);
+
 // ===========================================
 // ENDPOINT DE PRUEBA DEL CHAT
 // ===========================================
@@ -79,6 +83,69 @@ router.post('/test-chat', async (req, res) => {
 });
 
 // ===========================================
+// ✅ NUEVO: ENDPOINTS DE GESTIÓN DE API KEYS
+// ===========================================
+
+/**
+ * GET /api/keys/status
+ * Devuelve el estado de las API keys (si están configuradas o no)
+ * NO devuelve las keys reales, solo si están configuradas y máscara segura
+ */
+router.get('/keys/status', requireAuth, (req, res) => {
+  try {
+    const status = settingsService.getKeysStatus();
+    res.json({ success: true, keys: status });
+  } catch (error) {
+    logger.error('Error obteniendo estado de API keys:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/keys/:provider
+ * Elimina la API key de un proveedor específico
+ * Limpia: settings.json, .env y process.env
+ *
+ * @param provider - 'groq' o 'openai'
+ */
+router.delete('/keys/:provider', requireAuth, (req, res) => {
+  try {
+    const { provider } = req.params;
+
+    // Validar proveedor
+    if (!['groq', 'openai', 'aws'].includes(provider)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Proveedor no válido. Use "groq", "openai" o "aws"'
+      });
+    }
+
+    const success = settingsService.deleteApiKey(provider);
+
+    if (success) {
+      // Reinicializar proveedores de IA con las keys actualizadas
+      try {
+        const aiProvider = require('../providers/ai');
+        aiProvider.reinitializeProviders();
+      } catch (e) {
+        logger.warn('Error reinicializando proveedores después de eliminar key:', e.message);
+      }
+
+      res.json({
+        success: true,
+        message: `API key de ${provider} eliminada de .env, settings.json y memoria`,
+        keys: settingsService.getKeysStatus()
+      });
+    } else {
+      res.status(500).json({ success: false, error: 'Error eliminando API key' });
+    }
+  } catch (error) {
+    logger.error('Error eliminando API key:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ===========================================
 // ENDPOINTS DE CONFIGURACIÓN (PROTEGIDOS)
 // ===========================================
 
@@ -96,9 +163,9 @@ router.get('/settings', requireAuth, (req, res) => {
 // Guardar configuración
 router.post('/settings', requireAuth, (req, res) => {
   try {
-    const { provider, groq, openai } = req.body;
+    const { provider, groq, openai, aws } = req.body;
 
-    const success = settingsService.saveSettings({ provider, groq, openai });
+    const success = settingsService.saveSettings({ provider, groq, openai, aws });
 
     if (success) {
       // Recargar proveedores de IA con las nuevas keys

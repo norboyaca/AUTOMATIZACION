@@ -5,15 +5,14 @@
     "name": "David Castella",
     "reason": "Spam repetitivo (4 repeticiones)",
     "consecutiveCount": 4,
-    "blockedAt": 1770398647901,
-    "blockedAtFormatted": "2026-02-06 12:24:07",
+    "blockedAt": 1770754546959,
+    "blockedAtFormatted": "2026-02-10 15:15:46",
     "timezone": "America/Bogota",
     "totalBlockedMessages": 1,
-    "lastMessage": "👋 ¡Hola! Soy tu asistente virtual, te doy la bienvenida a Claro Empresas y Negocios. ✨ El ícono de ",
-    "active": false,
-    "reactivatedAt": 1770485417568,
-    "reactivatedBy": "Admin Dashboard",
-    "reactivatedAtFormatted": "2026-02-07 12:30:17"
+    "lastMessage": "1",
+    "active": true,
+    "reactivatedAt": null,
+    "reactivatedBy": null
   },
   "151771427143897": {
     "phoneNumber": "151771427143897",

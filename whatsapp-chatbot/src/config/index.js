@@ -32,7 +32,8 @@ const server = {
 const media = {
   maxFileSizeMB: parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 25,
   uploadDir: process.env.UPLOAD_DIR || './uploads',
-  allowedExtensions: (process.env.ALLOWED_EXTENSIONS || 'jpg,jpeg,png,gif,mp3,ogg,mp4,pdf').split(',')
+  // Agregado webm para audio grabado en navegador
+  allowedExtensions: (process.env.ALLOWED_EXTENSIONS || 'jpg,jpeg,png,gif,mp3,ogg,webm,mp4,pdf,doc,docx,xls,xlsx').split(',')
 };
 
 // ===========================================

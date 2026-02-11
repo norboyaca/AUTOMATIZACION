@@ -38,16 +38,50 @@ const storage = multer.diskStorage({
 // FILTRO DE TIPOS DE ARCHIVO
 // ===========================================
 const fileFilter = (req, file, cb) => {
-  const extension = path.extname(file.originalname).toLowerCase().slice(1);
+  const logger = require('../utils/logger');
 
-  if (config.media.allowedExtensions.includes(extension)) {
+  // Debug: Log información del archivo
+  logger.info(`📁 archivo recibido: originalname="${file.originalname}", mimetype="${file.mimetype}"`);
+  logger.info(`📋 Extensiones permitidas: ${config.media.allowedExtensions.join(', ')}`);
+
+  let extension = path.extname(file.originalname).toLowerCase().slice(1);
+
+  // ✅ CORRECCIÓN: Si no hay extensión en el nombre, inferirla del mimetype
+  // Esto es necesario para Blobs de MediaRecorder que no tienen nombre con extensión
+  if (!extension && file.mimetype) {
+    const mimeToExt = {
+      'audio/mpeg': 'mp3',
+      'audio/ogg': 'ogg',
+      'audio/wav': 'wav',
+      'audio/webm': 'webm',
+      'audio/mp4': 'm4a',
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'application/pdf': 'pdf',
+      'application/msword': 'doc',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx'
+    };
+
+    extension = mimeToExt[file.mimetype] || '';
+    logger.info(`🔍 Extensión inferida desde mimetype: "${extension}"`);
+
+    // ✅ Actualizar originalname con la extensión inferida para filename en storage
+    if (extension) {
+      file.originalname = `recording.${extension}`;
+    }
+  }
+
+  if (extension && config.media.allowedExtensions.includes(extension)) {
+    logger.info(`✅ Archivo válido: ${extension}`);
     cb(null, true);
   } else {
-    cb(new AppError(
-      `Tipo de archivo no permitido: ${extension}`,
-      400,
-      'INVALID_FILE_TYPE'
-    ), false);
+    logger.error(`❌ Tipo de archivo no permitido: extension="${extension}", mimetype="${file.mimetype}"`);
+    // ✅ Usar Error en lugar de AppError para mejor compatibilidad con multer
+    const error = new Error(`Tipo de archivo no permitido: ${extension || 'sin extensión'} (mimetype: ${file.mimetype})`);
+    error.code = 'INVALID_FILE_TYPE';
+    cb(error, false);
   }
 };
 

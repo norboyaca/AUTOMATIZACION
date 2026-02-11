@@ -1,0 +1,31 @@
+============================================================
+­ƒöì DIAGN├ôSTICO DE DYNAMODB
+============================================================
+
+­ƒôï CONFIGURACI├ôN:
+   Regi├│n: us-east-1
+   Access Key ID: AKIAQ3E7KV...
+   Secret Access Key: d41W6icSy7...
+
+­ƒôè PASO 1: Listando tablas en DynamoDB...
+Ô£à Conexi├│n exitosa! Tablas encontradas (3):
+   - norboy-conversations
+   - norboy-holidays
+   - norboy-messages
+
+­ƒôè PASO 2: Verificando tablas necesarias...
+Ô£à Tabla encontrada: norboy-conversations
+Ô£à Tabla encontrada: norboy-messages
+
+­ƒôè PASO 3: Probando escritura en norboy-messages...
+Ô£à Mensaje de prueba guardado exitosamente
+   ID: test_1770733418052
+
+­ƒôè PASO 4: Probando escritura en norboy-conversations...
+Ô£à Conversaci├│n de prueba guardada exitosamente
+   Participant ID: 573000000000@s.whatsapp.net
+Ô£à Conversaci├│n de prueba le├¡da exitosamente
+
+============================================================
+Ô£à DIAGN├ôSTICO COMPLETO
+============================================================

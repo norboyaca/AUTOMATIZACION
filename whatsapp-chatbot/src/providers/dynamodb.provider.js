@@ -49,6 +49,7 @@ module.exports = {
   // Nombres de tablas desde .env
   TABLES: {
     CONVERSATIONS: process.env.DYNAMODB_CONVERSATIONS_TABLE || 'norboy-conversations',
-    MESSAGES: process.env.DYNAMODB_MESSAGES_TABLE || 'norboy-messages'
+    MESSAGES: process.env.DYNAMODB_MESSAGES_TABLE || 'norboy-messages',
+    HOLIDAYS: process.env.DYNAMODB_HOLIDAYS_TABLE || 'norboy-holidays'
   }
 };

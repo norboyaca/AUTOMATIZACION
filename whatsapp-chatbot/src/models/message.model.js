@@ -56,6 +56,7 @@ class Message {
   constructor(data = {}) {
     this.id = data.id || null;
     this.conversationId = data.conversationId || null;
+    this.participantId = data.participantId || null; // ✅ Para GSI en DynamoDB
     this.direction = data.direction || MessageDirection.INCOMING;
     this.type = data.type || MessageType.TEXT;
     this.content = data.content || {};

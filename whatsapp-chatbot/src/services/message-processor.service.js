@@ -26,6 +26,9 @@ const flowManager = require('../flows'); // ✅ NUEVO: Gestor de flujos
 // ✅ NUEVO: Socket.IO para emitir eventos de escalación al dashboard
 let io = null;
 
+// ✅ NUEVO: Set para evitar guardar el mismo mensaje dos veces en DynamoDB
+const savedMessageIds = new Set();
+
 function setSocketIO(socketIOInstance) {
   io = socketIOInstance;
   logger.info('✅ Socket.IO inicializado en message-processor');
@@ -379,8 +382,8 @@ Si cambia de opinión, puede escribirnos nuevamente.`;
     // Si ya se envió saludo pero NO se ha solicitado consentimiento,
     // este es el SEGUNDO mensaje - solicitar consentimiento
     if (conversation.welcomeSent &&
-        !conversation.consentMessageSent &&
-        conversation.consentStatus === 'pending') {
+      !conversation.consentMessageSent &&
+      conversation.consentStatus === 'pending') {
 
       logger.info(`📋 SEGUNDO MENSAJE de ${userId} - Solicitando consentimiento`);
       logger.info(`   Mensaje guardado como pendiente: "${message.substring(0, 50)}..."`);
@@ -449,7 +452,7 @@ Por favor, digita:
 
       // Verificar si acepta
       if (normalizedMessage === 'si' || normalizedMessage === 'sí' ||
-          normalizedMessage === '1' || normalizedMessage.includes('acept')) {
+        normalizedMessage === '1' || normalizedMessage.includes('acept')) {
         logger.info(`✅ Usuario ${userId} ACEPTÓ el consentimiento`);
 
         // ✅ NUEVO: Enviar mensaje de verificación temporal
@@ -470,7 +473,7 @@ Por favor, digita:
 
       // Verificar si rechaza
       if (normalizedMessage === 'no' || normalizedMessage === '2' ||
-          normalizedMessage.includes('rechaz')) {
+        normalizedMessage.includes('rechaz')) {
         logger.info(`❌ Usuario ${userId} RECHAZÓ el consentimiento`);
 
         // ✅ NUEVO: Enviar mensaje de verificación temporal
@@ -543,7 +546,7 @@ Por favor, digita:
     // ===========================================
     // PUNTO DE CONTROL 4: HORARIO DE ATENCIÓN
     // ===========================================
-    if (isOutOfHours()) {
+    if (await isOutOfHours()) {
       logger.info(`🌙 Fuera de horario para ${userId}`);
 
       // Solo enviar mensaje de fuera de horario si NO se ha enviado antes
@@ -556,7 +559,7 @@ Por favor, digita:
         return null;
       }
 
-      const outOfHoursMsg = getOutOfHoursMessage();
+      const outOfHoursMsg = await getOutOfHoursMessage();
 
       // Actualizar estado
       conversation.status = 'out_of_hours';
@@ -692,7 +695,7 @@ Por favor, digita:
     let isEscalation = false;
 
     if (response && typeof response === 'object' &&
-        (response.type === 'escalation' || response.type === 'escalation_no_info')) {
+      (response.type === 'escalation' || response.type === 'escalation_no_info')) {
 
       // Es una respuesta de escalación desde chatService
       isEscalation = true;
@@ -881,10 +884,25 @@ Por favor, digita:
 /**
  * Verifica si estamos fuera del horario de atención
  * Horario: hasta las 4:30 PM (16:30)
+ * ✅ VERIFICA DÍAS FESTIVOS Y HORARIO (ambos controlados por el botón de horario)
  *
  * @returns {boolean} true si está fuera de horario
  */
-function isOutOfHours() {
+async function isOutOfHours() {
+  // ✅ NUEVO: Verificar SIEMPRE si hoy es día festivo (independientemente de la verificación de horario)
+  try {
+    const holidaysService = require('./holidays.service');
+    const isTodayHoliday = await holidaysService.isTodayHoliday();
+
+    if (isTodayHoliday) {
+      const holidayName = await holidaysService.getHolidayName(new Date());
+      logger.info(`🎉 Hoy es DÍA FESTIVO: ${holidayName}. El bot no responderá.`);
+      return true; // Considerar como fuera de horario
+    }
+  } catch (error) {
+    logger.warn('Error verificando día festivo, continuando sin esta validación:', error.message);
+  }
+
   // ✅ NUEVO: Verificar si la verificación de horario está desactivada
   if (!timeSimulation.isScheduleCheckEnabled()) {
     logger.debug(`⏰ Verificación de horario DESACTIVADA. Se permite respuesta.`);
@@ -912,9 +930,22 @@ function isOutOfHours() {
 /**
  * PUNTO DE CONTROL 4: Mensaje fuera de horario
  *
- * @returns {string} Mensaje de fuera de horario
+ * @returns {Promise<string>} Mensaje de fuera de horario
  */
-function getOutOfHoursMessage() {
+async function getOutOfHoursMessage() {
+  // Verificar si hoy es festivo para personalizar el mensaje
+  try {
+    const holidaysService = require('./holidays.service');
+    const isTodayHoliday = await holidaysService.isTodayHoliday();
+
+    if (isTodayHoliday) {
+      const holidayName = await holidaysService.getHolidayName(new Date());
+      return `🎉 Hoy es ${holidayName}\n\nNuestro horario de atención es:\n\n📅 Lunes a Viernes: 8:00 AM - 4:30 PM\n📅 Sábados: 9:00 AM - 12:00 PM\n\nSu mensaje será atendido en el siguiente día hábil. Gracias por su comprensión.`;
+    }
+  } catch (error) {
+    logger.warn('Error verificando festivo para mensaje:', error.message);
+  }
+
   return "Nuestro horario de atención es:\n\n📅 Lunes a Viernes: 8:00 AM - 4:30 PM\n📅 Sábados: 9:00 AM - 12:00 PM\n❌ Domingos: Cerrado\n\nSu mensaje será atendido en el siguiente horario hábil. Gracias por su comprensión.";
 }
 
@@ -988,40 +1019,54 @@ async function saveMessage(userId, message, sender, messageType = 'text') {
     conversation.lastInteraction = Date.now();
 
     // 2. Guardar en DynamoDB (persistencia real) - asíncrono, no bloquea
-    // Usamos setImmediate para no bloquear la respuesta del webhook
-    setImmediate(async () => {
-      try {
-        const conversationRepository = require('../repositories/conversation.repository');
+    // ✅ DEDUP: Verificar que no se haya guardado ya este mensaje
+    if (savedMessageIds.has(messageRecord.id)) {
+      logger.debug(`⏭️ [DEDUP] Mensaje ya en cola para DynamoDB: ${messageRecord.id}`);
+    } else {
+      savedMessageIds.add(messageRecord.id);
 
-        // Crear modelo Message para DynamoDB
-        const { Message } = require('../models/message.model');
-        const dynamoMessage = new Message({
-          id: messageRecord.id,
-          conversationId: userId,
-          participantId: userId,
-          direction: sender === 'user' ? 'incoming' : 'outgoing',
-          type: messageActualType === 'text' ? 'text' : messageActualType,
-          content: { text: messageText },
-          from: sender === 'user' ? userId : undefined,
-          to: sender === 'bot' ? userId : undefined,
-          status: 'delivered',
-          metadata: {
-            sender: sender,
-            originalType: messageActualType
-          },
-          createdAt: new Date(messageRecord.timestamp),
-          updatedAt: new Date()
-        });
-
-        // Guardar en DynamoDB
-        await conversationRepository.saveMessage(dynamoMessage);
-        logger.info(`💾 [DYNAMODB] Mensaje guardado: ${messageRecord.id} (total: ${Math.min(history.length + 1, MAX_MESSAGES)})`);
-
-      } catch (dbError) {
-        logger.error(`❌ [DYNAMODB] Error guardando mensaje ${messageRecord.id}:`, dbError.message);
-        // No lanzamos el error para no interrumpir el flujo
+      // Limpiar IDs antiguos para evitar memory leak
+      if (savedMessageIds.size > 1000) {
+        const idsArray = Array.from(savedMessageIds);
+        idsArray.slice(0, 500).forEach(id => savedMessageIds.delete(id));
       }
-    });
+
+      // Usamos setImmediate para no bloquear la respuesta del webhook
+      setImmediate(async () => {
+        try {
+          const conversationRepository = require('../repositories/conversation.repository');
+
+          // Crear modelo Message para DynamoDB
+          const { Message } = require('../models/message.model');
+          const dynamoMessage = new Message({
+            id: messageRecord.id,
+            conversationId: userId,
+            participantId: userId,
+            direction: sender === 'user' ? 'incoming' : 'outgoing',
+            type: messageActualType === 'text' ? 'text' : messageActualType,
+            content: { text: messageText },
+            from: sender === 'user' ? userId : undefined,
+            to: sender === 'bot' ? userId : undefined,
+            status: 'delivered',
+            metadata: {
+              sender: sender,
+              originalType: messageActualType
+            },
+            createdAt: new Date(messageRecord.timestamp),
+            updatedAt: new Date()
+          });
+
+          // Guardar en DynamoDB (con protección attribute_not_exists en el repo)
+          await conversationRepository.saveMessage(dynamoMessage);
+          logger.info(`✅ [DYNAMODB] Mensaje guardado: ${messageRecord.id}`);
+
+        } catch (dbError) {
+          logger.error(`❌ [DYNAMODB] Error guardando mensaje ${messageRecord.id}:`, dbError.message);
+
+          // No lanzamos el error para no interrumpir el flujo
+        }
+      });
+    }
 
     // ✅ MEJORADO: Log detallado para depuración
     logger.info(`💾 [MEMORIA] Mensaje guardado: [${sender}] type=${messageActualType} "${messageText.substring(0, 50)}"`);
@@ -1068,9 +1113,9 @@ function getMessages(userId) {
 /**
  * Obtiene estadísticas del procesador
  *
- * @returns {Object} Estadísticas
+ * @returns {Promise<Object>} Estadísticas
  */
-function getStats() {
+async function getStats() {
   const all = conversationStateService.getAllConversations();
 
   const botActive = all.filter(c => c.bot_active === true).length;
@@ -1084,7 +1129,7 @@ function getStats() {
     botInactive,
     needsHuman,
     outOfHours,
-    isOutOfHoursNow: isOutOfHours(),
+    isOutOfHoursNow: await isOutOfHours(),
     businessHours: BUSINESS_HOURS
   };
 }

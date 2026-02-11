@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,11 +25,14 @@
       --light-gray: #F5F5F5;
       --border-gray: #E0E0E0;
       --white: #FFFFFF;
-      --sidebar-width: 194px; /* Reducido 12% adicional: 220px → 194px */
-      --header-height: 53px; /* Reducido 12% adicional: 60px → 53px */
-      --shadow: 0 2px 10px rgba(0,0,0,0.1);
-      --shadow-lg: 0 4px 20px rgba(0,0,0,0.15);
-      --base-font-size: 12px; /* Reducido 12%: 14px → 12px */
+      --sidebar-width: 194px;
+      /* Reducido 12% adicional: 220px → 194px */
+      --header-height: 53px;
+      /* Reducido 12% adicional: 60px → 53px */
+      --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.15);
+      --base-font-size: 12px;
+      /* Reducido 12%: 14px → 12px */
     }
 
     /* ========================================
@@ -36,7 +40,8 @@
        ======================================== */
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      font-size: var(--base-font-size); /* Tamaño base reducido */
+      font-size: var(--base-font-size);
+      /* Tamaño base reducido */
       background: var(--light-gray);
       min-height: 100vh;
       overflow-x: hidden;
@@ -48,7 +53,8 @@
     }
 
     /* Prevenir overflow horizontal en todos los elementos */
-    html, body {
+    html,
+    body {
       max-width: 100%;
       overflow-x: hidden;
     }
@@ -60,7 +66,9 @@
     }
 
     /* Responsive para imágenes y videos */
-    img, video, iframe {
+    img,
+    video,
+    iframe {
       max-width: 100%;
       height: auto;
     }
@@ -90,26 +98,32 @@
 
     /* Logo Section */
     .sidebar-logo {
-      padding: 19px 14px; /* Reducido 12%: 22px → 19px, 16px → 14px */
+      padding: 19px 14px;
+      /* Reducido 12%: 22px → 19px, 16px → 14px */
       text-align: center;
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .sidebar-logo img {
-      max-width: 88px; /* Reducido 12%: 100px → 88px */
+      max-width: 88px;
+      /* Reducido 12%: 100px → 88px */
       height: auto;
-      margin-bottom: 7px; /* Reducido 12%: 8px → 7px */
+      margin-bottom: 7px;
+      /* Reducido 12%: 8px → 7px */
     }
 
     .sidebar-logo-text {
-      font-size: 15px; /* Reducido 12%: 17px → 15px */
+      font-size: 15px;
+      /* Reducido 12%: 17px → 15px */
       font-weight: 700;
       color: var(--white);
-      margin-bottom: 4px; /* Se mantiene */
+      margin-bottom: 4px;
+      /* Se mantiene */
     }
 
     .sidebar-logo-subtitle {
-      font-size: 9px; /* Reducido 12%: 10px → 9px */
+      font-size: 9px;
+      /* Reducido 12%: 10px → 9px */
       color: rgba(255, 255, 255, 0.7);
       font-weight: 400;
     }
@@ -117,14 +131,16 @@
     /* Navigation Menu */
     .sidebar-nav {
       flex: 1;
-      padding: 14px 0; /* Reducido 12%: 16px → 14px */
+      padding: 14px 0;
+      /* Reducido 12%: 16px → 14px */
       overflow-y: auto;
     }
 
     .nav-item {
       display: flex;
       align-items: center;
-      padding: 11px 18px; /* Reducido 12%: 12px → 11px, 20px → 18px */
+      padding: 11px 18px;
+      /* Reducido 12%: 12px → 11px, 20px → 18px */
       color: rgba(255, 255, 255, 0.8);
       text-decoration: none;
       transition: all 0.3s ease;
@@ -145,30 +161,39 @@
     }
 
     .nav-item-icon {
-      font-size: 16px; /* Reducido 12%: 18px → 16px */
-      margin-right: 11px; /* Reducido 12%: 12px → 11px */
-      width: 19px; /* Reducido 12%: 22px → 19px */
+      font-size: 16px;
+      /* Reducido 12%: 18px → 16px */
+      margin-right: 11px;
+      /* Reducido 12%: 12px → 11px */
+      width: 19px;
+      /* Reducido 12%: 22px → 19px */
       text-align: center;
     }
 
     .nav-item-text {
-      font-size: 11px; /* Reducido 12%: 13px → 11px */
+      font-size: 11px;
+      /* Reducido 12%: 13px → 11px */
     }
 
     .nav-section-title {
-      padding: 14px 18px 7px; /* Reducido 12%: 16px → 14px, 20px → 18px, 8px → 7px */
-      font-size: 9px; /* Reducido 12%: 10px → 9px */
+      padding: 14px 18px 7px;
+      /* Reducido 12%: 16px → 14px, 20px → 18px, 8px → 7px */
+      font-size: 9px;
+      /* Reducido 12%: 10px → 9px */
       text-transform: uppercase;
       color: rgba(255, 255, 255, 0.5);
       font-weight: 600;
-      letter-spacing: 0.35px; /* Reducido 12%: 0.4px → 0.35px */
+      letter-spacing: 0.35px;
+      /* Reducido 12%: 0.4px → 0.35px */
     }
 
     /* Sidebar Footer */
     .sidebar-footer {
-      padding: 18px; /* Reducido 12%: 20px → 18px */
+      padding: 18px;
+      /* Reducido 12%: 20px → 18px */
       border-top: 1px solid rgba(255, 255, 255, 0.1);
-      font-size: 10px; /* Reducido 12%: 11px → 10px */
+      font-size: 10px;
+      /* Reducido 12%: 11px → 10px */
       text-align: center;
       color: rgba(255, 255, 255, 0.6);
     }
@@ -194,7 +219,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 19px; /* Reducido 12%: 22px → 19px */
+      padding: 0 19px;
+      /* Reducido 12%: 22px → 19px */
       position: sticky;
       top: 0;
       z-index: 999;
@@ -203,17 +229,20 @@
     .header-left {
       display: flex;
       align-items: center;
-      gap: 14px; /* Reducido 12%: 16px → 14px */
+      gap: 14px;
+      /* Reducido 12%: 16px → 14px */
     }
 
     .header-title {
-      font-size: 18px; /* Reducido 12%: 20px → 18px */
+      font-size: 18px;
+      /* Reducido 12%: 20px → 18px */
       font-weight: 600;
       color: var(--dark-gray);
     }
 
     .header-subtitle {
-      font-size: 11px; /* Reducido 12%: 12px → 11px */
+      font-size: 11px;
+      /* Reducido 12%: 12px → 11px */
       color: var(--medium-gray);
       font-weight: 400;
     }
@@ -221,7 +250,8 @@
     .header-right {
       display: flex;
       align-items: center;
-      gap: 13px; /* Reducido 12%: 15px → 13px */
+      gap: 13px;
+      /* Reducido 12%: 15px → 13px */
     }
 
     /* ========================================
@@ -301,8 +331,15 @@
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
     }
 
     /* ========================================
@@ -462,6 +499,15 @@
       }
     }
 
+    /* Responsive para controles de horario y festivos en móvil */
+    @media (max-width: 768px) {
+
+      /* Los controles de horario y festivos se apilan verticalmente */
+      div[style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
     /* ========================================
        DOCUMENTS STYLES
        ======================================== */
@@ -584,11 +630,15 @@
       background: var(--primary-green);
       color: white;
       border: none;
-      padding: 9px 18px; /* Reducido 12%: 10px → 9px, 20px → 18px */
-      border-radius: 6px; /* Reducido 12%: 7px → 6px */
+      padding: 9px 18px;
+      /* Reducido 12%: 10px → 9px, 20px → 18px */
+      border-radius: 6px;
+      /* Reducido 12%: 7px → 6px */
       cursor: pointer;
-      font-size: 11px; /* Reducido 12%: 12px → 11px */
-      margin-top: 11px; /* Reducido 12%: 12px → 11px */
+      font-size: 11px;
+      /* Reducido 12%: 12px → 11px */
+      margin-top: 11px;
+      /* Reducido 12%: 12px → 11px */
       transition: background 0.3s ease;
     }
 
@@ -713,8 +763,13 @@
     }
 
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     /* Upload Progress */
@@ -764,20 +819,26 @@
        ======================================== */
     .dashboard-content {
       flex: 1;
-      padding: 18px; /* Reducido 12%: 20px → 18px */
-      max-width: 1050px; /* Reducido 12%: 1200px → 1050px */
+      padding: 18px;
+      /* Reducido 12%: 20px → 18px */
+      max-width: 1050px;
+      /* Reducido 12%: 1200px → 1050px */
       width: 100%;
       margin: 0 auto;
-      overflow-x: hidden; /* Previene scroll horizontal en el layout general */
+      overflow-x: hidden;
+      /* Previene scroll horizontal en el layout general */
     }
 
     /* Breadcrumb */
     .breadcrumb {
       display: flex;
       align-items: center;
-      gap: 5px; /* Reducido 12%: 6px → 5px */
-      margin-bottom: 16px; /* Reducido 12%: 18px → 16px */
-      font-size: 11px; /* Reducido 12%: 13px → 11px */
+      gap: 5px;
+      /* Reducido 12%: 6px → 5px */
+      margin-bottom: 16px;
+      /* Reducido 12%: 18px → 16px */
+      font-size: 11px;
+      /* Reducido 12%: 13px → 11px */
       color: var(--medium-gray);
     }
 
@@ -801,10 +862,13 @@
        ======================================== */
     .content-card {
       background: var(--white);
-      border-radius: 12px; /* Reducido 12%: 14px → 12px */
-      padding: 25px; /* Reducido 12%: 28px → 25px */
+      border-radius: 12px;
+      /* Reducido 12%: 14px → 12px */
+      padding: 25px;
+      /* Reducido 12%: 28px → 25px */
       box-shadow: var(--shadow);
-      min-height: calc(100vh - 132px); /* Reducido 12%: 150px → 132px */
+      min-height: calc(100vh - 132px);
+      /* Reducido 12%: 150px → 132px */
     }
 
     /* ========================================
@@ -911,8 +975,11 @@
       }
 
       /* Mejorar área táctil de botones en móvil */
-      button, .btn, a {
-        min-height: 44px; /* Tamaño mínimo recomendado por Apple */
+      button,
+      .btn,
+      a {
+        min-height: 44px;
+        /* Tamaño mínimo recomendado por Apple */
         min-width: 44px;
         display: inline-flex;
         align-items: center;
@@ -928,9 +995,12 @@
       }
 
       /* Inputs más grandes en móvil para facilitar entrada */
-      input, textarea, select {
+      input,
+      textarea,
+      select {
         min-height: 44px;
-        font-size: 16px; /* Prevenir zoom en iOS */
+        font-size: 16px;
+        /* Prevenir zoom en iOS */
       }
 
       /* Excepción para textarea que puede crecer */
@@ -1067,12 +1137,15 @@
       border-radius: 12px;
       width: 90%;
       max-width: 620px;
-      height: 85vh; /* Altura fija relativa al viewport */
-      max-height: 700px; /* Máximo absoluto */
+      height: 85vh;
+      /* Altura fija relativa al viewport */
+      max-height: 700px;
+      /* Máximo absoluto */
       display: flex;
       flex-direction: column;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      overflow: hidden; /* Prevenir desbordamiento del contenedor */
+      overflow: hidden;
+      /* Prevenir desbordamiento del contenedor */
     }
 
     .chat-modal-header {
@@ -1084,29 +1157,36 @@
       background: linear-gradient(135deg, var(--primary-green) 0%, var(--secondary-green) 100%);
       border-radius: 12px 12px 0 0;
       color: white;
-      flex-shrink: 0; /* No se reduce, permanece fijo */
+      flex-shrink: 0;
+      /* No se reduce, permanece fijo */
     }
 
     .chat-modal-header h3 {
       margin: 0;
-      font-size: 14px; /* Reducido 12%: 16px → 14px */
+      font-size: 14px;
+      /* Reducido 12%: 16px → 14px */
       font-weight: 600;
     }
 
     .chat-modal-header .phone-number {
       font-family: 'Courier New', monospace;
-      font-size: 11px; /* Reducido 12%: 12px → 11px */
+      font-size: 11px;
+      /* Reducido 12%: 12px → 11px */
       opacity: 0.9;
-      margin-top: 3px; /* Se mantiene */
+      margin-top: 3px;
+      /* Se mantiene */
     }
 
     .chat-modal-close {
       background: rgba(255, 255, 255, 0.2);
       border: none;
       color: white;
-      font-size: 18px; /* Reducido 12%: 20px → 18px */
-      width: 26px; /* Reducido 12%: 30px → 26px */
-      height: 26px; /* Reducido 12%: 30px → 26px */
+      font-size: 18px;
+      /* Reducido 12%: 20px → 18px */
+      width: 26px;
+      /* Reducido 12%: 30px → 26px */
+      height: 26px;
+      /* Reducido 12%: 30px → 26px */
       border-radius: 50%;
       cursor: pointer;
       display: flex;
@@ -1125,14 +1205,16 @@
       overflow-x: hidden;
       padding: 12px;
       background: #f5f5f5;
-      min-height: 0; /* Importante: permite que flex-shrink funcione */
+      min-height: 0;
+      /* Importante: permite que flex-shrink funcione */
       /* Scroll suave */
       scroll-behavior: smooth;
       -webkit-overflow-scrolling: touch;
     }
 
     .chat-message {
-      margin-bottom: 9px; /* Reducido 12%: 10px → 9px */
+      margin-bottom: 9px;
+      /* Reducido 12%: 10px → 9px */
       display: flex;
       flex-direction: column;
     }
@@ -1146,41 +1228,49 @@
     }
 
     .chat-message.bot {
-      align-items: flex-end;  /* ✅ CORREGIDO: Bot a la derecha como el asesor */
+      align-items: flex-end;
+      /* ✅ CORREGIDO: Bot a la derecha como el asesor */
     }
 
     .message-bubble {
       max-width: 70%;
-      padding: 9px 12px; /* Reducido 12%: 10px → 9px, 14px → 12px */
-      border-radius: 9px; /* Reducido 12%: 10px → 9px */
+      padding: 9px 12px;
+      /* Reducido 12%: 10px → 9px, 14px → 12px */
+      border-radius: 9px;
+      /* Reducido 12%: 10px → 9px */
       word-wrap: break-word;
     }
 
     .chat-message.user .message-bubble {
       background: white;
       border: 1px solid #e0e0e0;
-      border-radius: 9px 9px 9px 4px; /* Ajustado */
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      border-radius: 9px 9px 9px 4px;
+      /* Ajustado */
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .chat-message.admin .message-bubble {
       background: #dcf8c6;
       color: #1a1a1a;
-      border-radius: 9px 9px 4px 9px; /* Ajustado */
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      border-radius: 9px 9px 4px 9px;
+      /* Ajustado */
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .chat-message.bot .message-bubble {
       background: #f0f0f0;
       border: 1px solid #e0e0e0;
-      border-radius: 9px 9px 4px 9px; /* Ajustado */
-      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      border-radius: 9px 9px 4px 9px;
+      /* Ajustado */
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .message-sender {
-      font-size: 9px; /* Reducido 12%: 10px → 9px */
+      font-size: 9px;
+      /* Reducido 12%: 10px → 9px */
       color: var(--medium-gray);
-      margin-bottom: 3px; /* Se mantiene */
+      margin-bottom: 3px;
+      /* Se mantiene */
       font-weight: 600;
     }
 
@@ -1189,18 +1279,23 @@
     }
 
     .chat-message.bot .message-sender {
-      color: #9C27B0;  /* ✅ CORREGIDO: Color púrpura para distinguir bot */
+      color: #9C27B0;
+      /* ✅ CORREGIDO: Color púrpura para distinguir bot */
     }
 
     .message-text {
-      font-size: 11px; /* Reducido 12%: 13px → 11px */
-      line-height: 1.3; /* Ajustado para legibilidad */
+      font-size: 11px;
+      /* Reducido 12%: 13px → 11px */
+      line-height: 1.3;
+      /* Ajustado para legibilidad */
     }
 
     .message-time {
-      font-size: 9px; /* Reducido 12%: 10px → 9px */
+      font-size: 9px;
+      /* Reducido 12%: 10px → 9px */
       color: var(--medium-gray);
-      margin-top: 3px; /* Se mantiene */
+      margin-top: 3px;
+      /* Se mantiene */
     }
 
     .chat-modal-footer {
@@ -1208,26 +1303,33 @@
       border-top: 1px solid var(--border-gray);
       background: white;
       border-radius: 0 0 12px 12px;
-      flex-shrink: 0; /* No se reduce, permanece fijo */
+      flex-shrink: 0;
+      /* No se reduce, permanece fijo */
     }
 
     .chat-input-container {
       display: flex;
-      gap: 9px; /* Reducido 12%: 10px → 9px */
+      gap: 9px;
+      /* Reducido 12%: 10px → 9px */
       align-items: flex-end;
       position: relative;
     }
 
     .chat-message-input {
       flex: 1;
-      padding: 9px 12px; /* Reducido 12%: 10px → 9px, 14px → 12px */
+      padding: 9px 12px;
+      /* Reducido 12%: 10px → 9px, 14px → 12px */
       border: 2px solid var(--border-gray);
-      border-radius: 9px; /* Reducido 12%: 10px → 9px */
-      font-size: 11px; /* Reducido 12%: 13px → 11px */
+      border-radius: 9px;
+      /* Reducido 12%: 10px → 9px */
+      font-size: 11px;
+      /* Reducido 12%: 13px → 11px */
       font-family: inherit;
       resize: none;
-      min-height: 33px; /* Reducido 12%: 38px → 33px */
-      max-height: 106px; /* Reducido 12%: 120px → 106px */
+      min-height: 33px;
+      /* Reducido 12%: 38px → 33px */
+      max-height: 106px;
+      /* Reducido 12%: 120px → 106px */
       transition: border-color 0.2s;
     }
 
@@ -1237,16 +1339,20 @@
     }
 
     .chat-send-btn {
-      padding: 9px 18px; /* Reducido 12%: 10px → 9px, 20px → 18px */
+      padding: 9px 18px;
+      /* Reducido 12%: 10px → 9px, 20px → 18px */
       background: linear-gradient(135deg, var(--primary-green) 0%, var(--secondary-green) 100%);
       color: white;
       border: none;
-      border-radius: 9px; /* Reducido 12%: 10px → 9px */
-      font-size: 11px; /* Reducido 12%: 12px → 11px */
+      border-radius: 9px;
+      /* Reducido 12%: 10px → 9px */
+      font-size: 11px;
+      /* Reducido 12%: 12px → 11px */
       font-weight: 600;
       cursor: pointer;
       transition: transform 0.2s, box-shadow 0.2s;
-      min-width: 62px; /* Reducido 12%: 70px → 62px */
+      min-width: 62px;
+      /* Reducido 12%: 70px → 62px */
     }
 
     .chat-send-btn:hover:not(:disabled) {
@@ -1310,6 +1416,7 @@
         opacity: 0;
         transform: translateY(10px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -1395,8 +1502,15 @@
     }
 
     @keyframes pulse-recording {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.6; }
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.6;
+      }
     }
 
     /* Menú de adjuntar archivos */
@@ -1445,7 +1559,8 @@
 
     .chat-actions {
       display: flex;
-      gap: 7px; /* Reducido 12%: 8px → 7px */
+      gap: 7px;
+      /* Reducido 12%: 8px → 7px */
       padding: 12px 20px;
       background: #f9f9f9;
       border-top: 1px solid var(--border-gray);
@@ -1508,8 +1623,15 @@
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
     }
 
     /* ========================================
@@ -2128,16 +2250,19 @@
     .table-responsive {
       width: 100%;
       overflow-x: auto;
-      -webkit-overflow-scrolling: touch; /* Scroll suave en iOS */
+      -webkit-overflow-scrolling: touch;
+      /* Scroll suave en iOS */
     }
 
     .conversations-table {
       width: 100%;
       max-width: 100%;
-      table-layout: auto; /* Permite que la tabla se ajuste al contenido */
+      table-layout: auto;
+      /* Permite que la tabla se ajuste al contenido */
       border-collapse: collapse;
       background: white;
-      border-radius: 11px; /* Reducido 12%: 12px → 11px */
+      border-radius: 11px;
+      /* Reducido 12%: 12px → 11px */
       overflow: hidden;
       box-shadow: var(--shadow);
     }
@@ -2148,19 +2273,24 @@
     }
 
     .conversations-table th {
-      padding: 11px; /* Reducido 12%: 12px → 11px */
+      padding: 11px;
+      /* Reducido 12%: 12px → 11px */
       text-align: left;
       font-weight: 600;
-      font-size: 11px; /* Reducido 12%: 13px → 11px */
+      font-size: 11px;
+      /* Reducido 12%: 13px → 11px */
       text-transform: uppercase;
-      letter-spacing: 0.44px; /* Reducido 12%: 0.5px → 0.44px */
+      letter-spacing: 0.44px;
+      /* Reducido 12%: 0.5px → 0.44px */
       white-space: nowrap;
     }
 
     .conversations-table td {
-      padding: 11px; /* Reducido 12%: 12px → 11px */
+      padding: 11px;
+      /* Reducido 12%: 12px → 11px */
       border-bottom: 1px solid var(--border-gray);
-      font-size: 11px; /* Reducido 12%: 13px → 11px */
+      font-size: 11px;
+      /* Reducido 12%: 13px → 11px */
       word-break: break-word;
       overflow-wrap: break-word;
     }
@@ -2183,6 +2313,7 @@
 
     /* Tablet (max 768px) */
     @media (max-width: 768px) {
+
       .conversations-table th,
       .conversations-table td {
         padding: 10px;
@@ -2192,6 +2323,7 @@
 
     /* Móvil (max 480px) */
     @media (max-width: 480px) {
+
       .conversations-table th,
       .conversations-table td {
         padding: 8px;
@@ -2259,6 +2391,7 @@
 
     /* Mini móvil (max 320px) */
     @media (max-width: 320px) {
+
       .conversations-table th,
       .conversations-table td {
         padding: 4px 2px;
@@ -2287,19 +2420,24 @@
     }
 
     .last-message {
-      max-width: 175px; /* Reducido 12%: 200px → 175px */
+      max-width: 175px;
+      /* Reducido 12%: 200px → 175px */
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       color: var(--medium-gray);
-      font-size: 11px; /* Reducido 12%: 12px → 11px */
+      font-size: 11px;
+      /* Reducido 12%: 12px → 11px */
     }
 
     .status-badge {
       display: inline-block;
-      padding: 4px 9px; /* Reducido 12%: 10px → 9px */
-      border-radius: 14px; /* Reducido 12%: 16px → 14px */
-      font-size: 9px; /* Reducido 12%: 10px → 9px */
+      padding: 4px 9px;
+      /* Reducido 12%: 10px → 9px */
+      border-radius: 14px;
+      /* Reducido 12%: 16px → 14px */
+      font-size: 9px;
+      /* Reducido 12%: 10px → 9px */
       font-weight: 600;
       text-transform: uppercase;
     }
@@ -2340,10 +2478,13 @@
 
     /* Animación para resaltar pendientes */
     @keyframes pulse-border {
-      0%, 100% {
+
+      0%,
+      100% {
         border-color: #ffb300;
         box-shadow: 0 0 0 0 rgba(255, 179, 0, 0.4);
       }
+
       50% {
         border-color: #ff6f00;
         box-shadow: 0 0 0 8px rgba(255, 179, 0, 0);
@@ -2357,9 +2498,12 @@
     }
 
     @keyframes highlight-pulse {
-      0%, 100% {
+
+      0%,
+      100% {
         background: linear-gradient(90deg, #fff9c4 0%, #ffffff 50%, #fff9c4 100%);
       }
+
       50% {
         background: linear-gradient(90deg, #ffecb3 0%, #ffffff 50%, #ffecb3 100%);
       }
@@ -2378,8 +2522,15 @@
     }
 
     @keyframes badge-pulse {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.1); }
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.1);
+      }
     }
 
     /* ✅ NUEVO: Banner de notificación persistente */
@@ -2395,13 +2546,18 @@
       justify-content: space-between;
       align-items: center;
       z-index: 10000;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
       animation: slideDown 0.3s ease-out;
     }
 
     @keyframes slideDown {
-      from { transform: translateY(-100%); }
-      to { transform: translateY(0); }
+      from {
+        transform: translateY(-100%);
+      }
+
+      to {
+        transform: translateY(0);
+      }
     }
 
     .notification-banner .close-btn {
@@ -2426,11 +2582,15 @@
 
     .consent-badge {
       display: inline-block;
-      padding: 3px 7px; /* Reducido 12%: 8px → 7px */
-      border-radius: 11px; /* Reducido 12%: 12px → 11px */
-      font-size: 8px; /* Reducido 12%: 9px → 8px */
+      padding: 3px 7px;
+      /* Reducido 12%: 8px → 7px */
+      border-radius: 11px;
+      /* Reducido 12%: 12px → 11px */
+      font-size: 8px;
+      /* Reducido 12%: 9px → 8px */
       font-weight: 600;
-      margin-left: 4px; /* Se mantiene */
+      margin-left: 4px;
+      /* Se mantiene */
     }
 
     .consent-badge.pending {
@@ -2463,7 +2623,8 @@
     }
 
     .time-remaining {
-      font-size: 10px; /* Reducido 12%: 11px → 10px */
+      font-size: 10px;
+      /* Reducido 12%: 11px → 10px */
       color: var(--medium-gray);
       font-weight: 500;
     }
@@ -2526,18 +2687,18 @@
       background-color: white;
       transition: 0.3s;
       border-radius: 50%;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
-    .toggle-switch input:checked + .toggle-slider {
+    .toggle-switch input:checked+.toggle-slider {
       background-color: #4caf50;
     }
 
-    .toggle-switch input:checked + .toggle-slider:before {
+    .toggle-switch input:checked+.toggle-slider:before {
       transform: translateX(24px);
     }
 
-    .toggle-switch input:disabled + .toggle-slider {
+    .toggle-switch input:disabled+.toggle-slider {
       background-color: #e0e0e0;
       cursor: not-allowed;
     }
@@ -2563,9 +2724,12 @@
     }
 
     @keyframes pulse-button {
-      0%, 100% {
+
+      0%,
+      100% {
         box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.7);
       }
+
       50% {
         box-shadow: 0 0 0 8px rgba(46, 125, 50, 0);
       }
@@ -2635,15 +2799,18 @@
       display: grid;
       /* Escritorio: 6 columnas iguales (Total, Activas, Expiradas, Aceptaron, Pendientes, Con asesor) */
       grid-template-columns: repeat(6, 1fr);
-      gap: 11px; /* Reducido 12%: 12px → 11px */
-      margin-bottom: 19px; /* Reducido 12%: 22px → 19px */
+      gap: 11px;
+      /* Reducido 12%: 12px → 11px */
+      margin-bottom: 19px;
+      /* Reducido 12%: 22px → 19px */
     }
 
     /* Tablet (max 1024px): 3 columnas */
     @media (max-width: 1024px) {
       .stats-cards {
         grid-template-columns: repeat(3, 1fr);
-        gap: 9px; /* Reducido 12%: 10px → 9px */
+        gap: 9px;
+        /* Reducido 12%: 10px → 9px */
       }
     }
 
@@ -2651,7 +2818,8 @@
     @media (max-width: 768px) {
       .stats-cards {
         grid-template-columns: repeat(2, 1fr);
-        gap: 7px; /* Reducido 12%: 8px → 7px */
+        gap: 7px;
+        /* Reducido 12%: 8px → 7px */
       }
     }
 
@@ -2724,12 +2892,15 @@
 
     .stat-card {
       background: white;
-      border-radius: 9px; /* Reducido 12%: 10px → 9px */
-      padding: 12px; /* Reducido 12%: 14px → 12px */
+      border-radius: 9px;
+      /* Reducido 12%: 10px → 9px */
+      padding: 12px;
+      /* Reducido 12%: 14px → 12px */
       box-shadow: var(--shadow);
       text-align: center;
       /* Asegurar que todas las tarjetas tengan la misma altura */
-      min-height: 84px; /* Reducido 12%: 95px → 84px */
+      min-height: 84px;
+      /* Reducido 12%: 95px → 84px */
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -2737,17 +2908,21 @@
     }
 
     .stat-number {
-      font-size: 25px; /* Reducido 12%: 28px → 25px */
+      font-size: 25px;
+      /* Reducido 12%: 28px → 25px */
       font-weight: 700;
       color: var(--primary-green);
-      margin-bottom: 3px; /* Reducido 12%: 4px → 3px */
+      margin-bottom: 3px;
+      /* Reducido 12%: 4px → 3px */
     }
 
     .stat-label {
-      font-size: 10px; /* Reducido 12%: 11px → 10px */
+      font-size: 10px;
+      /* Reducido 12%: 11px → 10px */
       color: var(--medium-gray);
       text-transform: uppercase;
-      letter-spacing: 0.35px; /* Reducido 12%: 0.4px → 0.35px */
+      letter-spacing: 0.35px;
+      /* Reducido 12%: 0.4px → 0.35px */
     }
 
     /* ========================================
@@ -2755,7 +2930,36 @@
        CONTINÚA EN LA PARTE 2...
        ======================================== */
   </style>
+
+  <!-- ========================================
+       MODO OSCURO - CSS
+       ======================================== -->
+  <link rel="stylesheet" href="css/dark-mode.css">
+
+  <!-- ========================================
+       CORRECCIONES DE TEXTO - CSS
+       ======================================== -->
+  <link rel="stylesheet" href="css/text-truncation-fixes.css">
+
+  <!-- ========================================
+       CORRECCIONES URGENTES DE VISUALIZACIÓN - CSS
+       (Tarjetas con contraste + Chat estilo WhatsApp)
+       ======================================== -->
+  <link rel="stylesheet" href="css/urgent-visual-fixes.css">
+
+  <!-- ========================================
+       CHAT ESTILO WHATSAPP - CSS COMPLETO
+       (Scroll + Interfaz exacta WhatsApp)
+       ======================================== -->
+  <link rel="stylesheet" href="css/whatsapp-chat-style.css">
+
+  <!-- ========================================
+       CHAT FIXED - CSS CORREGIDO
+       (Alineación correcta + max-width + espaciado)
+       ======================================== -->
+  <link rel="stylesheet" href="css/chat-fixed.css">
 </head>
+
 <body>
 
   <!-- ========================================
@@ -2774,12 +2978,14 @@
       <form id="login-form" onsubmit="handleLogin(event)">
         <div class="login-form-group">
           <label for="username">Usuario</label>
-          <input type="text" id="username" name="username" placeholder="Ingresa tu usuario" required autocomplete="username">
+          <input type="text" id="username" name="username" placeholder="Ingresa tu usuario" required
+            autocomplete="username">
         </div>
 
         <div class="login-form-group">
           <label for="password">Contraseña</label>
-          <input type="password" id="password" name="password" placeholder="Ingresa tu contraseña" required autocomplete="current-password">
+          <input type="password" id="password" name="password" placeholder="Ingresa tu contraseña" required
+            autocomplete="current-password">
         </div>
 
         <button type="submit" class="login-btn" id="login-btn">Iniciar Sesión</button>
@@ -2791,7 +2997,7 @@
        ESTRUCTURA DEL DASHBOARD
        ======================================== -->
   <div class="dashboard-wrapper" id="dashboard-wrapper" style="display: none;">
-    
+
     <!-- SIDEBAR -->
     <aside class="sidebar">
       <!-- Logo -->
@@ -2807,7 +3013,7 @@
           <span class="nav-item-icon">🏠</span>
           <span class="nav-item-text">Inicio</span>
         </a>
-        <a href="#" class="nav-item" onclick="changeView('conversations'); return false;">
+        <a href="/chat.html" class="nav-item">
           <span class="nav-item-icon">💬</span>
           <span class="nav-item-text">Conversaciones</span>
           <span id="pending-advisor-badge" class="pending-badge" style="display: none;">0</span>
@@ -2818,10 +3024,14 @@
           <span class="nav-item-icon">📁</span>
           <span class="nav-item-text">Documentos</span>
         </a>
-        
+
         <a href="#" class="nav-item" onclick="changeView('number-control'); return false;">
           <span class="nav-item-icon">🔢</span>
           <span class="nav-item-text">Control de Números</span>
+        </a>
+        <a href="#" class="nav-item" onclick="changeView('holidays'); return false;">
+          <span class="nav-item-icon">📅</span>
+          <span class="nav-item-text">Días Festivos</span>
         </a>
         <a href="#" class="nav-item" onclick="changeView('settings'); return false;">
           <span class="nav-item-icon">⚙️</span>
@@ -2837,7 +3047,7 @@
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
-      
+
       <!-- HEADER -->
       <header class="dashboard-header">
         <div class="header-left">
@@ -2867,7 +3077,7 @@
 
       <!-- CONTENT AREA -->
       <main class="dashboard-content">
-        
+
         <!-- Breadcrumb -->
         <div class="breadcrumb">
           <span class="breadcrumb-item">
@@ -2880,828 +3090,993 @@
 
         <!-- Content Card - Aquí va el contenido original -->
         <div class="content-card">
-          
-<!-- ========================================
+
+          <!-- ========================================
      PARTE 2 - INICIA AQUÍ
      CONTENIDO ORIGINAL DEL CHATBOT
      ======================================== -->
 
-<style>
-/* ========================================
+          <style>
+            /* ========================================
    PARTE 2: ESTILOS DEL CONTENIDO ORIGINAL
    (Preservados sin modificar)
    ======================================== */
 
-.container {
-  max-width: 100%;
-  width: 100%;
-}
+            .container {
+              max-width: 100%;
+              width: 100%;
+            }
 
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 20px;
+            }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+            .header-left {
+              display: flex;
+              align-items: center;
+              gap: 10px;
+            }
 
-.logo {
-  font-size: 40px;
-}
+            .logo {
+              font-size: 40px;
+            }
 
-.header-title h1 {
-  color: #075E54;
-  font-size: 24px;
-  text-align: left;
-}
+            .header-title h1 {
+              color: #075E54;
+              font-size: 24px;
+              text-align: left;
+            }
 
-.header-title p {
-  color: #666;
-  font-size: 12px;
-  text-align: left;
-}
+            .header-title p {
+              color: #666;
+              font-size: 12px;
+              text-align: left;
+            }
 
-.settings-btn {
-  background: #f5f5f5;
-  border: none;
-  padding: 10px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 20px;
-  transition: background 0.3s;
-}
+            .settings-btn {
+              background: #f5f5f5;
+              border: none;
+              padding: 10px;
+              border-radius: 10px;
+              cursor: pointer;
+              font-size: 20px;
+              transition: background 0.3s;
+            }
 
-.settings-btn:hover {
-  background: #e0e0e0;
-}
+            .settings-btn:hover {
+              background: #e0e0e0;
+            }
 
-.tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
+            .tabs {
+              display: flex;
+              gap: 10px;
+              margin-bottom: 20px;
+            }
 
-.tab {
-  flex: 1;
-  padding: 10px;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  background: white;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.3s;
-}
+            .tab {
+              flex: 1;
+              padding: 10px;
+              border: 2px solid #e0e0e0;
+              border-radius: 10px;
+              background: white;
+              cursor: pointer;
+              font-weight: 500;
+              transition: all 0.3s;
+            }
 
-.tab.active {
-  border-color: #075E54;
-  background: #e8f5e9;
-  color: #075E54;
-}
+            .tab.active {
+              border-color: #075E54;
+              background: #e8f5e9;
+              color: #075E54;
+            }
 
-.tab-content {
-  display: none;
-}
+            .tab-content {
+              display: none;
+            }
 
-.tab-content.active {
-  display: block;
-}
+            .tab-content.active {
+              display: block;
+            }
 
-.status-container {
-  margin-bottom: 20px;
-  text-align: center;
-}
+            .status-container {
+              margin-bottom: 20px;
+              text-align: center;
+            }
 
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 20px;
-  border-radius: 50px;
-  font-weight: 500;
-  font-size: 14px;
-}
+            .status {
+              display: inline-flex;
+              align-items: center;
+              gap: 10px;
+              padding: 10px 20px;
+              border-radius: 50px;
+              font-weight: 500;
+              font-size: 14px;
+            }
 
-.status.disconnected { background: #ffebee; color: #c62828; }
-.status.waiting { background: #fff3e0; color: #ef6c00; }
-.status.connected { background: #e8f5e9; color: #2e7d32; }
+            .status.disconnected {
+              background: #ffebee;
+              color: #c62828;
+            }
 
-.qr-container {
-  background: #f5f5f5;
-  border-radius: 15px;
-  padding: 30px;
-  margin-bottom: 20px;
-  min-height: 280px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
+            .status.waiting {
+              background: #fff3e0;
+              color: #ef6c00;
+            }
 
-.qr-container img {
-  max-width: 220px;
-  border-radius: 10px;
-}
+            .status.connected {
+              background: #e8f5e9;
+              color: #2e7d32;
+            }
 
-.qr-placeholder { color: #999; font-size: 16px; }
+            .qr-container {
+              background: #f5f5f5;
+              border-radius: 15px;
+              padding: 30px;
+              margin-bottom: 20px;
+              min-height: 280px;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+            }
 
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #075E54;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 15px;
-}
+            .qr-container img {
+              max-width: 220px;
+              border-radius: 10px;
+            }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
+            .qr-placeholder {
+              color: #999;
+              font-size: 16px;
+            }
 
-.instructions {
-  text-align: left;
-  background: #f9f9f9;
-  padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-}
+            .spinner {
+              width: 50px;
+              height: 50px;
+              border: 4px solid #f3f3f3;
+              border-top: 4px solid #075E54;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+              margin-bottom: 15px;
+            }
 
-.instructions h3 {
-  color: #075E54;
-  margin-bottom: 10px;
-  font-size: 14px;
-}
+            @keyframes spin {
+              0% {
+                transform: rotate(0deg);
+              }
 
-.instructions ol {
-  padding-left: 20px;
-  color: #555;
-  font-size: 13px;
-  line-height: 1.6;
-}
+              100% {
+                transform: rotate(360deg);
+              }
+            }
 
-.connected-info { text-align: center; }
-.connected-info .icon { font-size: 64px; margin-bottom: 15px; }
-.connected-info h3 { color: #2e7d32; margin-bottom: 10px; }
-.connected-info p { color: #666; font-size: 14px; }
+            .instructions {
+              text-align: left;
+              background: #f9f9f9;
+              padding: 15px;
+              border-radius: 10px;
+              margin-bottom: 20px;
+            }
 
-/* Settings Section */
-.settings-section {
-  text-align: left;
-}
+            .instructions h3 {
+              color: #075E54;
+              margin-bottom: 10px;
+              font-size: 14px;
+            }
 
-.settings-section h3 {
-  color: #333;
-  margin-bottom: 20px;
-  font-size: 16px;
-  text-align: center;
-}
+            .instructions ol {
+              padding-left: 20px;
+              color: #555;
+              font-size: 13px;
+              line-height: 1.6;
+            }
 
-.form-group {
-  margin-bottom: 20px;
-}
+            .connected-info {
+              text-align: center;
+            }
 
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #333;
-  font-size: 14px;
-}
+            .connected-info .icon {
+              font-size: 64px;
+              margin-bottom: 15px;
+            }
 
-.form-group input, .form-group select {
-  width: 100%;
-  padding: 12px 15px;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  font-size: 14px;
-  transition: border-color 0.3s;
-}
+            .connected-info h3 {
+              color: #2e7d32;
+              margin-bottom: 10px;
+            }
 
-.form-group input:focus, .form-group select:focus {
-  outline: none;
-  border-color: #075E54;
-}
+            .connected-info p {
+              color: #666;
+              font-size: 14px;
+            }
 
-.form-group small {
-  display: block;
-  margin-top: 5px;
-  color: #999;
-  font-size: 12px;
-}
+            /* Settings Section */
+            .settings-section {
+              text-align: left;
+            }
 
-.provider-select {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
+            .settings-section h3 {
+              color: #333;
+              margin-bottom: 20px;
+              font-size: 16px;
+              text-align: center;
+            }
 
-.provider-option {
-  flex: 1;
-  padding: 15px;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.3s;
-}
+            .form-group {
+              margin-bottom: 20px;
+            }
 
-.provider-option:hover {
-  border-color: #075E54;
-}
+            .form-group label {
+              display: block;
+              margin-bottom: 8px;
+              font-weight: 500;
+              color: #333;
+              font-size: 14px;
+            }
 
-.provider-option.active {
-  border-color: #075E54;
-  background: #e8f5e9;
-}
+            .form-group input,
+            .form-group select {
+              width: 100%;
+              padding: 12px 15px;
+              border: 2px solid #e0e0e0;
+              border-radius: 10px;
+              font-size: 14px;
+              transition: border-color 0.3s;
+            }
 
-.provider-option .icon {
-  font-size: 24px;
-  margin-bottom: 5px;
-}
+            .form-group input:focus,
+            .form-group select:focus {
+              outline: none;
+              border-color: #075E54;
+            }
 
-.provider-option .name {
-  font-weight: 600;
-  color: #333;
-}
+            .form-group small {
+              display: block;
+              margin-top: 5px;
+              color: #999;
+              font-size: 12px;
+            }
 
-.provider-option .desc {
-  font-size: 11px;
-  color: #666;
-}
+            .provider-select {
+              display: flex;
+              gap: 10px;
+              margin-bottom: 20px;
+            }
 
-.provider-status {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  justify-content: center;
-  margin-top: 5px;
-  font-size: 11px;
-  font-weight: 500;
-}
+            .provider-option {
+              flex: 1;
+              padding: 15px;
+              border: 2px solid #e0e0e0;
+              border-radius: 10px;
+              cursor: pointer;
+              text-align: center;
+              transition: all 0.3s;
+            }
 
-.provider-status.ok { color: #2e7d32; }
-.provider-status.error { color: #c62828; }
-.provider-status.pending { color: #ef6c00; }
+            .provider-option:hover {
+              border-color: #075E54;
+            }
 
-.btn {
-  width: 100%;
-  padding: 9px; /* Reducido 12%: 10px → 9px */
-  background: linear-gradient(135deg, #075E54 0%, #128C7E 100%);
-  color: white;
-  border: none;
-  border-radius: 7px; /* Reducido 12%: 8px → 7px */
-  font-size: 11px; /* Reducido 12%: 13px → 11px */
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
+            .provider-option.active {
+              border-color: #075E54;
+              background: #e8f5e9;
+            }
 
-.btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(7, 94, 84, 0.3);
-}
+            .provider-option .icon {
+              font-size: 24px;
+              margin-bottom: 5px;
+            }
 
-.btn:active {
-  transform: translateY(0);
-}
+            .provider-option .name {
+              font-weight: 600;
+              color: #333;
+            }
 
-.btn-secondary {
-  background: #f5f5f5;
-  color: #333;
-}
+            .provider-option .desc {
+              font-size: 11px;
+              color: #666;
+            }
 
-.btn-secondary:hover {
-  background: #e0e0e0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
+            .provider-status {
+              display: flex;
+              align-items: center;
+              gap: 5px;
+              justify-content: center;
+              margin-top: 5px;
+              font-size: 11px;
+              font-weight: 500;
+            }
 
-.alert {
-  padding: 12px 15px;
-  border-radius: 10px;
-  margin-top: 15px;
-  font-size: 14px;
-}
+            .provider-status.ok {
+              color: #2e7d32;
+            }
 
-.alert-success {
-  background: #e8f5e9;
-  color: #2e7d32;
-  border: 1px solid #a5d6a7;
-}
+            .provider-status.error {
+              color: #c62828;
+            }
 
-.alert-error {
-  background: #ffebee;
-  color: #c62828;
-  border: 1px solid #ef9a9a;
-}
+            .provider-status.pending {
+              color: #ef6c00;
+            }
 
-footer {
-  text-align: center;
-  margin-top: 25px;
-  padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
-  color: #999;
-  font-size: 12px;
-}
+            .btn {
+              width: 100%;
+              padding: 9px;
+              /* Reducido 12%: 10px → 9px */
+              background: linear-gradient(135deg, #075E54 0%, #128C7E 100%);
+              color: white;
+              border: none;
+              border-radius: 7px;
+              /* Reducido 12%: 8px → 7px */
+              font-size: 11px;
+              /* Reducido 12%: 13px → 11px */
+              font-weight: 600;
+              cursor: pointer;
+              transition: transform 0.2s, box-shadow 0.2s;
+            }
 
-/* Test Section */
-.test-section {
-  display: none;
-  margin-top: 20px;
-  padding: 20px;
-  background: #f9f9f9;
-  border-radius: 10px;
-}
+            .btn:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 4px 12px rgba(7, 94, 84, 0.3);
+            }
 
-.test-section h3 {
-  color: #075E54;
-  margin-bottom: 15px;
-  text-align: center;
-}
+            .btn:active {
+              transform: translateY(0);
+            }
 
-.test-input {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
-}
+            .btn-secondary {
+              background: #f5f5f5;
+              color: #333;
+            }
 
-.test-input input {
-  flex: 1;
-  padding: 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  font-size: 14px;
-}
+            .btn-secondary:hover {
+              background: #e0e0e0;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            }
 
-.test-input button {
-  padding: 12px 25px;
-  background: #25D366;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 600;
-}
+            .alert {
+              padding: 12px 15px;
+              border-radius: 10px;
+              margin-top: 15px;
+              font-size: 14px;
+            }
 
-.chat-test {
-  max-height: 300px;
-  overflow-y: auto;
-  padding: 15px;
-  background: white;
-  border-radius: 10px;
-  display: none;
-}
+            .alert-success {
+              background: #e8f5e9;
+              color: #2e7d32;
+              border: 1px solid #a5d6a7;
+            }
 
-.chat-test.active {
-  display: block;
-}
+            .alert-error {
+              background: #ffebee;
+              color: #c62828;
+              border: 1px solid #ef9a9a;
+            }
 
-.message {
-  margin-bottom: 10px;
-  padding: 10px 15px;
-  border-radius: 10px;
-  max-width: 80%;
-  word-wrap: break-word;
-}
+            footer {
+              text-align: center;
+              margin-top: 25px;
+              padding-top: 20px;
+              border-top: 1px solid #e0e0e0;
+              color: #999;
+              font-size: 12px;
+            }
 
-.message.user {
-  background: #DCF8C6;
-  margin-left: auto;
-  text-align: right;
-}
+            /* Test Section */
+            .test-section {
+              display: none;
+              margin-top: 20px;
+              padding: 20px;
+              background: #f9f9f9;
+              border-radius: 10px;
+            }
 
-.message.bot {
-  background: #f0f0f0;
-  margin-right: auto;
-}
+            .test-section h3 {
+              color: #075E54;
+              margin-bottom: 15px;
+              text-align: center;
+            }
 
-/* ========================================
+            .test-input {
+              display: flex;
+              gap: 10px;
+              margin-bottom: 15px;
+            }
+
+            .test-input input {
+              flex: 1;
+              padding: 12px;
+              border: 2px solid #e0e0e0;
+              border-radius: 10px;
+              font-size: 14px;
+            }
+
+            .test-input button {
+              padding: 12px 25px;
+              background: #25D366;
+              color: white;
+              border: none;
+              border-radius: 10px;
+              cursor: pointer;
+              font-weight: 600;
+            }
+
+            .chat-test {
+              max-height: 300px;
+              overflow-y: auto;
+              padding: 15px;
+              background: white;
+              border-radius: 10px;
+              display: none;
+            }
+
+            .chat-test.active {
+              display: block;
+            }
+
+            .message {
+              margin-bottom: 10px;
+              padding: 10px 15px;
+              border-radius: 10px;
+              max-width: 80%;
+              word-wrap: break-word;
+            }
+
+            .message.user {
+              background: #DCF8C6;
+              margin-left: auto;
+              text-align: right;
+            }
+
+            .message.bot {
+              background: #f0f0f0;
+              margin-right: auto;
+            }
+
+            /* ========================================
    FIN DE LA PARTE 2
    CONTINÚA EN LA PARTE 3...
    ======================================== */
-</style>
+          </style>
 
-<!-- ========================================
+          <!-- ========================================
      PARTE 3: HTML DEL CONTENIDO ORIGINAL
      (Preservado sin modificar lógica)
      ======================================== -->
 
-<div class="container">
-  <div class="header">
-    <div class="header-left">
-      <img src="LOGO.jpeg" alt="NORBOY Logo" class="logo" style="width: 50px; height: 50px; object-fit: contain;">
-      <div class="header-title">
-        <h1>NORBOY Chatbot</h1>
-        <p>Elegimos Juntos 2026-2029</p>
-      </div>
-    </div>
-    <button class="settings-btn" onclick="toggleTab('settings')">⚙️</button>
-  </div>
-
-  <div class="tabs">
-    <div class="tab active" onclick="switchTab('whatsapp')">📱 WhatsApp</div>
-    <div class="tab" onclick="switchTab('settings')">🔑 API Keys</div>
-  </div>
-
-  <!-- WhatsApp Tab -->
-  <div id="tab-whatsapp" class="tab-content active">
-    <div class="status-container">
-      <div id="status" class="status disconnected">
-        <span class="status-dot"></span>
-        <span id="status-text">Desconectado</span>
-      </div>
-    </div>
-
-    <div id="qr-container" class="qr-container">
-      <div class="spinner"></div>
-      <p class="qr-placeholder">Cargando...</p>
-    </div>
-
-    <div id="instructions" class="instructions" style="display: none;">
-      <h3>📱 Cómo conectar WhatsApp:</h3>
-      <ol>
-        <li>Abre WhatsApp en tu teléfono</li>
-        <li>Ve a <strong>Configuración</strong> → <strong>Dispositivos vinculados</strong></li>
-        <li>Toca en <strong>Vincular un dispositivo</strong></li>
-        <li>Escanea el código QR de arriba</li>
-      </ol>
-    </div>
-
-    <!-- Botón para generar nuevo QR (siempre visible) -->
-    <div id="new-qr-button" style="margin-top: 20px;">
-      <button class="btn btn-secondary" onclick="limpiarSesion()" style="width: 100%; background: #ffebee; color: #c62828;">
-        🗑️ Generar Nuevo QR Code
-      </button>
-      <p style="text-align: center; margin-top: 10px; font-size: 12px; color: #666;">
-        ⚠️ Usa este botón si no aparece el QR o tienes problemas de conexión
-      </p>
-    </div>
-
-    <!-- Session Management Buttons (solo cuando está conectado) -->
-    <div id="session-buttons" style="display: none; margin-top: 20px;">
-      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-        <button class="btn btn-secondary" onclick="cerrarSesion()" style="flex: 1; min-width: 200px;">
-          🔓 Cerrar Sesión Actual
-        </button>
-        <button class="btn btn-secondary" onclick="limpiarSesion()" style="flex: 1; min-width: 200px; background: #ffebee; color: #c62828;">
-          🗑️ Nuevo QR Code
-        </button>
-      </div>
-      <p style="text-align: center; margin-top: 10px; font-size: 12px; color: #666;">
-        ⚠️ Cerrar sesión desconecta el bot. Nuevo QR requiere escanear de nuevo.
-      </p>
-    </div>
-
-    <div id="test-section" class="test-section">
-      <h3>🧪 Probar Chatbot</h3>
-      <div class="test-input">
-        <input type="text" id="test-message" placeholder="Escribe un mensaje...">
-        <button onclick="testChat()">Enviar</button>
-      </div>
-      <div id="chat-test" class="chat-test"></div>
-    </div>
-  </div>
-
-  <!-- Settings Tab -->
-  <div id="tab-settings" class="tab-content">
-    <!-- ✅ NUEVO: Sección de Proveedor de IA con prioridad fija -->
-    <div class="settings-section" style="margin-bottom: 20px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 2px solid #4caf50;">
-      <h3>🤖 Proveedor de IA</h3>
-
-      <div id="ai-settings-alert" style="margin-bottom: 15px;"></div>
-
-      <p style="margin-bottom: 15px; color: #555; font-size: 0.95em;">
-        <strong>Prioridad fija:</strong> ChatGPT es siempre el primario. Grok actúa como respaldo si ChatGPT falla.
-      </p>
-
-      <div style="display: flex; flex-direction: column; gap: 15px;">
-        <!-- Toggle ChatGPT -->
-        <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 24px;">🤖</span>
-            <div>
-              <strong style="color: #1a237e;">ChatGPT (OpenAI)</strong>
-              <div style="font-size: 0.85em; color: #666;">Proveedor primario - GPT-4</div>
+          <div class="container">
+            <div class="header">
+              <div class="header-left">
+                <img src="LOGO.jpeg" alt="NORBOY Logo" class="logo"
+                  style="width: 50px; height: 50px; object-fit: contain;">
+                <div class="header-title">
+                  <h1>NORBOY Chatbot</h1>
+                  <p>Elegimos Juntos 2026-2029</p>
+                </div>
+              </div>
+              <button class="settings-btn" onclick="toggleTab('settings')">⚙️</button>
             </div>
-          </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="ai-chatgpt-toggle" onchange="updateAIProviderSettings()">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
 
-        <!-- Toggle Grok -->
-        <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 24px;">🚀</span>
-            <div>
-              <strong style="color: #ff6f00;">Grok (Groq)</strong>
-              <div style="font-size: 0.85em; color: #666;">Respaldo - Llama 3</div>
+            <div class="tabs">
+              <div class="tab active" onclick="switchTab('whatsapp')">📱 WhatsApp</div>
+              <div class="tab" onclick="switchTab('settings')">🔑 API Keys</div>
             </div>
+
+            <!-- WhatsApp Tab -->
+            <div id="tab-whatsapp" class="tab-content active">
+              <div class="status-container">
+                <div id="status" class="status disconnected">
+                  <span class="status-dot"></span>
+                  <span id="status-text">Desconectado</span>
+                </div>
+              </div>
+
+              <div id="qr-container" class="qr-container">
+                <div class="spinner"></div>
+                <p class="qr-placeholder">Cargando...</p>
+              </div>
+
+              <div id="instructions" class="instructions" style="display: none;">
+                <h3>📱 Cómo conectar WhatsApp:</h3>
+                <ol>
+                  <li>Abre WhatsApp en tu teléfono</li>
+                  <li>Ve a <strong>Configuración</strong> → <strong>Dispositivos vinculados</strong></li>
+                  <li>Toca en <strong>Vincular un dispositivo</strong></li>
+                  <li>Escanea el código QR de arriba</li>
+                </ol>
+              </div>
+
+              <!-- Botón para generar nuevo QR (siempre visible) -->
+              <div id="new-qr-button" style="margin-top: 20px;">
+                <button class="btn btn-secondary" onclick="limpiarSesion()"
+                  style="width: 100%; background: #ffebee; color: #c62828;">
+                  🗑️ Generar Nuevo QR Code
+                </button>
+                <p style="text-align: center; margin-top: 10px; font-size: 12px; color: #666;">
+                  ⚠️ Usa este botón si no aparece el QR o tienes problemas de conexión
+                </p>
+              </div>
+
+              <!-- Session Management Buttons (solo cuando está conectado) -->
+              <div id="session-buttons" style="display: none; margin-top: 20px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button class="btn btn-secondary" onclick="cerrarSesion()" style="flex: 1; min-width: 200px;">
+                    🔓 Cerrar Sesión Actual
+                  </button>
+                  <button class="btn btn-secondary" onclick="limpiarSesion()"
+                    style="flex: 1; min-width: 200px; background: #ffebee; color: #c62828;">
+                    🗑️ Nuevo QR Code
+                  </button>
+                </div>
+                <p style="text-align: center; margin-top: 10px; font-size: 12px; color: #666;">
+                  ⚠️ Cerrar sesión desconecta el bot. Nuevo QR requiere escanear de nuevo.
+                </p>
+              </div>
+
+              <div id="test-section" class="test-section">
+                <h3>🧪 Probar Chatbot</h3>
+                <div class="test-input">
+                  <input type="text" id="test-message" placeholder="Escribe un mensaje...">
+                  <button onclick="testChat()">Enviar</button>
+                </div>
+                <div id="chat-test" class="chat-test"></div>
+              </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="tab-settings" class="tab-content">
+              <!-- ✅ NUEVO: Sección de Proveedor de IA con prioridad fija -->
+              <div class="settings-section"
+                style="margin-bottom: 20px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border: 2px solid #4caf50;">
+                <h3>🤖 Proveedor de IA</h3>
+
+                <div id="ai-settings-alert" style="margin-bottom: 15px;"></div>
+
+                <p style="margin-bottom: 15px; color: #555; font-size: 0.95em;">
+                  <strong>Prioridad fija:</strong> ChatGPT es siempre el primario. Grok actúa como respaldo si ChatGPT
+                  falla.
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                  <!-- Toggle ChatGPT -->
+                  <div
+                    style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                      <span style="font-size: 24px;">🤖</span>
+                      <div>
+                        <strong style="color: #1a237e;">ChatGPT (OpenAI)</strong>
+                        <div style="font-size: 0.85em; color: #666;">Proveedor primario - GPT-4</div>
+                      </div>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="ai-chatgpt-toggle" onchange="updateAIProviderSettings()">
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+
+                  <!-- Toggle Grok -->
+                  <div
+                    style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                      <span style="font-size: 24px;">🚀</span>
+                      <div>
+                        <strong style="color: #ff6f00;">Grok (Groq)</strong>
+                        <div style="font-size: 0.85em; color: #666;">Respaldo - Llama 3</div>
+                      </div>
+                    </div>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="ai-grok-toggle" onchange="updateAIProviderSettings()">
+                      <span class="toggle-slider"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <div id="ai-provider-status"
+                  style="margin-top: 15px; padding: 10px; border-radius: 6px; background: #f5f5f5; font-size: 0.9em;">
+                </div>
+              </div>
+
+              <div class="settings-section">
+                <h3>⚙️ Configuración de API Keys</h3>
+
+                <div id="settings-alert"></div>
+
+                <div class="provider-select">
+                  <div id="provider-groq" class="provider-option active" onclick="selectProvider('groq')">
+                    <div class="icon">🚀</div>
+                    <div class="name">Groq</div>
+                    <div class="desc">Rápido y gratuito</div>
+                    <div id="groq-status" class="provider-status pending">⏳ No configurado</div>
+                  </div>
+                  <div id="provider-openai" class="provider-option" onclick="selectProvider('openai')">
+                    <div class="icon">🤖</div>
+                    <div class="name">OpenAI</div>
+                    <div class="desc">GPT-4 / GPT-3.5</div>
+                    <div id="openai-status" class="provider-status pending">⏳ No configurado</div>
+                  </div>
+                </div>
+
+                <!-- Groq Settings -->
+                <div id="groq-settings">
+                  <div class="form-group">
+                    <label>🔑 Groq API Key</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <input type="password" id="groq-key" placeholder="gsk_..." style="flex: 1;">
+                      <button onclick="deleteApiKey('groq')" title="Eliminar API Key de Groq"
+                        style="padding: 10px 14px; background: #ffebee; color: #c62828; border: 2px solid #ef9a9a; border-radius: 10px; cursor: pointer; font-size: 13px; white-space: nowrap; transition: all 0.3s;">
+                        🗑️ Eliminar
+                      </button>
+                    </div>
+                    <div id="groq-key-status" style="margin-top: 5px; font-size: 12px;"></div>
+                    <small>Obtén tu key en <a href="https://console.groq.com"
+                        target="_blank">console.groq.com</a></small>
+                  </div>
+                  <div class="form-group">
+                    <label>Modelo</label>
+                    <select id="groq-model">
+                      <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Recomendado)</option>
+                      <option value="llama-3.1-70b-versatile">Llama 3.1 70B</option>
+                      <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                      <option value="gemma2-9b-it">Gemma 2 9B</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                      <input type="checkbox" id="groq-enabled" checked
+                        style="width: 18px; height: 18px; cursor: pointer;">
+                      <span>✅ Activar Groq</span>
+                    </label>
+                    <small style="margin-left: 28px; color: #666;">Desmarca para desactivar este proveedor de IA</small>
+                  </div>
+                </div>
+
+                <!-- OpenAI Settings -->
+                <div id="openai-settings" style="display: none;">
+                  <div class="form-group">
+                    <label>🔑 OpenAI API Key</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <input type="password" id="openai-key" placeholder="sk-..." style="flex: 1;">
+                      <button onclick="deleteApiKey('openai')" title="Eliminar API Key de OpenAI"
+                        style="padding: 10px 14px; background: #ffebee; color: #c62828; border: 2px solid #ef9a9a; border-radius: 10px; cursor: pointer; font-size: 13px; white-space: nowrap; transition: all 0.3s;">
+                        🗑️ Eliminar
+                      </button>
+                    </div>
+                    <div id="openai-key-status" style="margin-top: 5px; font-size: 12px;"></div>
+                    <small>Obtén tu key en <a href="https://platform.openai.com/api-keys"
+                        target="_blank">platform.openai.com</a></small>
+                  </div>
+                  <div class="form-group">
+                    <label>Modelo</label>
+                    <select id="openai-model">
+                      <option value="gpt-4o-mini">GPT-4o Mini (Económico)</option>
+                      <option value="gpt-4o">GPT-4o (Potente)</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                      <input type="checkbox" id="openai-enabled" checked
+                        style="width: 18px; height: 18px; cursor: pointer;">
+                      <span>✅ Activar OpenAI</span>
+                    </label>
+                    <small style="margin-left: 28px; color: #666;">Desmarca para desactivar este proveedor de IA</small>
+                  </div>
+                </div>
+
+                <!-- ✅ NUEVO: AWS/DynamoDB Settings -->
+                <div id="aws-settings"
+                  style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border-radius: 12px; border: 2px solid #ff9800;">
+                  <h4 style="margin: 0 0 15px 0; color: #e65100; display: flex; align-items: center; gap: 8px;">🗄️ AWS
+                    / DynamoDB</h4>
+                  <p style="margin: 0 0 15px 0; font-size: 13px; color: #666;">Credenciales para la base de datos
+                    DynamoDB. Necesarias para persistencia de mensajes.</p>
+                  <div class="form-group">
+                    <label>🔑 AWS Access Key ID</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                      <input type="password" id="aws-access-key" placeholder="AKIA..." style="flex: 1;">
+                      <button onclick="deleteApiKey('aws')" title="Eliminar credenciales AWS"
+                        style="padding: 10px 14px; background: #ffebee; color: #c62828; border: 2px solid #ef9a9a; border-radius: 10px; cursor: pointer; font-size: 13px; white-space: nowrap; transition: all 0.3s;">
+                        🗑️ Eliminar
+                      </button>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label>🔐 AWS Secret Access Key</label>
+                    <input type="password" id="aws-secret-key" placeholder="wJalr..." style="width: 100%;">
+                  </div>
+                  <div class="form-group">
+                    <label>🌎 AWS Region</label>
+                    <select id="aws-region">
+                      <option value="us-east-1">US East (N. Virginia)</option>
+                      <option value="us-east-2">US East (Ohio)</option>
+                      <option value="us-west-1">US West (N. California)</option>
+                      <option value="us-west-2">US West (Oregon)</option>
+                      <option value="sa-east-1">South America (São Paulo)</option>
+                      <option value="eu-west-1">EU (Ireland)</option>
+                      <option value="eu-central-1">EU (Frankfurt)</option>
+                      <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
+                    </select>
+                  </div>
+                  <div id="aws-key-status" style="margin-top: 5px; font-size: 12px;"></div>
+                  <small>Configura las credenciales en <a href="https://console.aws.amazon.com/iam" target="_blank">AWS
+                      IAM Console</a></small>
+                </div>
+
+                <button class="btn" onclick="saveSettings()" style="margin-top: 15px;">💾 Guardar Configuración</button>
+
+                <div style="margin-top: 15px;">
+                  <button class="btn btn-secondary" onclick="testConnection()">🔌 Probar Conexión</button>
+                </div>
+
+                <!-- ✅ NUEVO: Botón rápido para eliminar TODAS las keys (para subir a GitHub) -->
+                <div
+                  style="margin-top: 20px; padding: 15px; background: #fff3e0; border-radius: 10px; border: 2px solid #ff9800;">
+                  <h4 style="margin: 0 0 10px 0; color: #e65100; font-size: 14px;">🚀 Preparar para GitHub</h4>
+                  <p style="margin: 0 0 12px 0; font-size: 12px; color: #666;">Elimina ambas keys de .env y
+                    settings.json para subir el código de forma segura.</p>
+                  <button class="btn" onclick="deleteAllApiKeys()"
+                    style="background: linear-gradient(135deg, #ff5722 0%, #d84315 100%); font-size: 12px;">
+                    🗑️ Eliminar TODAS las API Keys
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <footer>
+              NORBOY - Asistente Virtual WhatsApp
+            </footer>
           </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="ai-grok-toggle" onchange="updateAIProviderSettings()">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
 
-      <div id="ai-provider-status" style="margin-top: 15px; padding: 10px; border-radius: 6px; background: #f5f5f5; font-size: 0.9em;"></div>
-    </div>
-
-    <div class="settings-section">
-      <h3>⚙️ Configuración de API Keys</h3>
-
-      <div id="settings-alert"></div>
-
-      <div class="provider-select">
-        <div id="provider-groq" class="provider-option active" onclick="selectProvider('groq')">
-          <div class="icon">🚀</div>
-          <div class="name">Groq</div>
-          <div class="desc">Rápido y gratuito</div>
-          <div id="groq-status" class="provider-status pending">⏳ No configurado</div>
-        </div>
-        <div id="provider-openai" class="provider-option" onclick="selectProvider('openai')">
-          <div class="icon">🤖</div>
-          <div class="name">OpenAI</div>
-          <div class="desc">GPT-4 / GPT-3.5</div>
-          <div id="openai-status" class="provider-status pending">⏳ No configurado</div>
-        </div>
-      </div>
-
-      <!-- Groq Settings -->
-      <div id="groq-settings">
-        <div class="form-group">
-          <label>🔑 Groq API Key</label>
-          <input type="password" id="groq-key" placeholder="gsk_...">
-          <small>Obtén tu key en <a href="https://console.groq.com" target="_blank">console.groq.com</a></small>
-        </div>
-        <div class="form-group">
-          <label>Modelo</label>
-          <select id="groq-model">
-            <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Recomendado)</option>
-            <option value="llama-3.1-70b-versatile">Llama 3.1 70B</option>
-            <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
-            <option value="gemma2-9b-it">Gemma 2 9B</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-            <input type="checkbox" id="groq-enabled" checked style="width: 18px; height: 18px; cursor: pointer;">
-            <span>✅ Activar Groq</span>
-          </label>
-          <small style="margin-left: 28px; color: #666;">Desmarca para desactivar este proveedor de IA</small>
-        </div>
-      </div>
-
-      <!-- OpenAI Settings -->
-      <div id="openai-settings" style="display: none;">
-        <div class="form-group">
-          <label>🔑 OpenAI API Key</label>
-          <input type="password" id="openai-key" placeholder="sk-...">
-          <small>Obtén tu key en <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a></small>
-        </div>
-        <div class="form-group">
-          <label>Modelo</label>
-          <select id="openai-model">
-            <option value="gpt-4o-mini">GPT-4o Mini (Económico)</option>
-            <option value="gpt-4o">GPT-4o (Potente)</option>
-            <option value="gpt-4-turbo">GPT-4 Turbo</option>
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-            <input type="checkbox" id="openai-enabled" checked style="width: 18px; height: 18px; cursor: pointer;">
-            <span>✅ Activar OpenAI</span>
-          </label>
-          <small style="margin-left: 28px; color: #666;">Desmarca para desactivar este proveedor de IA</small>
-        </div>
-      </div>
-
-      <button class="btn" onclick="saveSettings()">💾 Guardar Configuración</button>
-
-      <div style="margin-top: 15px;">
-        <button class="btn btn-secondary" onclick="testConnection()">🔌 Probar Conexión</button>
-      </div>
-    </div>
-  </div>
-
-  <footer>
-    NORBOY - Asistente Virtual WhatsApp
-  </footer>
-</div>
-
-<!-- ========================================
+          <!-- ========================================
      VISTA DE CONVERSACIONES
      ======================================== -->
-<div id="conversations-view" style="display: none;">
+          <div id="conversations-view" style="display: none;">
 
-  <!-- Estadísticas -->
-  <div class="stats-cards" id="conversations-stats">
-    <div class="stat-card">
-      <div class="stat-number" id="stat-total">0</div>
-      <div class="stat-label">Total</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number" id="stat-active">0</div>
-      <div class="stat-label">Activas</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number" id="stat-expired">0</div>
-      <div class="stat-label">Expiradas</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-number" id="stat-consent-accepted">0</div>
-      <div class="stat-label">Aceptaron</div>
-    </div>
-    <!-- NUEVOS INDICADORES DE ESCALACIÓN -->
-    <div class="stat-card" style="background: linear-gradient(135deg, #fff9c4 0%, #ffecb3 100%);">
-      <div class="stat-number" id="stat-pending">0</div>
-      <div class="stat-label">⚠️ Pendientes</div>
-    </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);">
-      <div class="stat-number" id="stat-with-advisor">0</div>
-      <div class="stat-label">👨‍💼 con Asesor</div>
-    </div>
-  </div>
+            <!-- Estadísticas -->
+            <div class="stats-cards" id="conversations-stats">
+              <div class="stat-card">
+                <div class="stat-number" id="stat-total">0</div>
+                <div class="stat-label">Total</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-number" id="stat-active">0</div>
+                <div class="stat-label">Activas</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-number" id="stat-expired">0</div>
+                <div class="stat-label">Expiradas</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-number" id="stat-consent-accepted">0</div>
+                <div class="stat-label">Aceptaron</div>
+              </div>
+              <!-- NUEVOS INDICADORES DE ESCALACIÓN -->
+              <div class="stat-card" style="background: linear-gradient(135deg, #fff9c4 0%, #ffecb3 100%);">
+                <div class="stat-number" id="stat-pending">0</div>
+                <div class="stat-label">⚠️ Pendientes</div>
+              </div>
+              <div class="stat-card" style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);">
+                <div class="stat-number" id="stat-with-advisor">0</div>
+                <div class="stat-label">👨‍💼 con Asesor</div>
+              </div>
+            </div>
 
-  <!-- Control de Horario -->
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
-    <div style="flex: 1;">
-      <h3 style="margin: 0 0 5px 0; color: var(--primary-green);">⏰ Control de Horario</h3>
-      <p style="margin: 0; font-size: 0.9em; color: var(--medium-gray);">
-        Horario de atención: 8:00 AM - 4:30 PM
-        <span id="schedule-status" style="margin-left: 10px; font-weight: bold;">Verificando...</span>
-      </p>
-    </div>
-    <div style="display: flex; gap: 10px;">
-      <button class="upload-btn" id="btn-enable-schedule" onclick="toggleScheduleCheck(true)" style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);">
-        ✅ Activar Horario
-      </button>
-      <button class="upload-btn" id="btn-disable-schedule" onclick="toggleScheduleCheck(false)" style="background: linear-gradient(135deg, #f44336 0%, #c62828 100%);">
-        ❌ Desactivar Horario
-      </button>
-    </div>
-  </div>
+            <!-- Controles de Horario y Festivos -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
 
-  <!-- Botón para actualizar -->
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <h2 style="color: var(--primary-green); margin: 0;">💬 Conversaciones Activas</h2>
-    <button class="upload-btn" onclick="loadConversations()">
-      🔄 Actualizar
-    </button>
-  </div>
+              <!-- Control de Horario -->
+              <div
+                style="display: flex; flex-direction: column; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                  <div style="flex: 1;">
+                    <h3 style="margin: 0 0 5px 0; color: var(--primary-green); font-size: 1em;">⏰ Control de Horario
+                    </h3>
+                    <p style="margin: 0; font-size: 0.8em; color: var(--medium-gray);">
+                      Horario: 8:00 AM - 4:30 PM
+                    </p>
+                    <p style="margin: 5px 0 0 0; font-size: 0.8em;">
+                      Estado: <span id="schedule-status" style="font-weight: bold;">Verificando...</span>
+                    </p>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: auto;">
+                  <button class="upload-btn" id="btn-enable-schedule" onclick="toggleScheduleCheck(true)"
+                    style="flex: 1; background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); font-size: 0.8em; padding: 8px 10px;">
+                    ✅ Activar
+                  </button>
+                  <button class="upload-btn" id="btn-disable-schedule" onclick="toggleScheduleCheck(false)"
+                    style="flex: 1; background: linear-gradient(135deg, #f44336 0%, #c62828 100%); font-size: 0.8em; padding: 8px 10px;">
+                    ❌ Desactivar
+                  </button>
+                </div>
+              </div>
 
-  <!-- Tabla de conversaciones -->
-  <div id="conversations-loading" style="display: none; text-align: center; padding: 40px;">
-    <div class="loading-spinner"></div>
-    <p style="margin-top: 15px; color: var(--medium-gray);">Cargando conversaciones...</p>
-  </div>
+              <!-- Control de Días Festivos -->
+              <div
+                style="display: flex; flex-direction: column; padding: 15px; background: #fff3e0; border-radius: 8px; border: 2px solid #ff9800;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                  <div style="flex: 1;">
+                    <h3 style="margin: 0 0 5px 0; color: #e65100; font-size: 1em;">🎉 Control de Festivos</h3>
+                    <p style="margin: 0; font-size: 0.8em; color: var(--medium-gray);">
+                      Verifica días festivos
+                    </p>
+                    <p style="margin: 5px 0 0 0; font-size: 0.8em;">
+                      Estado: <span id="holiday-status" style="font-weight: bold;">Verificando...</span>
+                    </p>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: auto;">
+                  <button class="upload-btn" id="btn-enable-holiday" onclick="toggleHolidayCheck(true)"
+                    style="flex: 1; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); font-size: 0.8em; padding: 8px 10px; color: white;">
+                    ✅ Activar
+                  </button>
+                  <button class="upload-btn" id="btn-disable-holiday" onclick="toggleHolidayCheck(false)"
+                    style="flex: 1; background: linear-gradient(135deg, #9e9e9e 0%, #616161 100%); font-size: 0.8em; padding: 8px 10px;">
+                    ❌ Desactivar
+                  </button>
+                </div>
+              </div>
+            </div>
 
-  <div id="conversations-content" style="display: none;">
-    <!-- Contenedor scrollable para móvil -->
-    <div class="table-responsive">
-      <table class="conversations-table">
-        <thead>
-          <tr>
-            <th style="width: 12%;">Nombre</th>
-            <th style="width: 13%;">Teléfono</th>
-            <th style="width: 22%;">Último Mensaje</th>
-            <th style="width: 11%;">Estado</th>
-            <th style="width: 12%;">Consentimiento</th>
-            <th style="width: 11%;">Tiempo Restante</th>
-            <th style="width: 19%;">Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="conversations-table-body">
-          <!-- Se llena dinámicamente -->
-        </tbody>
-      </table>
-    </div>
-  </div>
+            <!-- Botón para actualizar -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <h2 style="color: var(--primary-green); margin: 0;">💬 Conversaciones Activas</h2>
+              <button class="upload-btn" onclick="loadConversations()">
+                🔄 Actualizar
+              </button>
+            </div>
 
-  <div id="conversations-empty" style="display: none; text-align: center; padding: 60px 20px;">
-    <div style="font-size: 64px; margin-bottom: 15px;">💬</div>
-    <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay conversaciones activas</h3>
-    <p style="color: var(--medium-gray);">Las conversaciones aparecerán aquí cuando los usuarios interactúen con el bot.</p>
-  </div>
-</div>
+            <!-- Tabla de conversaciones -->
+            <div id="conversations-loading" style="display: none; text-align: center; padding: 40px;">
+              <div class="loading-spinner"></div>
+              <p style="margin-top: 15px; color: var(--medium-gray);">Cargando conversaciones...</p>
+            </div>
 
-<!-- ========================================
+            <div id="conversations-content" style="display: none;">
+              <!-- Contenedor scrollable para móvil -->
+              <div class="table-responsive">
+                <table class="conversations-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 12%;">Nombre</th>
+                      <th style="width: 13%;">Teléfono</th>
+                      <th style="width: 22%;">Último Mensaje</th>
+                      <th style="width: 11%;">Estado</th>
+                      <th style="width: 12%;">Consentimiento</th>
+                      <th style="width: 11%;">Tiempo Restante</th>
+                      <th style="width: 19%;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="conversations-table-body">
+                    <!-- Se llena dinámicamente -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div id="conversations-empty" style="display: none; text-align: center; padding: 60px 20px;">
+              <div style="font-size: 64px; margin-bottom: 15px;">💬</div>
+              <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay conversaciones activas</h3>
+              <p style="color: var(--medium-gray);">Las conversaciones aparecerán aquí cuando los usuarios interactúen
+                con el bot.</p>
+            </div>
+          </div>
+
+          <!-- ========================================
      VISTA DE DOCUMENTOS (CON SISTEMA DE ETAPAS)
      ======================================== -->
-<div id="documents-view" style="display: none;">
+          <div id="documents-view" style="display: none;">
 
-  <!-- Header con título y botones -->
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <div>
-      <h2 style="color: var(--primary-green); margin: 0;">📁 Base de Conocimiento</h2>
-      <p style="color: var(--medium-gray); margin: 5px 0 0 0; font-size: 0.9em;">
-        Gestiona los documentos organizados por etapas del proceso
-      </p>
-    </div>
-    <div style="display: flex; gap: 10px;">
-      <button class="upload-btn" onclick="openCreateStageModal()" style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);">
-        ➕ Agregar Etapa
-      </button>
-      <button class="upload-btn" onclick="openUploadModalFromView()">
-        📤 Subir Documento
-      </button>
-    </div>
-  </div>
+            <!-- Header con título y botones -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <div>
+                <h2 style="color: var(--primary-green); margin: 0;">📁 Base de Conocimiento</h2>
+                <p style="color: var(--medium-gray); margin: 5px 0 0 0; font-size: 0.9em;">
+                  Gestiona los documentos organizados por etapas del proceso
+                </p>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <button class="upload-btn" onclick="openCreateStageModal()"
+                  style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);">
+                  ➕ Agregar Etapa
+                </button>
+                <button class="upload-btn" onclick="openUploadModalFromView()">
+                  📤 Subir Documento
+                </button>
+              </div>
+            </div>
 
-  <!-- ✅ NUEVO: PESTAÑAS DE ETAPAS -->
-  <div id="stages-tabs-container" style="margin-bottom: 20px;">
-    <!-- Tabs header -->
-    <div id="stages-tabs-header" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;">
-      <!-- Las pestañas se generarán dinámicamente aquí -->
-    </div>
-  </div>
+            <!-- ✅ NUEVO: PESTAÑAS DE ETAPAS -->
+            <div id="stages-tabs-container" style="margin-bottom: 20px;">
+              <!-- Tabs header -->
+              <div id="stages-tabs-header"
+                style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;">
+                <!-- Las pestañas se generarán dinámicamente aquí -->
+              </div>
+            </div>
 
-  <!-- Estadísticas -->
-  <div class="stats-cards" style="margin-bottom: 20px;">
-    <div class="stat-card">
-      <div class="stat-number" id="doc-stat-total">0</div>
-      <div class="stat-label">Total Documentos</div>
-    </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);">
-      <div class="stat-number" id="doc-stat-pdf">0</div>
-      <div class="stat-label">📄 PDF</div>
-    </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);">
-      <div class="stat-number" id="doc-stat-txt">0</div>
-      <div class="stat-label">📝 TXT</div>
-    </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);">
-      <div class="stat-number" id="doc-stat-chunks">0</div>
-      <div class="stat-label">🧩 Fragmentos</div>
-    </div>
-  </div>
+            <!-- Estadísticas -->
+            <div class="stats-cards" style="margin-bottom: 20px;">
+              <div class="stat-card">
+                <div class="stat-number" id="doc-stat-total">0</div>
+                <div class="stat-label">Total Documentos</div>
+              </div>
+              <div class="stat-card" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);">
+                <div class="stat-number" id="doc-stat-pdf">0</div>
+                <div class="stat-label">📄 PDF</div>
+              </div>
+              <div class="stat-card" style="background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);">
+                <div class="stat-number" id="doc-stat-txt">0</div>
+                <div class="stat-label">📝 TXT</div>
+              </div>
+              <div class="stat-card" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);">
+                <div class="stat-number" id="doc-stat-chunks">0</div>
+                <div class="stat-label">🧩 Fragmentos</div>
+              </div>
+            </div>
 
-  <!-- Loading -->
-  <div id="documents-view-loading" style="display: none; text-align: center; padding: 40px;">
-    <div class="loading-spinner"></div>
-    <p style="margin-top: 15px; color: var(--medium-gray);">Cargando documentos...</p>
-  </div>
+            <!-- Loading -->
+            <div id="documents-view-loading" style="display: none; text-align: center; padding: 40px;">
+              <div class="loading-spinner"></div>
+              <p style="margin-top: 15px; color: var(--medium-gray);">Cargando documentos...</p>
+            </div>
 
-  <!-- Content -->
-  <div id="documents-view-content" style="display: none;">
-    <!-- Tabla de documentos -->
-    <div class="table-responsive">
-      <table class="conversations-table">
-        <thead>
-          <tr>
-            <th style="width: 5%;">Tipo</th>
-            <th style="width: 35%;">Nombre del Archivo</th>
-            <th style="width: 15%;">Fecha de Subida</th>
-            <th style="width: 12%;">Tamaño</th>
-            <th style="width: 10%;">Fragmentos</th>
-            <th style="width: 23%;">Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="documents-view-table-body">
-          <!-- Los documentos se cargarán aquí -->
-        </tbody>
-      </table>
-    </div>
-  </div>
+            <!-- Content -->
+            <div id="documents-view-content" style="display: none;">
+              <!-- Tabla de documentos -->
+              <div class="table-responsive">
+                <table class="conversations-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 5%;">Tipo</th>
+                      <th style="width: 35%;">Nombre del Archivo</th>
+                      <th style="width: 15%;">Fecha de Subida</th>
+                      <th style="width: 12%;">Tamaño</th>
+                      <th style="width: 10%;">Fragmentos</th>
+                      <th style="width: 23%;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="documents-view-table-body">
+                    <!-- Los documentos se cargarán aquí -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-  <!-- Empty state -->
-  <div id="documents-view-empty" style="display: none;">
-    <div style="text-align: center; padding: 60px 20px;">
-      <div style="font-size: 64px; margin-bottom: 15px;">📁</div>
-      <h3 style="color: var(--medium-gray);">No hay documentos en esta etapa</h3>
-      <p style="color: var(--medium-gray); margin-bottom: 20px;">
-        Sube archivos PDF o TXT para enriquecer la base de conocimiento del chatbot
-      </p>
-      <button class="upload-btn" onclick="openUploadModalFromView()">
-        📤 Subir Primer Documento
-      </button>
-    </div>
-  </div>
-</div>
+            <!-- Empty state -->
+            <div id="documents-view-empty" style="display: none;">
+              <div style="text-align: center; padding: 60px 20px;">
+                <div style="font-size: 64px; margin-bottom: 15px;">📁</div>
+                <h3 style="color: var(--medium-gray);">No hay documentos en esta etapa</h3>
+                <p style="color: var(--medium-gray); margin-bottom: 20px;">
+                  Sube archivos PDF o TXT para enriquecer la base de conocimiento del chatbot
+                </p>
+                <button class="upload-btn" onclick="openUploadModalFromView()">
+                  📤 Subir Primer Documento
+                </button>
+              </div>
+            </div>
+          </div>
 
-<!-- ========================================
+          <!-- ========================================
      ✅ NUEVO: MODAL PARA CREAR/EDITAR ETAPA
      ======================================== -->
-<div class="modal-overlay" id="stage-modal">
-  <div class="modal-container" style="max-width: 500px;">
-    <div class="modal-header">
-      <h3 class="modal-title" id="stage-modal-title">➕ Nueva Etapa</h3>
-      <button class="modal-close" onclick="closeStageModal()">&times;</button>
-    </div>
+          <div class="modal-overlay" id="stage-modal">
+            <div class="modal-container" style="max-width: 500px;">
+              <div class="modal-header">
+                <h3 class="modal-title" id="stage-modal-title">➕ Nueva Etapa</h3>
+                <button class="modal-close" onclick="closeStageModal()">&times;</button>
+              </div>
 
-    <div style="padding: 20px;">
-      <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--primary-green);">
-        Nombre de la Etapa:
-      </label>
-      <input type="text" id="stage-name-input" placeholder="Ej: Validación Inicial" style="
+              <div style="padding: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--primary-green);">
+                  Nombre de la Etapa:
+                </label>
+                <input type="text" id="stage-name-input" placeholder="Ej: Validación Inicial" style="
         width: 100%;
         padding: 12px;
         border: 2px solid #e0e0e0;
@@ -3709,294 +4084,306 @@ footer {
         font-size: 14px;
         box-sizing: border-box;
       ">
-      <input type="hidden" id="stage-id-input">
+                <input type="hidden" id="stage-id-input">
 
-      <div style="display: flex; gap: 10px; margin-top: 20px;">
-        <button class="upload-btn" onclick="saveStage()" style="flex: 1; background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);">
-          ✅ Guardar
-        </button>
-        <button class="upload-btn" onclick="closeStageModal()" style="flex: 1; background: linear-gradient(135deg, #f44336 0%, #c62828 100%);">
-          ❌ Cancelar
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                  <button class="upload-btn" onclick="saveStage()"
+                    style="flex: 1; background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%);">
+                    ✅ Guardar
+                  </button>
+                  <button class="upload-btn" onclick="closeStageModal()"
+                    style="flex: 1; background: linear-gradient(135deg, #f44336 0%, #c62828 100%);">
+                    ❌ Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-<!-- ========================================
+          <!-- ========================================
      VISTA DE CONTROL DE NÚMEROS
      ======================================== -->
-<div id="number-control-view" style="display: none;">
+          <div id="number-control-view" style="display: none;">
 
-  <!-- Header con título -->
-  <div style="margin-bottom: 20px;">
-    <h2 style="color: var(--primary-green); margin: 0;">🔢 Control de Números</h2>
-    <p style="color: var(--medium-gray); margin: 5px 0 0 0; font-size: 0.9em;">
-      Gestiona los números a los que la IA NO debe responder automáticamente
-    </p>
-  </div>
+            <!-- Header con título -->
+            <div style="margin-bottom: 20px;">
+              <h2 style="color: var(--primary-green); margin: 0;">🔢 Control de Números</h2>
+              <p style="color: var(--medium-gray); margin: 5px 0 0 0; font-size: 0.9em;">
+                Gestiona los números a los que la IA NO debe responder automáticamente
+              </p>
+            </div>
 
-  <!-- Estadísticas -->
-  <div class="stats-cards" style="margin-bottom: 20px;">
-    <div class="stat-card">
-      <div class="stat-number" id="nc-stat-total-conversations">0</div>
-      <div class="stat-label">Total Conversaciones</div>
-    </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);">
-      <div class="stat-number" id="nc-stat-ia-inactive">0</div>
-      <div class="stat-label">🔴 IA Desactivada</div>
-    </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);">
-      <div class="stat-number" id="nc-stat-ia-active">0</div>
-      <div class="stat-label">🟢 IA Activa</div>
-    </div>
-  </div>
+            <!-- Estadísticas -->
+            <div class="stats-cards" style="margin-bottom: 20px;">
+              <div class="stat-card">
+                <div class="stat-number" id="nc-stat-total-conversations">0</div>
+                <div class="stat-label">Total Conversaciones</div>
+              </div>
+              <div class="stat-card" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);">
+                <div class="stat-number" id="nc-stat-ia-inactive">0</div>
+                <div class="stat-label">🔴 IA Desactivada</div>
+              </div>
+              <div class="stat-card" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);">
+                <div class="stat-number" id="nc-stat-ia-active">0</div>
+                <div class="stat-label">🟢 IA Activa</div>
+              </div>
+            </div>
 
-  <!-- Información importante -->
-  <div style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin-bottom: 20px; border-radius: 0 8px 8px 0;">
-    <strong>⚠️ Importante:</strong>
-    <ul style="margin: 10px 0 0 0; padding-left: 20px; color: var(--dark-gray);">
-      <li>Los números con IA desactivada <strong>pueden seguir escribiendo</strong> mensajes.</li>
-      <li>Solo se desactiva la <strong>respuesta automática de la IA</strong>.</li>
-      <li>Los asesores pueden ver y responder manualmente desde "Conversaciones".</li>
-    </ul>
-  </div>
+            <!-- Información importante -->
+            <div
+              style="background: #fff3e0; border-left: 4px solid #ff9800; padding: 15px; margin-bottom: 20px; border-radius: 0 8px 8px 0;">
+              <strong>⚠️ Importante:</strong>
+              <ul style="margin: 10px 0 0 0; padding-left: 20px; color: var(--dark-gray);">
+                <li>Los números con IA desactivada <strong>pueden seguir escribiendo</strong> mensajes.</li>
+                <li>Solo se desactiva la <strong>respuesta automática de la IA</strong>.</li>
+                <li>Los asesores pueden ver y responder manualmente desde "Conversaciones".</li>
+              </ul>
+            </div>
 
-  <!-- TABS de navegación -->
-  <div class="tabs" id="nc-tabs" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-    <div style="display: flex; gap: 5px;">
-      <button class="tab active" onclick="switchNCTab('all')" id="nc-tab-all">
-        📋 Todos los Números
-      </button>
-      <button class="tab" onclick="switchNCTab('disabled')" id="nc-tab-disabled">
-        🔴 IA Desactivada
-      </button>
-      <button class="tab" onclick="switchNCTab('spam')" id="nc-tab-spam">
-        🚫 Spam (<span id="nc-spam-count">0</span>)
-      </button>
-    </div>
-    <!-- ✅ NUEVO: Botón para agregar número manualmente -->
-    <button class="upload-btn" onclick="openAddNumberModal()" style="padding: 8px 16px; font-size: 13px;">
-      ➕ Agregar Número
-    </button>
-  </div>
+            <!-- TABS de navegación -->
+            <div class="tabs" id="nc-tabs"
+              style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+              <div style="display: flex; gap: 5px;">
+                <button class="tab active" onclick="switchNCTab('all')" id="nc-tab-all">
+                  📋 Todos los Números
+                </button>
+                <button class="tab" onclick="switchNCTab('disabled')" id="nc-tab-disabled">
+                  🔴 IA Desactivada
+                </button>
+                <button class="tab" onclick="switchNCTab('spam')" id="nc-tab-spam">
+                  🚫 Spam (<span id="nc-spam-count">0</span>)
+                </button>
+              </div>
+              <!-- ✅ NUEVO: Botón para agregar número manualmente -->
+              <button class="upload-btn" onclick="openAddNumberModal()" style="padding: 8px 16px; font-size: 13px;">
+                ➕ Agregar Número
+              </button>
+            </div>
 
-  <!-- Loading -->
-  <div id="number-control-loading" style="display: none; text-align: center; padding: 40px;">
-    <div class="loading-spinner"></div>
-    <p style="margin-top: 15px; color: var(--medium-gray);">Cargando números...</p>
-  </div>
+            <!-- Loading -->
+            <div id="number-control-loading" style="display: none; text-align: center; padding: 40px;">
+              <div class="loading-spinner"></div>
+              <p style="margin-top: 15px; color: var(--medium-gray);">Cargando números...</p>
+            </div>
 
-  <!-- ========================================
+            <!-- ========================================
        TAB 1: TODOS LOS NÚMEROS
        ======================================== -->
-  <div id="nc-tab-content-all" class="tab-content" style="display: block;">
-    <div id="nc-all-content" style="display: none;">
-      <div class="table-responsive">
-        <table class="conversations-table">
-          <thead>
-            <tr>
-              <th style="width: 18%;">Nombre</th>
-              <th style="width: 18%;">Teléfono</th>
-              <th style="width: 25%;">Última Interacción</th>
-              <th style="width: 15%;">Estado IA</th>
-              <th style="width: 24%;">Acción</th>
-            </tr>
-          </thead>
-          <tbody id="nc-all-table-body">
-            <!-- Se llena dinámicamente -->
-          </tbody>
-        </table>
-      </div>
-    </div>
+            <div id="nc-tab-content-all" class="tab-content" style="display: block;">
+              <div id="nc-all-content" style="display: none;">
+                <div class="table-responsive">
+                  <table class="conversations-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 18%;">Nombre</th>
+                        <th style="width: 18%;">Teléfono</th>
+                        <th style="width: 25%;">Última Interacción</th>
+                        <th style="width: 15%;">Estado IA</th>
+                        <th style="width: 24%;">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody id="nc-all-table-body">
+                      <!-- Se llena dinámicamente -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-    <div id="nc-all-empty" style="display: none; text-align: center; padding: 60px 20px;">
-      <div style="font-size: 64px; margin-bottom: 15px;">📱</div>
-      <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay conversaciones aún</h3>
-      <p style="color: var(--medium-gray);">Los números aparecerán aquí cuando interactúen con el chatbot.</p>
-    </div>
-  </div>
+              <div id="nc-all-empty" style="display: none; text-align: center; padding: 60px 20px;">
+                <div style="font-size: 64px; margin-bottom: 15px;">📱</div>
+                <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay conversaciones aún</h3>
+                <p style="color: var(--medium-gray);">Los números aparecerán aquí cuando interactúen con el chatbot.</p>
+              </div>
+            </div>
 
-  <!-- ========================================
+            <!-- ========================================
        TAB 2: IA DESACTIVADA
        ======================================== -->
-  <div id="nc-tab-content-disabled" class="tab-content" style="display: none;">
-    <div id="nc-disabled-content" style="display: none;">
-      <div class="table-responsive">
-        <table class="conversations-table">
-          <thead>
-            <tr>
-              <th style="width: 20%;">Nombre</th>
-              <th style="width: 18%;">Teléfono</th>
-              <th style="width: 22%;">Fecha Desactivación</th>
-              <th style="width: 25%;">Motivo</th>
-              <th style="width: 15%;">Acción</th>
-            </tr>
-          </thead>
-          <tbody id="nc-disabled-table-body">
-            <!-- Se llena dinámicamente -->
-          </tbody>
-        </table>
-      </div>
-    </div>
+            <div id="nc-tab-content-disabled" class="tab-content" style="display: none;">
+              <div id="nc-disabled-content" style="display: none;">
+                <div class="table-responsive">
+                  <table class="conversations-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 20%;">Nombre</th>
+                        <th style="width: 18%;">Teléfono</th>
+                        <th style="width: 22%;">Fecha Desactivación</th>
+                        <th style="width: 25%;">Motivo</th>
+                        <th style="width: 15%;">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody id="nc-disabled-table-body">
+                      <!-- Se llena dinámicamente -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-    <div id="nc-disabled-empty" style="display: none; text-align: center; padding: 60px 20px;">
-      <div style="font-size: 64px; margin-bottom: 15px;">✅</div>
-      <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay números con IA desactivada</h3>
-      <p style="color: var(--medium-gray);">Todos los números tienen la IA activa.</p>
-    </div>
-  </div>
+              <div id="nc-disabled-empty" style="display: none; text-align: center; padding: 60px 20px;">
+                <div style="font-size: 64px; margin-bottom: 15px;">✅</div>
+                <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay números con IA desactivada</h3>
+                <p style="color: var(--medium-gray);">Todos los números tienen la IA activa.</p>
+              </div>
+            </div>
 
-  <!-- ========================================
+            <!-- ========================================
        TAB 3: BLOQUEADOS POR SPAM
        ======================================== -->
-  <div id="nc-tab-content-spam" class="tab-content" style="display: none;">
+            <div id="nc-tab-content-spam" class="tab-content" style="display: none;">
 
-    <!-- Información sobre el sistema anti-spam -->
-    <div style="background: #fce4ec; border-left: 4px solid #e53935; padding: 15px; margin-bottom: 20px; border-radius: 0 8px 8px 0;">
-      <strong>🚫 Sistema Anti-Spam:</strong>
-      <ul style="margin: 10px 0 0 0; padding-left: 20px; color: var(--dark-gray); font-size: 0.9em;">
-        <li>Detecta mensajes repetidos consecutivos (similaridad > 90%).</li>
-        <li>Después de <strong>3 repeticiones</strong>: advertencia interna.</li>
-        <li>Después de <strong>4 repeticiones</strong>: la IA se desactiva automáticamente.</li>
-        <li><strong>0 tokens consumidos</strong> en loops de spam.</li>
-        <li>El admin puede reactivar la IA manualmente desde aquí.</li>
-      </ul>
-    </div>
+              <!-- Información sobre el sistema anti-spam -->
+              <div
+                style="background: #fce4ec; border-left: 4px solid #e53935; padding: 15px; margin-bottom: 20px; border-radius: 0 8px 8px 0;">
+                <strong>🚫 Sistema Anti-Spam:</strong>
+                <ul style="margin: 10px 0 0 0; padding-left: 20px; color: var(--dark-gray); font-size: 0.9em;">
+                  <li>Detecta mensajes repetidos consecutivos (similaridad > 90%).</li>
+                  <li>Después de <strong>3 repeticiones</strong>: advertencia interna.</li>
+                  <li>Después de <strong>4 repeticiones</strong>: la IA se desactiva automáticamente.</li>
+                  <li><strong>0 tokens consumidos</strong> en loops de spam.</li>
+                  <li>El admin puede reactivar la IA manualmente desde aquí.</li>
+                </ul>
+              </div>
 
-    <!-- Estadísticas de spam -->
-    <div class="stats-cards" style="margin-bottom: 20px;">
-      <div class="stat-card" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);">
-        <div class="stat-number" id="nc-spam-active-blocks">0</div>
-        <div class="stat-label">🚫 Bloqueados Activos</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number" id="nc-spam-total-blocked-msgs">0</div>
-        <div class="stat-label">📊 Mensajes Bloqueados</div>
-      </div>
-      <div class="stat-card" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);">
-        <div class="stat-number" id="nc-spam-historical">0</div>
-        <div class="stat-label">📜 Histórico Total</div>
-      </div>
-    </div>
+              <!-- Estadísticas de spam -->
+              <div class="stats-cards" style="margin-bottom: 20px;">
+                <div class="stat-card" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);">
+                  <div class="stat-number" id="nc-spam-active-blocks">0</div>
+                  <div class="stat-label">🚫 Bloqueados Activos</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-number" id="nc-spam-total-blocked-msgs">0</div>
+                  <div class="stat-label">📊 Mensajes Bloqueados</div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);">
+                  <div class="stat-number" id="nc-spam-historical">0</div>
+                  <div class="stat-label">📜 Histórico Total</div>
+                </div>
+              </div>
 
-    <div id="nc-spam-content" style="display: none;">
-      <div class="table-responsive">
-        <table class="conversations-table">
-          <thead>
-            <tr>
-              <th style="width: 15%;">Nombre</th>
-              <th style="width: 15%;">Teléfono</th>
-              <th style="width: 18%;">Fecha Bloqueo</th>
-              <th style="width: 22%;">Motivo</th>
-              <th style="width: 12%;">Estado</th>
-              <th style="width: 18%;">Acción</th>
-            </tr>
-          </thead>
-          <tbody id="nc-spam-table-body">
-            <!-- Se llena dinámicamente -->
-          </tbody>
-        </table>
-      </div>
-    </div>
+              <div id="nc-spam-content" style="display: none;">
+                <div class="table-responsive">
+                  <table class="conversations-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 15%;">Nombre</th>
+                        <th style="width: 15%;">Teléfono</th>
+                        <th style="width: 18%;">Fecha Bloqueo</th>
+                        <th style="width: 22%;">Motivo</th>
+                        <th style="width: 12%;">Estado</th>
+                        <th style="width: 18%;">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody id="nc-spam-table-body">
+                      <!-- Se llena dinámicamente -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-    <div id="nc-spam-empty" style="display: none; text-align: center; padding: 60px 20px;">
-      <div style="font-size: 64px; margin-bottom: 15px;">✅</div>
-      <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay bloqueos por spam</h3>
-      <p style="color: var(--medium-gray);">El sistema anti-spam no ha detectado actividad repetitiva.</p>
-    </div>
-  </div>
-</div>
+              <div id="nc-spam-empty" style="display: none; text-align: center; padding: 60px 20px;">
+                <div style="font-size: 64px; margin-bottom: 15px;">✅</div>
+                <h3 style="color: var(--medium-gray); margin-bottom: 10px;">No hay bloqueos por spam</h3>
+                <p style="color: var(--medium-gray);">El sistema anti-spam no ha detectado actividad repetitiva.</p>
+              </div>
+            </div>
+          </div>
 
-<!-- Modal para agregar motivo al desactivar IA -->
-<div class="modal-overlay" id="disable-ia-modal">
-  <div class="modal-container" style="max-width: 450px;">
-    <div class="modal-header">
-      <h3 class="modal-title">🔴 Desactivar IA</h3>
-      <button class="modal-close" onclick="closeDisableIAModal()">&times;</button>
-    </div>
+          <!-- Modal para agregar motivo al desactivar IA -->
+          <div class="modal-overlay" id="disable-ia-modal">
+            <div class="modal-container" style="max-width: 450px;">
+              <div class="modal-header">
+                <h3 class="modal-title">🔴 Desactivar IA</h3>
+                <button class="modal-close" onclick="closeDisableIAModal()">&times;</button>
+              </div>
 
-    <div style="padding: 10px 0;">
-      <p style="color: var(--medium-gray); margin-bottom: 15px; font-size: 0.9em;">
-        La IA dejará de responder automáticamente a este número.
-      </p>
+              <div style="padding: 10px 0;">
+                <p style="color: var(--medium-gray); margin-bottom: 15px; font-size: 0.9em;">
+                  La IA dejará de responder automáticamente a este número.
+                </p>
 
-      <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
-        <strong>Número:</strong> <span id="disable-ia-phone" style="font-family: monospace;"></span>
-      </div>
+                <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                  <strong>Número:</strong> <span id="disable-ia-phone" style="font-family: monospace;"></span>
+                </div>
 
-      <div class="login-form-group">
-        <label>📝 Motivo (opcional)</label>
-        <textarea id="disable-ia-reason" rows="3" placeholder="Ej: Cliente VIP, Requiere atención especial..." style="width: 100%; padding: 12px 15px; border: 2px solid var(--border-gray); border-radius: 10px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
-      </div>
+                <div class="login-form-group">
+                  <label>📝 Motivo (opcional)</label>
+                  <textarea id="disable-ia-reason" rows="3" placeholder="Ej: Cliente VIP, Requiere atención especial..."
+                    style="width: 100%; padding: 12px 15px; border: 2px solid var(--border-gray); border-radius: 10px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+                </div>
 
-      <div style="display: flex; gap: 10px; margin-top: 20px;">
-        <button class="upload-btn" onclick="closeDisableIAModal()" style="background: var(--medium-gray); flex: 1;">
-          Cancelar
-        </button>
-        <button class="upload-btn" onclick="confirmDisableIA()" style="background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%); flex: 1;">
-          🔴 Desactivar IA
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                  <button class="upload-btn" onclick="closeDisableIAModal()"
+                    style="background: var(--medium-gray); flex: 1;">
+                    Cancelar
+                  </button>
+                  <button class="upload-btn" onclick="confirmDisableIA()"
+                    style="background: linear-gradient(135deg, #c62828 0%, #b71c1c 100%); flex: 1;">
+                    🔴 Desactivar IA
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-<!-- ✅ NUEVO: Modal para agregar número manualmente -->
-<div class="modal-overlay" id="add-number-modal">
-  <div class="modal-container" style="max-width: 480px;">
-    <div class="modal-header">
-      <h3 class="modal-title">➕ Agregar Número Manualmente</h3>
-      <button class="modal-close" onclick="closeAddNumberModal()">&times;</button>
-    </div>
+          <!-- ✅ NUEVO: Modal para agregar número manualmente -->
+          <div class="modal-overlay" id="add-number-modal">
+            <div class="modal-container" style="max-width: 480px;">
+              <div class="modal-header">
+                <h3 class="modal-title">➕ Agregar Número Manualmente</h3>
+                <button class="modal-close" onclick="closeAddNumberModal()">&times;</button>
+              </div>
 
-    <div style="padding: 10px 0;">
-      <p style="color: var(--medium-gray); margin-bottom: 15px; font-size: 0.9em;">
-        Agrega un número para desactivar la IA. El número quedará registrado sin necesidad de que haya escrito primero.
-      </p>
+              <div style="padding: 10px 0;">
+                <p style="color: var(--medium-gray); margin-bottom: 15px; font-size: 0.9em;">
+                  Agrega un número para desactivar la IA. El número quedará registrado sin necesidad de que haya escrito
+                  primero.
+                </p>
 
-      <div class="login-form-group" style="margin-bottom: 15px;">
-        <label>📱 Teléfono <span style="color: #c62828;">*</span></label>
-        <input type="text" id="add-number-phone" placeholder="Ej: 3001234567 (sin código de país)"
-               style="width: 100%; padding: 12px 15px; border: 2px solid var(--border-gray); border-radius: 10px; font-size: 14px; font-family: monospace;">
-        <small style="color: var(--medium-gray); font-size: 11px;">Solo números, sin espacios ni guiones</small>
-      </div>
+                <div class="login-form-group" style="margin-bottom: 15px;">
+                  <label>📱 Teléfono <span style="color: #c62828;">*</span></label>
+                  <input type="text" id="add-number-phone" placeholder="Ej: 3001234567 (sin código de país)"
+                    style="width: 100%; padding: 12px 15px; border: 2px solid var(--border-gray); border-radius: 10px; font-size: 14px; font-family: monospace;">
+                  <small style="color: var(--medium-gray); font-size: 11px;">Solo números, sin espacios ni
+                    guiones</small>
+                </div>
 
-      <div class="login-form-group" style="margin-bottom: 15px;">
-        <label>👤 Nombre (opcional)</label>
-        <input type="text" id="add-number-name" placeholder="Ej: Juan Pérez"
-               style="width: 100%; padding: 12px 15px; border: 2px solid var(--border-gray); border-radius: 10px; font-size: 14px;">
-      </div>
+                <div class="login-form-group" style="margin-bottom: 15px;">
+                  <label>👤 Nombre (opcional)</label>
+                  <input type="text" id="add-number-name" placeholder="Ej: Juan Pérez"
+                    style="width: 100%; padding: 12px 15px; border: 2px solid var(--border-gray); border-radius: 10px; font-size: 14px;">
+                </div>
 
-      <div class="login-form-group">
-        <label>📝 Motivo (opcional)</label>
-        <textarea id="add-number-reason" rows="2" placeholder="Ej: Cliente VIP, Requiere atención especial..."
-                  style="width: 100%; padding: 12px 15px; border: 2px solid var(--border-gray); border-radius: 10px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
-      </div>
+                <div class="login-form-group">
+                  <label>📝 Motivo (opcional)</label>
+                  <textarea id="add-number-reason" rows="2" placeholder="Ej: Cliente VIP, Requiere atención especial..."
+                    style="width: 100%; padding: 12px 15px; border: 2px solid var(--border-gray); border-radius: 10px; font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+                </div>
 
-      <div id="add-number-error" style="display: none; color: #c62828; font-size: 13px; margin-top: 10px; padding: 10px; background: #ffebee; border-radius: 8px;">
-      </div>
+                <div id="add-number-error"
+                  style="display: none; color: #c62828; font-size: 13px; margin-top: 10px; padding: 10px; background: #ffebee; border-radius: 8px;">
+                </div>
 
-      <div style="display: flex; gap: 10px; margin-top: 20px;">
-        <button class="upload-btn" onclick="closeAddNumberModal()" style="background: var(--medium-gray); flex: 1;">
-          Cancelar
-        </button>
-        <button class="upload-btn" onclick="confirmAddNumber()" style="flex: 1;" id="add-number-btn">
-          ➕ Agregar y Desactivar IA
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                  <button class="upload-btn" onclick="closeAddNumberModal()"
+                    style="background: var(--medium-gray); flex: 1;">
+                    Cancelar
+                  </button>
+                  <button class="upload-btn" onclick="confirmAddNumber()" style="flex: 1;" id="add-number-btn">
+                    ➕ Agregar y Desactivar IA
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-<!-- ========================================
+          <!-- ========================================
      FIN DE LA PARTE 3
      CONTINÚA EN LA PARTE 4 (JAVASCRIPT)...
      ======================================== -->
 
         </div>
         <!-- Fin del content-card -->
-        
+
       </main>
       <!-- Fin del dashboard-content -->
 
@@ -4017,8 +4404,10 @@ footer {
           <div class="upload-icon">📁</div>
           <p class="upload-text">Arrastra archivos aquí o haz clic para seleccionar</p>
           <p class="upload-hint">Archivos admitidos: PDF, TXT (máx. 10MB)</p>
-          <button class="upload-btn" onclick="document.getElementById('file-input').click()">Seleccionar Archivos</button>
-          <input type="file" id="file-input" class="upload-input" accept=".pdf,.txt" multiple onchange="handleFileSelect(event)">
+          <button class="upload-btn" onclick="document.getElementById('file-input').click()">Seleccionar
+            Archivos</button>
+          <input type="file" id="file-input" class="upload-input" accept=".pdf,.txt" multiple
+            onchange="handleFileSelect(event)">
         </div>
 
         <div id="upload-progress" style="display: none;"></div>
@@ -4052,6 +4441,63 @@ footer {
 
         <div style="margin-top: 20px; text-align: right;">
           <button class="upload-btn" onclick="openUploadModalFromList()">📤 Subir Nuevo Documento</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================
+         DÍAS FESTIVOS VIEW
+         ======================================== -->
+    <div id="holidays-view" style="display: none;">
+      <div class="view-header">
+        <h2 style="font-size: 24px; margin-bottom: 8px;">📅 Días Festivos</h2>
+        <p style="color: #666;">Click en día para toggle festivo | Rojo = activo</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 24px;">
+        <!-- Calendario completo con selector de año -->
+        <div class="card"
+          style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+
+          <!-- Controles: Año y Mes -->
+          <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button onclick="changeYear(-1)"
+                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-weight: bold;">«</button>
+              <select id="year-select" onchange="selectYear(this.value)"
+                style="padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer;">
+              </select>
+              <button onclick="changeYear(1)"
+                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-weight: bold;">»</button>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button onclick="changeMonth(-1)"
+                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer;">◀</button>
+              <span id="current-month-year"
+                style="padding: 8px 16px; font-weight: 600; min-width: 150px; text-align: center;"></span>
+              <button onclick="changeMonth(1)"
+                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer;">▶</button>
+            </div>
+          </div>
+
+          <!-- Grid de calendario: 12 meses -->
+          <div id="year-calendar-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+            <!-- Los 12 meses se generarán aquí -->
+          </div>
+
+          <!-- Leyenda -->
+          <div style="margin-top: 20px; display: flex; gap: 20px; font-size: 12px; justify-content: center;">
+            <div style="display: flex; align-items: center; gap: 6px; cursor: pointer;" onclick="toggleAllHolidays()">
+              <div style="width: 20px; height: 20px; background: #ff6b6b; border-radius: 4px;"></div>
+              <span>🎉 Festivo (click para toggle)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <div style="width: 20px; height: 20px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
+              </div>
+              <span>Día normal</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -4091,8 +4537,14 @@ footer {
   <!-- ========================================
        PARTE 4 FINAL: JAVASCRIPT
        ======================================== -->
-  
+
   <script src="/socket.io/socket.io.js"></script>
+
+  <!-- ========================================
+       MODO OSCURO - JAVASCRIPT
+       ======================================== -->
+  <script src="js/dark-mode-toggle.js"></script>
+
   <script>
     /* ========================================
        FUNCIONES DEL DASHBOARD (NUEVO)
@@ -4165,6 +4617,7 @@ footer {
         'home': 'Inicio',
         'conversations': 'Conversaciones',
         'number-control': 'Control de Números',
+        'holidays': 'Días Festivos',
         'settings': 'Configuración',
         'documents': 'Documentos'
       };
@@ -4175,6 +4628,7 @@ footer {
       // Ocultar todas las vistas especiales primero
       hideConversationsView();
       hideNumberControlView();
+      hideHolidaysView(); // ✅ NUEVO: Ocultar vista de días festivos
       hideDocumentsView(); // ✅ NUEVO: Ocultar vista de documentos
 
       // Mostrar/ocultar botón de subir según la vista
@@ -4196,13 +4650,18 @@ footer {
       if (view === 'number-control') {
         showNumberControlView();
       }
+
+      // Mostrar vista de días festivos si corresponde
+      if (view === 'holidays') {
+        showHolidaysView();
+      }
     }
-    
+
     // Sincronizar estado del header con el estado del chatbot
     function syncHeaderStatus(status, text) {
       const headerStatus = document.getElementById('header-status');
       const headerStatusText = document.getElementById('header-status-text');
-      
+
       headerStatus.className = 'header-status-badge ' + status;
       headerStatusText.textContent = text;
     }
@@ -4365,7 +4824,7 @@ footer {
           // Si muestra "Cargando mensajes..." o "No hay mensajes aún", limpiar primero
           const messagesDiv = document.getElementById('chat-messages');
           if (messagesDiv && (messagesDiv.innerHTML.includes('Cargando mensajes...') ||
-                             messagesDiv.innerHTML.includes('No hay mensajes aún'))) {
+            messagesDiv.innerHTML.includes('No hay mensajes aún'))) {
             messagesDiv.innerHTML = '';
           }
 
@@ -4529,7 +4988,7 @@ footer {
           // Si muestra "Cargando mensajes..." o "No hay mensajes aún", limpiar primero
           const messagesDiv = document.getElementById('chat-messages');
           if (messagesDiv && (messagesDiv.innerHTML.includes('Cargando mensajes...') ||
-                             messagesDiv.innerHTML.includes('No hay mensajes aún'))) {
+            messagesDiv.innerHTML.includes('No hay mensajes aún'))) {
             messagesDiv.innerHTML = '';
           }
 
@@ -4927,9 +5386,9 @@ footer {
       const alertDiv = document.getElementById('ai-settings-alert');
       if (alertDiv) {
         const bgColor = type === 'success' ? '#e8f5e9' :
-                       type === 'warning' ? '#fff3e0' : '#ffebee';
+          type === 'warning' ? '#fff3e0' : '#ffebee';
         const textColor = type === 'success' ? '#2e7d32' :
-                         type === 'warning' ? '#e65100' : '#c62828';
+          type === 'warning' ? '#e65100' : '#c62828';
 
         alertDiv.innerHTML = `<div style="padding: 10px; border-radius: 6px; background: ${bgColor}; color: ${textColor}; font-size: 0.9em;">${message}</div>`;
         setTimeout(() => alertDiv.innerHTML = '', 4000);
@@ -5305,7 +5764,7 @@ footer {
 
             const consentClass = conv.consentStatus;
             const consentText = conv.consentStatus === 'accepted' ? 'Aceptó' :
-                               conv.consentStatus === 'rejected' ? 'Rechazó' : 'Pendiente';
+              conv.consentStatus === 'rejected' ? 'Rechazó' : 'Pendiente';
 
             const remainingClass = conv.remainingTime > 0 ? '' : 'expired';
             const remainingText = conv.remainingTime > 0
@@ -5450,6 +5909,78 @@ footer {
       }
     }
 
+    // ==========================================
+    // CONTROL DE DÍAS FESTIVOS
+    // ==========================================
+
+    // Cargar estado del control de festivos al iniciar
+    async function loadHolidayCheckStatus() {
+      try {
+        const response = await authenticatedFetch('/api/conversations/holiday-check-status');
+        const data = await response.json();
+
+        if (data.success) {
+          updateHolidayCheckUI(data.enabled);
+        }
+      } catch (error) {
+        console.error('Error cargando estado de festivos:', error);
+      }
+    }
+
+    // Actualizar UI según estado de festivos
+    function updateHolidayCheckUI(enabled) {
+      const statusSpan = document.getElementById('holiday-status');
+      const btnEnable = document.getElementById('btn-enable-holiday');
+      const btnDisable = document.getElementById('btn-disable-holiday');
+
+      if (enabled) {
+        statusSpan.innerHTML = '<span style="color: #e65100;">✅ ACTIVO (Verificando festivos)</span>';
+        btnEnable.style.opacity = '0.5';
+        btnEnable.style.cursor = 'not-allowed';
+        btnDisable.style.opacity = '1';
+        btnDisable.style.cursor = 'pointer';
+      } else {
+        statusSpan.innerHTML = '<span style="color: #757575;">❌ INACTIVO (Sin verificar)</span>';
+        btnEnable.style.opacity = '1';
+        btnEnable.style.cursor = 'pointer';
+        btnDisable.style.opacity = '0.5';
+        btnDisable.style.cursor = 'not-allowed';
+      }
+    }
+
+    // Activar/Desactivar verificación de días festivos
+    async function toggleHolidayCheck(enabled) {
+      try {
+        const confirmMsg = enabled
+          ? '¿Activar la verificación de días festivos?\n\nEl bot verificará si hoy es festivo y no responderá automáticamente en esos días.'
+          : '¿Desactivar la verificación de días festivos?\n\nEl bot responderá SIN verificar si es día festivo.';
+
+        if (!confirm(confirmMsg)) {
+          return;
+        }
+
+        const response = await authenticatedFetch('/api/conversations/toggle-holiday-check', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ enabled })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          updateHolidayCheckUI(enabled);
+          alert(enabled ? '✅ Verificación de festivos ACTIVADA' : '❌ Verificación de festivos DESACTIVADA');
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (error) {
+        console.error('Error cambiando verificación de festivos:', error);
+        alert('Error al cambiar la verificación de festivos');
+      }
+    }
+
     // Cargar estadísticas de conversaciones
     async function loadConversationsStats() {
       try {
@@ -5458,6 +5989,9 @@ footer {
 
         // Cargar estado del control de horario
         loadScheduleCheckStatus();
+
+        // Cargar estado del control de festivos
+        loadHolidayCheckStatus();
 
         if (data.success) {
           // Estadísticas existentes
@@ -5546,6 +6080,284 @@ footer {
       const ncView = document.getElementById('number-control-view');
       if (ncView) {
         ncView.style.display = 'none';
+      }
+    }
+
+    /* ========================================
+       ✅ NUEVO: FUNCIONES DE VISTA DE DÍAS FESTIVOS
+       ======================================== */
+
+    // Mostrar vista de días festivos
+    function showHolidaysView() {
+      const hView = document.getElementById('holidays-view');
+      if (hView) {
+        hView.style.display = 'block';
+      }
+      // Cargar datos de días festivos
+      loadHolidaysData();
+    }
+
+    // Ocultar vista de días festivos
+    function hideHolidaysView() {
+      const hView = document.getElementById('holidays-view');
+      if (hView) {
+        hView.style.display = 'none';
+      }
+    }
+
+    /* ========================================
+       FUNCIONES DE DÍAS FESTIVOS (CALENDARIO MEJORADO)
+       ======================================== */
+
+    // Estado del calendario
+    let currentCalendarDate = new Date();
+    let holidaysCache = [];
+
+    // Cargar TODOS los festivos del año
+    async function loadHolidaysData() {
+      try {
+        const year = currentCalendarDate.getFullYear();
+        const response = await authenticatedFetch(`/api/holidays/by-year/${year}`);
+        const data = await response.json();
+
+        if (data.success) {
+          holidaysCache = data.holidays || [];
+          renderYearCalendar();
+          populateYearSelect();
+        }
+      } catch (error) {
+        console.error('Error cargando festivos:', error);
+        // Si falla, usar cache vacío
+        holidaysCache = [];
+        renderYearCalendar();
+        populateYearSelect();
+      }
+    }
+
+    // Llenar selector de años (año actual -5 a +10)
+    function populateYearSelect() {
+      const select = document.getElementById('year-select');
+      if (!select) return;
+
+      const currentYear = currentCalendarDate.getFullYear();
+      select.innerHTML = '';
+
+      for (let y = currentYear - 5; y <= currentYear + 10; y++) {
+        const option = document.createElement('option');
+        option.value = y;
+        option.textContent = y;
+        if (y === currentYear) option.selected = true;
+        select.appendChild(option);
+      }
+    }
+
+    // Renderizar calendario de año completo (12 meses)
+    function renderYearCalendar() {
+      const grid = document.getElementById('year-calendar-grid');
+      const year = currentCalendarDate.getFullYear();
+
+      // Actualizar título
+      const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+      document.getElementById('current-month-year').textContent = monthNames[currentCalendarDate.getMonth()] + ' ' + year;
+
+      grid.innerHTML = '';
+
+      // Generar 12 meses
+      for (let month = 0; month < 12; month++) {
+        const monthCard = document.createElement('div');
+        monthCard.style.cssText = 'background: #f9f9f9; border-radius: 8px; padding: 10px;';
+
+        // Título del mes
+        const monthTitle = document.createElement('div');
+        monthTitle.style.cssText = 'text-align: center; font-weight: 600; margin-bottom: 8px; font-size: 13px;';
+        monthTitle.textContent = monthNames[month];
+        monthCard.appendChild(monthTitle);
+
+        // Grid de días del mes
+        const daysGrid = document.createElement('div');
+        daysGrid.style.cssText = 'display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; font-size: 11px;';
+
+        // Días de la semana (abreviados)
+        const daysAbbr = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+        daysAbbr.forEach(d => {
+          const dh = document.createElement('div');
+          dh.style.cssText = 'text-align: center; color: #999; font-size: 9px;';
+          dh.textContent = d;
+          daysGrid.appendChild(dh);
+        });
+
+        // Obtener datos del mes
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+
+        // Celdas vacías antes del primer día
+        for (let i = 0; i < firstDay; i++) {
+          const empty = document.createElement('div');
+          empty.style.cssText = 'padding: 2px;';
+          daysGrid.appendChild(empty);
+        }
+
+        // Días del mes
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          const cell = document.createElement('div');
+          const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
+
+          // Verificar si es festivo
+          const holiday = holidaysCache.find(h => {
+            if (h.recurring) {
+              return h.date.substring(5) === dateStr.substring(5);
+            }
+            return h.date === dateStr;
+          });
+
+          let bgColor = 'white';
+          let color = '#333';
+          if (holiday && holiday.active) {
+            bgColor = '#ff6b6b';
+            color = 'white';
+          } else if (isToday) {
+            bgColor = '#e3f2fd';
+          }
+
+          cell.style.cssText = `
+            padding: 4px 2px;
+            text-align: center;
+            background: ${bgColor};
+            color: ${color};
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            ${holiday && holiday.active ? 'font-weight: bold;' : ''}
+          `;
+          cell.textContent = day;
+
+          // Click para toggle festivo
+          cell.onclick = () => toggleDayHoliday(dateStr);
+
+          cell.onmouseover = () => cell.style.opacity = '0.8';
+          cell.onmouseout = () => cell.style.opacity = '1';
+
+          daysGrid.appendChild(cell);
+        }
+
+        monthCard.appendChild(daysGrid);
+        grid.appendChild(monthCard);
+      }
+    }
+
+    // Cambiar mes (navegación)
+    async function changeMonth(delta) {
+      currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+      await loadHolidaysData();
+    }
+
+    // Cambiar año
+    async function changeYear(delta) {
+      currentCalendarDate.setFullYear(currentCalendarDate.getFullYear() + delta);
+      await loadHolidaysData();
+      populateYearSelect();
+    }
+
+    // Seleccionar año del dropdown
+    async function selectYear(year) {
+      currentCalendarDate.setFullYear(parseInt(year));
+      await loadHolidaysData();
+    }
+
+    // Toggle festivo en un día específico
+    async function toggleDayHoliday(dateStr) {
+      // Buscar si ya existe festivo para esta fecha
+      const holiday = holidaysCache.find(h => {
+        if (h.recurring) {
+          return h.date.substring(5) === dateStr.substring(5);
+        }
+        return h.date === dateStr;
+      });
+
+      if (holiday && holiday.active) {
+        // Desactivar o eliminar
+        if (confirm(`¿Quitar "${holiday.name}" (${formatDateShort(holiday.date)})?`)) {
+          await deleteHoliday(holiday.id, holiday.name);
+        }
+      } else if (holiday && !holiday.active) {
+        // Reactivar
+        await toggleHoliday(holiday.id, true);
+      } else {
+        // Crear nuevo festivo
+        const name = prompt(`Festivo para ${formatDateShort(dateStr)}:`);
+        if (name && name.trim()) {
+          await addHoliday(dateStr, name.trim());
+        }
+      }
+    }
+
+    // Formato corto de fecha
+    function formatDateShort(dateStr) {
+      const date = new Date(dateStr + 'T00:00:00');
+      return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+    }
+
+    // Agregar festivo
+    async function addHoliday(date, name) {
+      try {
+        const response = await authenticatedFetch('/api/holidays', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ date, name, recurring: true })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          await loadHolidaysData();
+        } else {
+          alert('Error: ' + (data.error || 'No se pudo agregar'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error al agregar festivo');
+      }
+    }
+
+    // Toggle festivo (activar/desactivar)
+    async function toggleHoliday(id, active) {
+      try {
+        const response = await authenticatedFetch(`/api/holidays/${id}/toggle`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ active })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          await loadHolidaysData();
+        } else {
+          alert('Error: ' + (data.error || 'No se pudo actualizar'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error al actualizar');
+      }
+    }
+
+    // Eliminar festivo
+    async function deleteHoliday(id, name) {
+      try {
+        const response = await authenticatedFetch(`/api/holidays/${id}`, {
+          method: 'DELETE'
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          await loadHolidaysData();
+        } else {
+          alert('Error: ' + (data.error || 'No se pudo eliminar'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error al eliminar');
       }
     }
 
@@ -6240,19 +7052,19 @@ footer {
             tableBody.innerHTML = disabledNumbers.map(record => {
               const disabledDate = record.updatedAt
                 ? new Date(record.updatedAt).toLocaleDateString('es-CO', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
                 : new Date(record.registeredAt).toLocaleDateString('es-CO', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  });
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
 
               return `
                 <tr>
@@ -6618,8 +7430,16 @@ footer {
      */
     function getActionButtons(conv) {
       // ✅ CAMBIADO: Botones base que SIEMPRE estarán disponibles
+      // Preparar datos del contacto para pasar a openChat
+      const contactData = {
+        registeredName: conv.registeredName || conv.whatsappName || null,
+        whatsappName: conv.whatsappName || null,
+        phoneNumber: conv.phoneNumber || null
+      };
+      const contactDataStr = encodeURIComponent(JSON.stringify(contactData));
+
       const baseButtons = `
-        <button class="view-chat-btn" onclick="openChat('${conv.userId}')">
+        <button class="view-chat-btn" onclick="window.ChatFunctions.openChat('${conv.userId}', '${contactDataStr}')">
           💬 Ver Chat
         </button>
         <button class="reset-btn" onclick="resetConversation('${conv.userId}', '${normalizePhoneNumber(conv.phoneNumber)}')">
@@ -7092,14 +7912,14 @@ footer {
     /**
      * Event listener para cerrar el picker al hacer clic fuera
      */
-    document.addEventListener('click', function(event) {
+    document.addEventListener('click', function (event) {
       const panel = document.getElementById('emoji-picker-panel');
       const btn = document.getElementById('emoji-picker-btn');
 
       // Si el picker está abierto y el clic no fue en el picker ni en el botón
       if (isEmojiPickerOpen &&
-          !panel.contains(event.target) &&
-          !btn.contains(event.target)) {
+        !panel.contains(event.target) &&
+        !btn.contains(event.target)) {
         closeEmojiPicker();
       }
     });
@@ -7375,14 +8195,14 @@ footer {
     /**
      * Cierra los menús al hacer clic fuera
      */
-    document.addEventListener('click', function(event) {
+    document.addEventListener('click', function (event) {
       const attachMenu = document.getElementById('attach-menu');
       const attachBtn = document.getElementById('chat-attach-btn');
 
       // Cerrar menú de adjuntar si el clic no fue en el menú ni en el botón
       if (attachMenu.classList.contains('show') &&
-          !attachMenu.contains(event.target) &&
-          !attachBtn.contains(event.target)) {
+        !attachMenu.contains(event.target) &&
+        !attachBtn.contains(event.target)) {
         closeAttachMenu();
       }
     });
@@ -7713,17 +8533,38 @@ footer {
     // Override fetch calls to use authenticatedFetch
     // Save Settings
     async function saveSettings() {
+      // ✅ MEJORADO: Solo enviar keys que el usuario realmente escribió (no placeholders)
+      const groqKeyInput = document.getElementById('groq-key');
+      const openaiKeyInput = document.getElementById('openai-key');
+      const awsAccessKeyInput = document.getElementById('aws-access-key');
+      const awsSecretKeyInput = document.getElementById('aws-secret-key');
+      const awsRegionInput = document.getElementById('aws-region');
+
       const settings = {
         provider: currentProvider,
         groq: {
-          apiKey: document.getElementById('groq-key').value,
-          model: document.getElementById('groq-model').value
+          // Solo enviar si el campo tiene un valor real (no ●●●●●●●●)
+          apiKey: groqKeyInput.value.includes('●') ? undefined : groqKeyInput.value,
+          model: document.getElementById('groq-model').value,
+          enabled: document.getElementById('groq-enabled').checked
         },
         openai: {
-          apiKey: document.getElementById('openai-key').value,
-          model: document.getElementById('openai-model').value
+          apiKey: openaiKeyInput.value.includes('●') ? undefined : openaiKeyInput.value,
+          model: document.getElementById('openai-model').value,
+          enabled: document.getElementById('openai-enabled').checked
+        },
+        aws: {
+          accessKeyId: awsAccessKeyInput.value.includes('●') ? undefined : awsAccessKeyInput.value,
+          secretAccessKey: awsSecretKeyInput.value.includes('●') ? undefined : awsSecretKeyInput.value,
+          region: awsRegionInput.value
         }
       };
+
+      // Limpiar undefined para no sobreescribir keys existentes
+      if (settings.groq.apiKey === undefined) delete settings.groq.apiKey;
+      if (settings.openai.apiKey === undefined) delete settings.openai.apiKey;
+      if (settings.aws.accessKeyId === undefined) delete settings.aws.accessKeyId;
+      if (settings.aws.secretAccessKey === undefined) delete settings.aws.secretAccessKey;
 
       try {
         const response = await authenticatedFetch('/api/settings', {
@@ -7735,8 +8576,9 @@ footer {
         const data = await response.json();
 
         if (data.success) {
-          showAlert('Configuración guardada correctamente! ✅', 'success');
+          showAlert('✅ Configuración guardada en settings.json y .env', 'success');
           loadSettings();
+          loadKeysStatus();
         } else {
           showAlert('Error: ' + data.error, 'error');
         }
@@ -7755,8 +8597,13 @@ footer {
           selectProvider(data.provider);
         }
 
+        // ✅ MEJORADO: Mostrar máscara segura en los campos (●●●●●●●●)
         if (data.groq?.apiKey) {
           document.getElementById('groq-key').value = data.groq.apiKey;
+          document.getElementById('groq-key').placeholder = 'Key configurada - escribe nueva para cambiar';
+        } else {
+          document.getElementById('groq-key').value = '';
+          document.getElementById('groq-key').placeholder = 'gsk_...';
         }
         if (data.groq?.model) {
           document.getElementById('groq-model').value = data.groq.model;
@@ -7764,8 +8611,13 @@ footer {
         if (data.groq?.enabled !== undefined) {
           document.getElementById('groq-enabled').checked = data.groq.enabled;
         }
+
         if (data.openai?.apiKey) {
           document.getElementById('openai-key').value = data.openai.apiKey;
+          document.getElementById('openai-key').placeholder = 'Key configurada - escribe nueva para cambiar';
+        } else {
+          document.getElementById('openai-key').value = '';
+          document.getElementById('openai-key').placeholder = 'sk-...';
         }
         if (data.openai?.model) {
           document.getElementById('openai-model').value = data.openai.model;
@@ -7779,20 +8631,166 @@ footer {
           document.getElementById('groq-status').innerHTML = '✅ Conectado';
           document.getElementById('groq-status').className = 'provider-status ok';
         } else if (data.groq?.apiKey) {
-          document.getElementById('groq-status').innerHTML = '❌ Error';
-          document.getElementById('groq-status').className = 'provider-status error';
+          document.getElementById('groq-status').innerHTML = '⚠️ Desactivado';
+          document.getElementById('groq-status').className = 'provider-status pending';
+        } else {
+          document.getElementById('groq-status').innerHTML = '⏳ No configurado';
+          document.getElementById('groq-status').className = 'provider-status pending';
         }
 
         if (data.openaiAvailable) {
           document.getElementById('openai-status').innerHTML = '✅ Conectado';
           document.getElementById('openai-status').className = 'provider-status ok';
         } else if (data.openai?.apiKey) {
-          document.getElementById('openai-status').innerHTML = '❌ Error';
-          document.getElementById('openai-status').className = 'provider-status error';
+          document.getElementById('openai-status').innerHTML = '⚠️ Desactivado';
+          document.getElementById('openai-status').className = 'provider-status pending';
+        } else {
+          document.getElementById('openai-status').innerHTML = '⏳ No configurado';
+          document.getElementById('openai-status').className = 'provider-status pending';
         }
+
+        // ✅ NUEVO: Mostrar datos de AWS
+        if (data.aws?.accessKeyId) {
+          document.getElementById('aws-access-key').value = data.aws.accessKeyId;
+          document.getElementById('aws-access-key').placeholder = 'Key configurada - escribe nueva para cambiar';
+        } else {
+          document.getElementById('aws-access-key').value = '';
+          document.getElementById('aws-access-key').placeholder = 'AKIA...';
+        }
+        if (data.aws?.secretAccessKey) {
+          document.getElementById('aws-secret-key').value = data.aws.secretAccessKey;
+          document.getElementById('aws-secret-key').placeholder = 'Key configurada - escribe nueva para cambiar';
+        } else {
+          document.getElementById('aws-secret-key').value = '';
+          document.getElementById('aws-secret-key').placeholder = 'wJalr...';
+        }
+        if (data.aws?.region) {
+          document.getElementById('aws-region').value = data.aws.region;
+        }
+
+        // ✅ NUEVO: Cargar estado detallado de keys
+        loadKeysStatus();
 
       } catch (error) {
         console.error('Error loading settings:', error);
+      }
+    }
+
+    // ✅ NUEVO: Cargar estado de API keys (muestra indicadores debajo de cada input)
+    async function loadKeysStatus() {
+      try {
+        const response = await authenticatedFetch('/api/keys/status');
+        const data = await response.json();
+
+        if (data.success) {
+          // Groq key status
+          const groqStatusEl = document.getElementById('groq-key-status');
+          if (groqStatusEl) {
+            if (data.keys.groq.configured) {
+              groqStatusEl.innerHTML = '<span style="color: #2e7d32;">✅ Key configurada</span>';
+            } else {
+              groqStatusEl.innerHTML = '<span style="color: #ef6c00;">⚠️ Sin key configurada</span>';
+            }
+          }
+
+          // OpenAI key status
+          const openaiStatusEl = document.getElementById('openai-key-status');
+          if (openaiStatusEl) {
+            if (data.keys.openai.configured) {
+              openaiStatusEl.innerHTML = '<span style="color: #2e7d32;">✅ Key configurada</span>';
+            } else {
+              openaiStatusEl.innerHTML = '<span style="color: #ef6c00;">⚠️ Sin key configurada</span>';
+            }
+          }
+
+          // ✅ NUEVO: AWS key status
+          const awsStatusEl = document.getElementById('aws-key-status');
+          if (awsStatusEl) {
+            if (data.keys.aws.configured) {
+              awsStatusEl.innerHTML = '<span style="color: #2e7d32;">✅ Credenciales configuradas · Región: ' + (data.keys.aws.region || 'us-east-1') + '</span>';
+            } else {
+              awsStatusEl.innerHTML = '<span style="color: #ef6c00;">⚠️ Sin credenciales AWS configuradas</span>';
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando estado de keys:', error);
+      }
+    }
+
+    // ✅ NUEVO: Eliminar API key de un proveedor específico
+    async function deleteApiKey(provider) {
+      const providerNames = { groq: 'Groq', openai: 'OpenAI', aws: 'AWS/DynamoDB' };
+      const providerName = providerNames[provider] || provider;
+
+      if (!confirm(`¿Eliminar la API key de ${providerName}?\n\nSe eliminará de:\n• .env\n• settings.json\n• Memoria del servidor`)) {
+        return;
+      }
+
+      try {
+        const response = await authenticatedFetch(`/api/keys/${provider}`, {
+          method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          showAlert(`🗑️ API key de ${providerName} eliminada correctamente`, 'success');
+
+          // Limpiar el campo del input
+          if (provider === 'groq') {
+            document.getElementById('groq-key').value = '';
+            document.getElementById('groq-key').placeholder = 'gsk_...';
+          } else if (provider === 'openai') {
+            document.getElementById('openai-key').value = '';
+            document.getElementById('openai-key').placeholder = 'sk-...';
+          } else if (provider === 'aws') {
+            document.getElementById('aws-access-key').value = '';
+            document.getElementById('aws-access-key').placeholder = 'AKIA...';
+            document.getElementById('aws-secret-key').value = '';
+            document.getElementById('aws-secret-key').placeholder = 'wJalr...';
+          }
+
+          // Recargar estado
+          loadSettings();
+        } else {
+          showAlert('Error eliminando key: ' + data.error, 'error');
+        }
+      } catch (error) {
+        showAlert('Error eliminando key: ' + error.message, 'error');
+      }
+    }
+
+    // ✅ NUEVO: Eliminar TODAS las API keys (preparar para GitHub)
+    async function deleteAllApiKeys() {
+      if (!confirm('⚠️ ¿Eliminar TODAS las API keys?\n\nEsto limpiará:\n• GROQ_API_KEY de .env y settings.json\n• OPENAI_API_KEY de .env y settings.json\n• AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY de .env\n\nPerfecto para hacer git push seguro.')) {
+        return;
+      }
+
+      try {
+        // Eliminar Groq
+        await authenticatedFetch('/api/keys/groq', { method: 'DELETE' });
+        // Eliminar OpenAI
+        await authenticatedFetch('/api/keys/openai', { method: 'DELETE' });
+        // ✅ NUEVO: Eliminar AWS
+        await authenticatedFetch('/api/keys/aws', { method: 'DELETE' });
+
+        showAlert('🗑️ Todas las API keys eliminadas (Groq, OpenAI, AWS). Listo para git push! 🚀', 'success');
+
+        // Limpiar campos
+        document.getElementById('groq-key').value = '';
+        document.getElementById('groq-key').placeholder = 'gsk_...';
+        document.getElementById('openai-key').value = '';
+        document.getElementById('openai-key').placeholder = 'sk-...';
+        document.getElementById('aws-access-key').value = '';
+        document.getElementById('aws-access-key').placeholder = 'AKIA...';
+        document.getElementById('aws-secret-key').value = '';
+        document.getElementById('aws-secret-key').placeholder = 'wJalr...';
+
+        // Recargar estado
+        loadSettings();
+      } catch (error) {
+        showAlert('Error eliminando keys: ' + error.message, 'error');
       }
     }
 
@@ -7965,217 +8963,269 @@ footer {
     checkAuthentication();
   </script>
 
-<!-- ========================================
-     CHAT MODAL
+  <!-- ========================================
+     CHAT COMPLETE - JAVASCRIPT FUNCIONAL
+     (Debe cargarse DESPUÉS del script principal)
      ======================================== -->
-<div class="chat-modal" id="chat-modal">
-  <div class="chat-modal-content">
-    <div class="chat-modal-header">
-      <div>
-        <h3>Chat de Conversación</h3>
-        <div class="phone-number" id="chat-phone-number">+57 300 123 4567</div>
-      </div>
-      <div style="display: flex; align-items: center; gap: 16px;">
-        <div class="bot-status-indicator" id="chat-bot-status">
-          <span class="bot-status-dot"></span>
-          <span id="chat-bot-status-text">Bot Activo</span>
-        </div>
-        <button class="chat-modal-close" onclick="closeChatModal()">&times;</button>
-      </div>
-    </div>
+  <script src="js/chat-complete.js"></script>
 
-    <div class="chat-modal-body" id="chat-messages">
-      <!-- Los mensajes se cargarán aquí dinámicamente -->
-      <div style="text-align: center; color: var(--medium-gray); padding: 40px;">
-        Cargando mensajes...
-      </div>
-    </div>
+  <!-- ========================================
+     CHAT MODAL - ESTILO WHATSAPP (CON EVENTOS)
+     ======================================== -->
+  <div class="chat-modal" id="chat-modal">
+    <div class="chat-modal-content">
 
-    <div class="chat-actions" id="chat-actions">
-      <button class="chat-action-btn reactivate" id="chat-reactivate-btn" onclick="reactivateBotFromChat()" style="display: none;">
-        🔄 Reactivar Bot
-      </button>
-    </div>
-
-    <div class="chat-modal-footer">
-      <div class="chat-input-container">
-        <button class="emoji-picker-btn" id="emoji-picker-btn" onclick="toggleEmojiPicker()" title="Insertar emoji">
-          😀
-        </button>
-        <textarea
-          class="chat-message-input"
-          id="chat-message-input"
-          placeholder="Escribe un mensaje para enviar..."
-          rows="1"
-          onkeydown="handleChatKeydown(event)"
-        ></textarea>
-
-        <!-- ✅ NUEVO: Botón para subir archivos (clip) -->
-        <button class="chat-attach-btn" id="chat-attach-btn" onclick="toggleAttachMenu()" title="Adjuntar archivo">
-          📎
-        </button>
-
-        <!-- ✅ NUEVO: Botón para grabar/enviar audio -->
-        <button class="chat-audio-btn" id="chat-audio-btn" onclick="toggleAudioRecorder()" title="Enviar audio">
-          🎤
-        </button>
-
-        <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()">
-          Enviar
-        </button>
-
-        <!-- ✅ NUEVO: Menú de adjuntar archivos -->
-        <div class="attach-menu" id="attach-menu">
-          <div class="attach-menu-item" onclick="document.getElementById('file-image-input').click()">
-            <span class="attach-menu-icon">🖼️</span>
-            <span>Imagen</span>
+      <!-- HEADER - Foto de contacto + Nombre + Botones -->
+      <div class="chat-modal-header">
+        <div class="chat-header-contact">
+          <div class="chat-header-avatar" id="chat-avatar">
+            <span id="chat-avatar-initials">👤</span>
           </div>
-          <div class="attach-menu-item" onclick="document.getElementById('file-document-input').click()">
-            <span class="attach-menu-icon">📄</span>
-            <span>PDF</span>
-          </div>
-          <div class="attach-menu-item" onclick="document.getElementById('file-audio-input').click()">
-            <span class="attach-menu-icon">🎵</span>
-            <span>Audio</span>
+          <div class="chat-header-info">
+            <div class="chat-header-name" id="chat-contact-name">Contacto</div>
+            <div class="chat-header-status" id="chat-phone-number">+57 300 123 4567</div>
           </div>
         </div>
+        <div class="chat-header-actions">
+          <div class="bot-status-indicator" id="chat-bot-status">
+            <span class="bot-status-dot"></span>
+            <span id="chat-bot-status-text">Bot Activo</span>
+          </div>
+          <button class="chat-header-btn" title="Llamada" id="chat-call-btn">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+          </button>
+          <button class="chat-modal-close" id="chat-close-btn" title="Cerrar">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
-        <!-- ✅ NUEVO: Inputs ocultos para subir archivos -->
-        <input type="file" id="file-image-input" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;" onchange="handleFileUpload(this, 'image')">
-        <input type="file" id="file-document-input" accept="application/pdf" style="display: none;" onchange="handleFileUpload(this, 'document')">
-        <input type="file" id="file-audio-input" accept="audio/mpeg,audio/ogg,audio/wav" style="display: none;" onchange="handleFileUpload(this, 'audio')">
+      <!-- BODY - Área de mensajes con SCROLL -->
+      <div class="chat-modal-body" id="chat-messages">
+        <div class="chat-loading-messages">
+          <div class="chat-loading-spinner"></div>
+          <div>Cargando mensajes...</div>
+        </div>
+      </div>
 
-        <!-- Emoji Picker Panel -->
-        <div class="emoji-picker-panel" id="emoji-picker-panel">
-          <div class="emoji-picker-section">
-            <div class="emoji-picker-section-title">Sonrisas</div>
-            <div class="emoji-picker-grid">
-              <span class="emoji-picker-item" onclick="insertEmoji('😀')">😀</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😃')">😃</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😄')">😄</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😁')">😁</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😆')">😆</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😂')">😂</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('🤣')">🤣</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😊')">😊</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😉')">😉</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😍')">😍</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😘')">😘</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😎')">😎</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('🤔')">🤔</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😢')">😢</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😡')">😡</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('😱')">😱</span>
+      <!-- Acciones del chat (Reactivar Bot, etc) -->
+      <div class="chat-actions" id="chat-actions">
+        <button class="chat-action-btn reactivate" id="chat-reactivate-btn" style="display: none;">
+          🔄 Reactivar Bot
+        </button>
+      </div>
+
+      <!-- FOOTER - Área de escritura con botones -->
+      <div class="chat-modal-footer">
+        <div class="chat-input-container">
+          <!-- Botón emoji -->
+          <button class="chat-footer-btn emoji-picker-btn" id="emoji-picker-btn" title="Emoji">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+              <line x1="9" y1="9" x2="9.01" y2="9" />
+              <line x1="15" y1="9" x2="15.01" y2="9" />
+            </svg>
+          </button>
+
+          <!-- Input de mensaje -->
+          <textarea class="chat-message-input" id="chat-message-input" placeholder="Escribe un mensaje..."
+            rows="1"></textarea>
+
+          <!-- Botón adjuntar (clip) -->
+          <button class="chat-footer-btn chat-attach-btn" id="chat-attach-btn" title="Adjuntar">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+              <path
+                d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+            </svg>
+          </button>
+
+          <!-- Botón micrófono para audio -->
+          <button class="chat-footer-btn chat-audio-btn" id="chat-audio-btn" title="Grabar audio">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" y1="19" x2="12" y2="23" />
+              <line x1="8" y1="23" x2="16" y2="23" />
+            </svg>
+          </button>
+
+          <!-- Botón enviar -->
+          <button class="chat-send-btn" id="chat-send-btn" title="Enviar">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+
+          <!-- Menú de adjuntar archivos -->
+          <div class="attach-menu" id="attach-menu">
+            <div class="attach-menu-item" data-action="image">
+              <span class="attach-menu-icon">🖼️</span>
+              <span>Imagen</span>
+            </div>
+            <div class="attach-menu-item" data-action="document">
+              <span class="attach-menu-icon">📄</span>
+              <span>Documento</span>
+            </div>
+            <div class="attach-menu-item" data-action="audio">
+              <span class="attach-menu-icon">🎵</span>
+              <span>Audio</span>
+            </div>
+            <div class="attach-menu-item" data-action="camera">
+              <span class="attach-menu-icon">📷</span>
+              <span>Cámara</span>
             </div>
           </div>
-          <div class="emoji-picker-section">
-            <div class="emoji-picker-section-title">Gestos</div>
-            <div class="emoji-picker-grid">
-              <span class="emoji-picker-item" onclick="insertEmoji('🙌')">🙌</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('👏')">👏</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('👍')">👍</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('👎')">👎</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('👋')">👋</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('🤝')">🤝</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('✌️')">✌️</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('👌')">👌</span>
+
+          <!-- Inputs ocultos para subir archivos -->
+          <input type="file" id="file-image-input" accept="image/jpeg,image/png,image/gif,image/webp"
+            style="display: none;">
+          <input type="file" id="file-document-input"
+            accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain"
+            style="display: none;">
+          <input type="file" id="file-audio-input" accept="audio/mpeg,audio/ogg,audio/wav,audio/mp4,audio/webm"
+            style="display: none;">
+          <input type="file" id="file-camera-input" accept="image/*" capture="environment" style="display: none;">
+
+          <!-- Emoji Picker Panel -->
+          <div class="emoji-picker-panel" id="emoji-picker-panel">
+            <div class="emoji-picker-section">
+              <div class="emoji-picker-section-title">Sonrisas</div>
+              <div class="emoji-picker-grid">
+                <span class="emoji-picker-item">😀</span>
+                <span class="emoji-picker-item">😃</span>
+                <span class="emoji-picker-item">😄</span>
+                <span class="emoji-picker-item">😁</span>
+                <span class="emoji-picker-item">😆</span>
+                <span class="emoji-picker-item">😂</span>
+                <span class="emoji-picker-item">🤣</span>
+                <span class="emoji-picker-item">😊</span>
+                <span class="emoji-picker-item">😉</span>
+                <span class="emoji-picker-item">😍</span>
+                <span class="emoji-picker-item">😘</span>
+                <span class="emoji-picker-item">😎</span>
+                <span class="emoji-picker-item">🤔</span>
+                <span class="emoji-picker-item">😢</span>
+                <span class="emoji-picker-item">😡</span>
+                <span class="emoji-picker-item">😱</span>
+              </div>
             </div>
-          </div>
-          <div class="emoji-picker-section">
-            <div class="emoji-picker-section-title">Corazones</div>
-            <div class="emoji-picker-grid">
-              <span class="emoji-picker-item" onclick="insertEmoji('❤️')">❤️</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('🧡')">🧡</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('💛')">💛</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('💚')">💚</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('💙')">💙</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('💜')">💜</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('🖤')">🖤</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('💔')">💔</span>
+            <div class="emoji-picker-section">
+              <div class="emoji-picker-section-title">Gestos</div>
+              <div class="emoji-picker-grid">
+                <span class="emoji-picker-item">🙌</span>
+                <span class="emoji-picker-item">👏</span>
+                <span class="emoji-picker-item">👍</span>
+                <span class="emoji-picker-item">👎</span>
+                <span class="emoji-picker-item">👋</span>
+                <span class="emoji-picker-item">🤝</span>
+                <span class="emoji-picker-item">✌️</span>
+                <span class="emoji-picker-item">👌</span>
+              </div>
             </div>
-          </div>
-          <div class="emoji-picker-section">
-            <div class="emoji-picker-section-title">Objetos</div>
-            <div class="emoji-picker-grid">
-              <span class="emoji-picker-item" onclick="insertEmoji('🎉')">🎉</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('🚀')">🚀</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('✨')">✨</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('📞')">📞</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('📲')">📲</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('✅')">✅</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('❌')">❌</span>
-              <span class="emoji-picker-item" onclick="insertEmoji('⭐')">⭐</span>
+            <div class="emoji-picker-section">
+              <div class="emoji-picker-section-title">Corazones</div>
+              <div class="emoji-picker-grid">
+                <span class="emoji-picker-item">❤️</span>
+                <span class="emoji-picker-item">🧡</span>
+                <span class="emoji-picker-item">💛</span>
+                <span class="emoji-picker-item">💚</span>
+                <span class="emoji-picker-item">💙</span>
+                <span class="emoji-picker-item">💜</span>
+                <span class="emoji-picker-item">🖤</span>
+                <span class="emoji-picker-item">💔</span>
+              </div>
+            </div>
+            <div class="emoji-picker-section">
+              <div class="emoji-picker-section-title">Útiles</div>
+              <div class="emoji-picker-grid">
+                <span class="emoji-picker-item">🎉</span>
+                <span class="emoji-picker-item">🚀</span>
+                <span class="emoji-picker-item">✨</span>
+                <span class="emoji-picker-item">📞</span>
+                <span class="emoji-picker-item">📲</span>
+                <span class="emoji-picker-item">✅</span>
+                <span class="emoji-picker-item">❌</span>
+                <span class="emoji-picker-item">⭐</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- ========================================
+  <!-- ========================================
      ELEMENTOS RESPONSIVE PARA MÓVIL
      ======================================== -->
 
-<!-- Botón de menú hamburguesa para móvil -->
-<button class="mobile-menu-btn" id="mobile-menu-btn" style="display: none;">
-  ☰
-</button>
+  <!-- Botón de menú hamburguesa para móvil -->
+  <button class="mobile-menu-btn" id="mobile-menu-btn" style="display: none;">
+    ☰
+  </button>
 
-<!-- Overlay oscuro cuando el sidebar está abierto en móvil -->
-<div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <!-- Overlay oscuro cuando el sidebar está abierto en móvil -->
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
-<!-- ========================================
+  <!-- ========================================
      JAVASCRIPT - FUNCIONES DEL MENÚ MÓVIL
      ======================================== -->
-<script>
-  // Mostrar botón de menú solo en móvil
-  function checkMobileMenu() {
-    const mobileBtn = document.getElementById('mobile-menu-btn');
-    if (window.innerWidth <= 768) {
-      mobileBtn.style.display = 'block';
-    } else {
-      mobileBtn.style.display = 'none';
-    }
-  }
-
-  // Toggle del menú móvil
-  document.getElementById('mobile-menu-btn')?.addEventListener('click', function() {
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-
-    sidebar.classList.toggle('mobile-open');
-    overlay.classList.toggle('active');
-  });
-
-  // Cerrar menú al hacer click en el overlay
-  document.getElementById('sidebar-overlay')?.addEventListener('click', function() {
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-
-    sidebar.classList.remove('mobile-open');
-    overlay.classList.remove('active');
-  });
-
-  // Cerrar menú al seleccionar una opción
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', function() {
+  <script>
+    // Mostrar botón de menú solo en móvil
+    function checkMobileMenu() {
+      const mobileBtn = document.getElementById('mobile-menu-btn');
       if (window.innerWidth <= 768) {
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
-
-        sidebar.classList.remove('mobile-open');
-        overlay.classList.remove('active');
+        mobileBtn.style.display = 'block';
+      } else {
+        mobileBtn.style.display = 'none';
       }
-    });
-  });
+    }
 
-  // Verificar responsive al cargar y redimensionar
-  window.addEventListener('load', checkMobileMenu);
-  window.addEventListener('resize', checkMobileMenu);
-</script>
+    // Toggle del menú móvil
+    document.getElementById('mobile-menu-btn')?.addEventListener('click', function () {
+      const sidebar = document.querySelector('.sidebar');
+      const overlay = document.getElementById('sidebar-overlay');
+
+      sidebar.classList.toggle('mobile-open');
+      overlay.classList.toggle('active');
+    });
+
+    // Cerrar menú al hacer click en el overlay
+    document.getElementById('sidebar-overlay')?.addEventListener('click', function () {
+      const sidebar = document.querySelector('.sidebar');
+      const overlay = document.getElementById('sidebar-overlay');
+
+      sidebar.classList.remove('mobile-open');
+      overlay.classList.remove('active');
+    });
+
+    // Cerrar menú al seleccionar una opción
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', function () {
+        if (window.innerWidth <= 768) {
+          const sidebar = document.querySelector('.sidebar');
+          const overlay = document.getElementById('sidebar-overlay');
+
+          sidebar.classList.remove('mobile-open');
+          overlay.classList.remove('active');
+        }
+      });
+    });
+
+    // Verificar responsive al cargar y redimensionar
+    window.addEventListener('load', checkMobileMenu);
+    window.addEventListener('resize', checkMobileMenu);
+  </script>
 
 </body>
+
 </html>
 
 <!-- ========================================

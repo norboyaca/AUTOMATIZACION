@@ -779,6 +779,7 @@ class BaileysProvider extends EventEmitter {
 
   /**
    * ✅ NUEVO: Envía un audio
+   * Soporta: mp3, ogg, wav, webm
    */
   async sendAudio(to, audioPath) {
     if (!this.isReady || !this.sock) {
@@ -788,6 +789,16 @@ class BaileysProvider extends EventEmitter {
     try {
       const chatId = this._formatNumber(to);
 
+      // Determinar mimetype según extensión
+      const ext = path.extname(audioPath).toLowerCase();
+      let mimetype = 'audio/mpeg';  // Default
+
+      if (ext === '.ogg') mimetype = 'audio/ogg';
+      else if (ext === '.wav') mimetype = 'audio/wav';
+      else if (ext === '.webm') mimetype = 'audio/webm';
+      else if (ext === '.m4a') mimetype = 'audio/mp4';
+      else if (ext === '.mp3') mimetype = 'audio/mpeg';
+
       // Leer audio como buffer
       const audioBuffer = fs.readFileSync(audioPath);
 
@@ -796,11 +807,12 @@ class BaileysProvider extends EventEmitter {
         chatId,
         {
           audio: audioBuffer,
-          mimetype: 'audio/mpeg'  // MP3 es el formato más común
+          mimetype: mimetype,
+          ptt: false  // No es mensaje de voz (nota de audio)
         }
       );
 
-      logger.debug(`Audio enviado a ${to}`);
+      logger.debug(`Audio enviado a ${to} (${mimetype})`);
       return result;
     } catch (error) {
       logger.error('Error enviando audio:', error);

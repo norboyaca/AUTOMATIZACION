@@ -52,10 +52,12 @@ const advisorMessagesHistory = new Map();
  */
 async function sendAdvisorMessage(userId, advisorData, message) {
   try {
-    const conversation = conversationStateService.getConversation(userId);
+    // ✅ Usar getOrCreateConversation en lugar de getConversation
+    // Esto carga la conversación desde DynamoDB si no está en memoria
+    const conversation = conversationStateService.getOrCreateConversation(userId);
 
     if (!conversation) {
-      throw new Error('Conversación no encontrada');
+      throw new Error('No se pudo crear o obtener la conversación');
     }
 
     logger.info(`👨‍💼 Asesor ${advisorData.name} enviando mensaje a ${userId}`);
@@ -103,6 +105,37 @@ async function sendAdvisorMessage(userId, advisorData, message) {
     // Actualizar última interacción
     conversation.lastInteraction = Date.now();
     conversation.lastMessage = message;
+
+    // ✅ NUEVO: Guardar mensaje de asesor en DynamoDB para persistencia
+    setImmediate(async () => {
+      try {
+        const conversationRepository = require('../repositories/conversation.repository');
+        const { Message } = require('../models/message.model');
+        const dynamoMessage = new Message({
+          id: messageRecord.id,
+          conversationId: userId,
+          participantId: userId,
+          direction: 'outgoing',
+          type: 'text',
+          content: { text: message },
+          from: advisorData.id,
+          to: userId,
+          status: 'delivered',
+          metadata: {
+            sender: 'admin',
+            senderName: advisorData.name,
+            senderEmail: advisorData.email || null,
+            originalType: 'text'
+          },
+          createdAt: new Date(messageRecord.timestamp),
+          updatedAt: new Date()
+        });
+        await conversationRepository.saveMessage(dynamoMessage);
+        logger.info(`✅ [DYNAMODB] Mensaje de asesor guardado: ${messageRecord.id}`);
+      } catch (dbError) {
+        logger.error(`❌ [DYNAMODB] Error guardando mensaje de asesor ${messageRecord.id}:`, dbError.message);
+      }
+    });
 
     // Historial interno SOLO para estadísticas (NO se expone al frontend)
     if (!advisorMessagesHistory.has(userId)) {
@@ -168,10 +201,11 @@ async function sendAdvisorMessage(userId, advisorData, message) {
  */
 async function reactivateBot(userId, advisorData) {
   try {
-    const conversation = conversationStateService.getConversation(userId);
+    // ✅ Usar getOrCreateConversation en lugar de getConversation
+    const conversation = conversationStateService.getOrCreateConversation(userId);
 
     if (!conversation) {
-      throw new Error('Conversación no encontrada');
+      throw new Error('No se pudo crear o obtener la conversación');
     }
 
     logger.info(`🔄 Reactivando bot para ${userId} por ${advisorData.name}`);
@@ -318,10 +352,11 @@ function clearAdvisorMessages(userId) {
  */
 async function transferToAdvisor(userId, newAdvisorData) {
   try {
-    const conversation = conversationStateService.getConversation(userId);
+    // ✅ Usar getOrCreateConversation en lugar de getConversation
+    const conversation = conversationStateService.getOrCreateConversation(userId);
 
     if (!conversation) {
-      throw new Error('Conversación no encontrada');
+      throw new Error('No se pudo crear o obtener la conversación');
     }
 
     const oldAdvisor = conversation.advisorName;
@@ -386,10 +421,11 @@ async function transferToAdvisor(userId, newAdvisorData) {
  */
 async function sendAdvisorMediaMessage(userId, advisorData, mediaData, caption = '') {
   try {
-    const conversation = conversationStateService.getConversation(userId);
+    // ✅ Usar getOrCreateConversation en lugar de getConversation
+    const conversation = conversationStateService.getOrCreateConversation(userId);
 
     if (!conversation) {
-      throw new Error('Conversación no encontrada');
+      throw new Error('No se pudo crear o obtener la conversación');
     }
 
     logger.info(`👨‍💼 Asesor ${advisorData.name} enviando ${mediaData.type} a ${userId}`);
@@ -439,14 +475,52 @@ async function sendAdvisorMediaMessage(userId, advisorData, mediaData, caption =
     }
     advisorMessagesHistory.get(userId).push(messageRecord);
 
+    // ✅ NUEVO: Guardar mensaje multimedia de asesor en DynamoDB para persistencia
+    setImmediate(async () => {
+      try {
+        const conversationRepository = require('../repositories/conversation.repository');
+        const { Message } = require('../models/message.model');
+        const dynamoMessage = new Message({
+          id: messageRecord.id,
+          conversationId: userId,
+          participantId: userId,
+          direction: 'outgoing',
+          type: messageType,
+          content: {
+            text: caption || mediaData.filename,
+            mediaUrl: mediaData.url,
+            fileName: mediaData.filename,
+            fileSize: mediaData.size
+          },
+          from: advisorData.id,
+          to: userId,
+          status: 'delivered',
+          metadata: {
+            sender: 'admin',
+            senderName: advisorData.name,
+            senderEmail: advisorData.email || null,
+            originalType: messageType
+          },
+          createdAt: new Date(messageRecord.timestamp),
+          updatedAt: new Date()
+        });
+        await conversationRepository.saveMessage(dynamoMessage);
+        logger.info(`✅ [DYNAMODB] Mensaje multimedia de asesor guardado: ${messageRecord.id}`);
+      } catch (dbError) {
+        logger.error(`❌ [DYNAMODB] Error guardando mensaje multimedia de asesor ${messageRecord.id}:`, dbError.message);
+      }
+    });
+
     if (wasActive) {
       logger.info(`🔴 BOT DESACTIVADO para ${userId} (mensaje multimedia)`);
     }
 
     // Enviar mensaje por WhatsApp según el tipo
+    // NOTA: filepath debe venir desde el frontend para que Baileys pueda leer el archivo
     await whatsappProvider.sendMediaMessage(userId, {
       type: mediaData.type,
       url: mediaData.url,
+      filepath: mediaData.filepath,  // ✅ Ruta absoluta al archivo
       filename: mediaData.filename,
       caption: caption
     });

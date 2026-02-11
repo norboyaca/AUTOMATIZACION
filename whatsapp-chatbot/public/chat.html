@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NORBOY Chat - Conversaciones</title>
+  <meta name="description" content="Panel de chat en tiempo real para gestión de conversaciones WhatsApp - NORBOY Chatbot">
+  <link rel="stylesheet" href="css/chat-page.css">
+</head>
+<body>
+
+  <!-- ========================================
+       LOGIN OVERLAY
+       ======================================== -->
+  <div class="login-overlay" id="login-overlay">
+    <div class="login-card">
+      <img src="LOGO.jpeg" alt="NORBOY Logo" style="max-width:80px;height:auto;margin-bottom:12px">
+      <h2>NORBOY Chatbot</h2>
+      <p>Inicia sesión para continuar</p>
+      <div class="login-error" id="login-error"></div>
+      <form id="login-form">
+        <div class="login-form-group">
+          <label for="username">Usuario</label>
+          <input type="text" id="username" placeholder="Tu usuario" required autocomplete="username">
+        </div>
+        <div class="login-form-group">
+          <label for="password">Contraseña</label>
+          <input type="password" id="password" placeholder="Tu contraseña" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="login-btn">Iniciar Sesión</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================
+       MAIN WRAPPER
+       ======================================== -->
+  <div class="chat-page-wrapper">
+
+    <!-- ========================================
+         LEFT SIDEBAR (Navigation)
+         ======================================== -->
+    <aside class="chat-sidebar">
+      <div class="sidebar-logo">
+        <img src="LOGO.jpeg" alt="NORBOY Logo">
+        <div class="sidebar-logo-text">NORBOY</div>
+        <div class="sidebar-logo-subtitle">Chatbot WhatsApp</div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/" class="nav-item">
+          <span class="nav-item-icon">🏠</span>
+          <span class="nav-item-text">Inicio</span>
+        </a>
+        <a href="/chat.html" class="nav-item active">
+          <span class="nav-item-icon">💬</span>
+          <span class="nav-item-text">Conversaciones</span>
+          <span id="pending-badge" class="pending-badge" style="display:none">0</span>
+        </a>
+
+        <div class="nav-section-title">Herramientas</div>
+        <a href="/" class="nav-item" onclick="localStorage.setItem('pendingView','documents')">
+          <span class="nav-item-icon">📁</span>
+          <span class="nav-item-text">Documentos</span>
+        </a>
+        <a href="/" class="nav-item" onclick="localStorage.setItem('pendingView','number-control')">
+          <span class="nav-item-icon">🔢</span>
+          <span class="nav-item-text">Control de Números</span>
+        </a>
+        <a href="/" class="nav-item" onclick="localStorage.setItem('pendingView','holidays')">
+          <span class="nav-item-icon">📅</span>
+          <span class="nav-item-text">Días Festivos</span>
+        </a>
+        <a href="/" class="nav-item" onclick="localStorage.setItem('pendingView','settings')">
+          <span class="nav-item-icon">⚙️</span>
+          <span class="nav-item-text">Configuración</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">v1.0.0 - Dashboard</div>
+    </aside>
+
+    <!-- ========================================
+         MAIN AREA
+         ======================================== -->
+    <div class="chat-main-area">
+
+      <!-- TOP HEADER -->
+      <header class="chat-top-header">
+        <div class="header-left-section">
+          <div>
+            <div class="header-title">Dashboard Chatbot</div>
+            <div class="header-subtitle">Conversaciones</div>
+          </div>
+        </div>
+        <div class="header-right-section">
+          <div class="header-clock">
+            <span>🕐</span>
+            <span id="clock-time">00:00:00</span>
+          </div>
+          <div class="header-status-badge disconnected" id="header-status-badge">
+            <span class="status-dot"></span>
+            <span id="header-status-text">Conectando...</span>
+          </div>
+          <button class="theme-toggle-btn" id="theme-toggle" title="Cambiar tema">🌙</button>
+          <a href="/" class="back-to-dashboard-btn">← Dashboard</a>
+        </div>
+      </header>
+
+      <!-- STATS BAR -->
+      <div class="stats-bar">
+        <div class="stat-card-mini">
+          <span class="stat-icon">💬</span>
+          <div>
+            <div class="stat-value" id="stat-total">0</div>
+            <div class="stat-label">Total</div>
+          </div>
+        </div>
+        <div class="stat-card-mini">
+          <span class="stat-icon">🟢</span>
+          <div>
+            <div class="stat-value" id="stat-active">0</div>
+            <div class="stat-label">Activas</div>
+          </div>
+        </div>
+        <div class="stat-card-mini">
+          <span class="stat-icon">⚠️</span>
+          <div>
+            <div class="stat-value" id="stat-pending">0</div>
+            <div class="stat-label">Pendientes</div>
+          </div>
+        </div>
+        <div class="stat-card-mini">
+          <span class="stat-icon">👨‍💼</span>
+          <div>
+            <div class="stat-value" id="stat-advisor">0</div>
+            <div class="stat-label">Con Asesor</div>
+          </div>
+        </div>
+        <div class="stat-card-mini">
+          <span class="stat-icon">🔴</span>
+          <div>
+            <div class="stat-value" id="stat-expired">0</div>
+            <div class="stat-label">Expiradas</div>
+          </div>
+        </div>
+        <div class="stat-card-mini">
+          <span class="stat-icon">✅</span>
+          <div>
+            <div class="stat-value" id="stat-consent">0</div>
+            <div class="stat-label">Aceptaron</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================
+           CHAT LAYOUT (2 columns)
+           ======================================== -->
+      <div class="chat-layout">
+
+        <!-- LEFT: Conversation List -->
+        <div class="conv-list-panel">
+          <div class="conv-list-header">
+            <div class="conv-search-container">
+              <span class="conv-search-icon">🔍</span>
+              <input type="text" class="conv-search-input" id="conv-search-input" placeholder="Buscar por nombre o teléfono...">
+            </div>
+            <div class="conv-filter-row">
+              <button class="conv-filter-btn active" data-filter="all">Todos</button>
+              <button class="conv-filter-btn" data-filter="pending">⚠️ Pendientes</button>
+              <button class="conv-filter-btn" data-filter="advisor">👨‍💼 Asesor</button>
+              <button class="conv-filter-btn" data-filter="active">🟢 Activas</button>
+              <button class="conv-filter-btn" data-filter="expired">🔴 Expiradas</button>
+            </div>
+          </div>
+
+          <div class="conv-list-scroll" id="conv-list-scroll">
+            <div class="conv-list-loading">
+              <div class="spinner"></div>
+              <div>Cargando conversaciones...</div>
+            </div>
+          </div>
+
+          <div class="conv-load-more" id="conv-load-more" style="display:none">
+            <button class="conv-load-more-btn" id="conv-load-more-btn">⬇️ Cargar más conversaciones</button>
+          </div>
+        </div>
+
+        <!-- RIGHT: Chat Panel -->
+        <div class="chat-panel">
+
+          <!-- Empty state (no conversation selected) -->
+          <div class="chat-empty-state" id="chat-empty">
+            <div class="empty-icon">💬</div>
+            <h2>NORBOY Chat</h2>
+            <p>Selecciona una conversación del panel izquierdo para ver los mensajes y responder en tiempo real.</p>
+          </div>
+
+          <!-- Active chat (hidden by default) -->
+          <div id="chat-active" style="display:none;flex-direction:column;height:100%">
+
+            <!-- Chat Header -->
+            <div class="chat-header">
+              <div class="chat-header-left">
+                <button class="mobile-back-btn chat-footer-btn" onclick="ChatPage.mobileBack()" title="Volver" style="display:none">←</button>
+                <div class="chat-header-avatar" id="chat-header-initials">??</div>
+                <div class="chat-header-info">
+                  <span class="chat-header-name" id="chat-header-name">Contacto</span>
+                  <span class="chat-header-phone" id="chat-header-phone">+00 000 000 0000</span>
+                </div>
+                <span class="chat-header-status" id="chat-header-status-badge"></span>
+              </div>
+              <div class="chat-header-actions" id="chat-header-actions"></div>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="chat-messages-area" id="chat-messages">
+              <div class="chat-loading-messages">Selecciona una conversación</div>
+            </div>
+
+            <!-- Chat Footer (input) -->
+            <div class="chat-footer">
+              <button class="chat-footer-btn" id="emoji-picker-btn" title="Emoji">😊</button>
+              <button class="chat-footer-btn" id="chat-attach-btn" title="Adjuntar">📎</button>
+
+              <div class="chat-input-wrapper">
+                <textarea id="chat-message-input" placeholder="Escribe un mensaje..." rows="1"></textarea>
+              </div>
+
+              <button class="chat-footer-btn" id="chat-audio-btn" title="Grabar audio">🎤</button>
+
+              <button class="chat-send-btn" id="chat-send-btn" title="Enviar">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="22" y1="2" x2="11" y2="13"/>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+
+              <!-- Emoji Picker Panel -->
+              <div class="emoji-picker-panel" id="emoji-picker-panel">
+                <div class="emoji-picker-grid">
+                  <span class="emoji-picker-item">😀</span><span class="emoji-picker-item">😃</span>
+                  <span class="emoji-picker-item">😄</span><span class="emoji-picker-item">😁</span>
+                  <span class="emoji-picker-item">😅</span><span class="emoji-picker-item">😂</span>
+                  <span class="emoji-picker-item">🤣</span><span class="emoji-picker-item">😊</span>
+                  <span class="emoji-picker-item">😇</span><span class="emoji-picker-item">🙂</span>
+                  <span class="emoji-picker-item">😉</span><span class="emoji-picker-item">😍</span>
+                  <span class="emoji-picker-item">🥰</span><span class="emoji-picker-item">😘</span>
+                  <span class="emoji-picker-item">😗</span><span class="emoji-picker-item">😙</span>
+                  <span class="emoji-picker-item">😋</span><span class="emoji-picker-item">😛</span>
+                  <span class="emoji-picker-item">😜</span><span class="emoji-picker-item">🤪</span>
+                  <span class="emoji-picker-item">😎</span><span class="emoji-picker-item">🤩</span>
+                  <span class="emoji-picker-item">🥳</span><span class="emoji-picker-item">😏</span>
+                  <span class="emoji-picker-item">😤</span><span class="emoji-picker-item">😠</span>
+                  <span class="emoji-picker-item">😡</span><span class="emoji-picker-item">🤬</span>
+                  <span class="emoji-picker-item">😢</span><span class="emoji-picker-item">😭</span>
+                  <span class="emoji-picker-item">😱</span><span class="emoji-picker-item">😰</span>
+                  <span class="emoji-picker-item">👍</span><span class="emoji-picker-item">👎</span>
+                  <span class="emoji-picker-item">👋</span><span class="emoji-picker-item">🤝</span>
+                  <span class="emoji-picker-item">🙏</span><span class="emoji-picker-item">👏</span>
+                  <span class="emoji-picker-item">💪</span><span class="emoji-picker-item">🎉</span>
+                  <span class="emoji-picker-item">❤️</span><span class="emoji-picker-item">💚</span>
+                  <span class="emoji-picker-item">💙</span><span class="emoji-picker-item">💜</span>
+                  <span class="emoji-picker-item">🔥</span><span class="emoji-picker-item">⭐</span>
+                  <span class="emoji-picker-item">✅</span><span class="emoji-picker-item">❌</span>
+                </div>
+              </div>
+
+              <!-- Attach Menu -->
+              <div class="attach-menu" id="attach-menu">
+                <div class="attach-menu-item" data-action="image">
+                  <div class="item-icon">📷</div>
+                  <span>Imagen</span>
+                </div>
+                <div class="attach-menu-item" data-action="document">
+                  <div class="item-icon">📄</div>
+                  <span>Documento</span>
+                </div>
+                <div class="attach-menu-item" data-action="audio">
+                  <div class="item-icon">🎵</div>
+                  <span>Audio</span>
+                </div>
+              </div>
+
+              <!-- Hidden file inputs -->
+              <input type="file" id="file-image-input" accept="image/*" style="display:none">
+              <input type="file" id="file-document-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" style="display:none">
+              <input type="file" id="file-audio-input" accept="audio/*" style="display:none">
+            </div>
+
+          </div><!-- /chat-active -->
+
+        </div><!-- /chat-panel -->
+
+      </div><!-- /chat-layout -->
+
+    </div><!-- /chat-main-area -->
+
+  </div><!-- /chat-page-wrapper -->
+
+  <!-- Socket.IO -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <!-- Chat Page JS -->
+  <script src="js/chat-page.js"></script>
+
+</body>
+</html>

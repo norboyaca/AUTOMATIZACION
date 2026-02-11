@@ -841,6 +841,78 @@ router.get('/schedule-check-status', requireAuth, (req, res) => {
 });
 
 // ===========================================
+// ENDPOINTS PARA CONTROL DE VERIFICACIÓN DE DÍAS FESTIVOS
+// ===========================================
+
+/**
+ * POST /api/conversations/toggle-holiday-check
+ *
+ * Activa o desactiva la verificación de días festivos
+ *
+ * Body:
+ * {
+ *   "enabled": true  // true para activar, false para desactivar
+ * }
+ */
+router.post('/toggle-holiday-check', requireAuth, (req, res) => {
+  try {
+    const { enabled } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        error: 'Parámetro "enabled" debe ser un booleano (true/false)'
+      });
+    }
+
+    const holidaysService = require('../services/holidays.service');
+    const result = holidaysService.setHolidayCheck(enabled);
+
+    if (result.success) {
+      logger.warn(`🔧 Control de días festivos ${enabled ? 'ACTIVADO' : 'DESACTIVADO'} por usuario`);
+
+      res.json({
+        success: true,
+        ...result
+      });
+    } else {
+      res.status(400).json(result);
+    }
+
+  } catch (error) {
+    logger.error('Error cambiando verificación de días festivos:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/conversations/holiday-check-status
+ *
+ * Obtiene el estado actual de la verificación de días festivos
+ */
+router.get('/holiday-check-status', requireAuth, (req, res) => {
+  try {
+    const holidaysService = require('../services/holidays.service');
+    const status = holidaysService.getHolidayCheckStatus();
+
+    res.json({
+      success: true,
+      ...status
+    });
+
+  } catch (error) {
+    logger.error('Error obteniendo estado de verificación de días festivos:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ===========================================
 // ENDPOINTS PARA CONTROL DE NÚMEROS (IA DESACTIVADA)
 // ===========================================
 
@@ -1163,6 +1235,11 @@ router.post('/upload-media', requireAuth, single('file'), async (req, res) => {
   try {
     const { type } = req.body;
 
+    logger.info(`📁 upload-media recibido: type="${type}", file=${req.file ? 'SÍ' : 'NO'}`);
+    if (req.file) {
+      logger.info(`   archivo: originalname="${req.file.originalname}", mimetype="${req.file.mimetype}"`);
+    }
+
     if (!type || !['audio', 'image', 'document'].includes(type)) {
       return res.status(400).json({
         success: false,
@@ -1199,6 +1276,23 @@ router.post('/upload-media', requireAuth, single('file'), async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Manejador de errores de multer
+router.use((error, req, res, next) => {
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      success: false,
+      error: 'Archivo demasiado grande'
+    });
+  }
+  if (error.code === 'INVALID_FILE_TYPE') {
+    return res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+  next(error);
 });
 
 /**
@@ -1272,6 +1366,45 @@ router.post('/:userId/send-media', requireAuth, async (req, res) => {
 
 // Servir archivos estáticos subidos
 router.use('/uploads', express.static(require('path').join(__dirname, '../../uploads')));
+
+// ===========================================
+// MANEJADOR DE ERRORES DE MULTER
+// ===========================================
+router.use((error, req, res, next) => {
+  // Solo manejar errores de multer que vienen de /upload-media
+  if (error && (error.code === 'LIMIT_FILE_SIZE' || error.code === 'INVALID_FILE_TYPE' || error.code === 'LIMIT_UNEXPECTED_FILE')) {
+    logger.error('❌ Error en multer:', error);
+
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        error: 'Archivo demasiado grande'
+      });
+    }
+
+    if (error.code === 'INVALID_FILE_TYPE' || error.message.includes('Tipo de archivo no permitido')) {
+      return res.status(400).json({
+        success: false,
+        error: error.message
+      });
+    }
+
+    if (error.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({
+        success: false,
+        error: 'Campo de archivo no válido o faltante'
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Error al procesar el archivo'
+    });
+  }
+  next(error);
+});
+
+module.exports = router;
 
 // ===========================================
 // ✅ NUEVOS ENDPOINTS PARA CHATS DIRECTOS DE WHATSAPP
@@ -1414,17 +1547,22 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
     const { limit, cursor } = req.query;
     const limitNum = limit ? parseInt(limit, 10) : 200;
 
-    logger.info(`📜 Obteniendo mensajes para ${userId} (limit: ${limitNum})`);
+    // ✅ CRITICAL FIX: Normalize userId to match DynamoDB format
+    // If userId doesn't have @s.whatsapp.net, add it
+    const normalizedUserId = userId.includes('@') ? userId : `${userId}@s.whatsapp.net`;
+
+    logger.info(`📜 Obteniendo mensajes para ${userId} (normalizado: ${normalizedUserId}, limit: ${limitNum})`);
 
     // CARGAR DIRECTAMENTE DESDE DYNAMODB (fuente de verdad)
     // DynamoDB tiene TODOS los mensajes guardados, traemos solo los últimos 200
     logger.info(`📜 Cargando últimos ${limitNum} mensajes desde DynamoDB...`);
     const conversationRepository = require('../repositories/conversation.repository');
-    const dbMessages = await conversationRepository.getHistory(userId, { limit: limitNum });
+    const dbMessages = await conversationRepository.getHistory(normalizedUserId, { limit: limitNum });
 
     const messages = dbMessages.map(msg => ({
       id: msg.id || msg.messageId,
-      sender: msg.direction === 'incoming' ? 'user' : 'bot',
+      sender: msg.metadata?.sender || (msg.direction === 'incoming' ? 'user' : 'bot'),
+      senderName: msg.metadata?.sender === 'admin' ? (msg.metadata?.senderName || 'Asesor') : undefined,
       message: msg.content?.text || '[Multimedia]',
       text: msg.content?.text || '[Multimedia]',
       type: msg.metadata?.originalType || msg.messageType || 'text',

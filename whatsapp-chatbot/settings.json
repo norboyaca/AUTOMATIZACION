@@ -3,11 +3,11 @@
   "groq": {
     "apiKey": "",
     "model": "llama-3.3-70b-versatile",
-    "enabled": true
+    "enabled": false
   },
   "openai": {
     "apiKey": "",
     "model": "gpt-4o-mini",
-    "enabled": false
+    "enabled": true
   }
 }

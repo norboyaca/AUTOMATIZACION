@@ -1,0 +1,28 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "NorboyDynamoDBFullAccess",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:PutItem",
+                "dynamodb:GetItem",
+                "dynamodb:UpdateItem",
+                "dynamodb:DeleteItem",
+                "dynamodb:Query",
+                "dynamodb:Scan",
+                "dynamodb:BatchWriteItem",
+                "dynamodb:BatchGetItem",
+                "dynamodb:DescribeTable",
+                "dynamodb:ListTables"
+            ],
+            "Resource": [
+                "arn:aws:dynamodb:us-east-1:*:table/norboy-conversations",
+                "arn:aws:dynamodb:us-east-1:*:table/norboy-messages",
+                "arn:aws:dynamodb:us-east-1:*:table/norboy-holidays",
+                "arn:aws:dynamodb:us-east-1:*:table/norboy-conversations/index/*",
+                "arn:aws:dynamodb:us-east-1:*:table/norboy-messages/index/*"
+            ]
+        }
+    ]
+}

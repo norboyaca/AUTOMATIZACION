@@ -280,19 +280,37 @@ class ConversationRepository {
    */
   async saveMessage(message) {
     try {
-      // Generar ID único si no tiene
+      // ✅ Asegurar que el mensaje tenga un ID antes de proceder
       if (!message.id) {
-        message.id = uuidv4();
+        message.id = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       }
 
-      const participantId = message.from || message.to;
+      // ✅ Obtener participantId (requerido para índice GSI)
+      // Priorizar participantId explícito (ej: mensajes de asesor donde from=advisorId)
+      const participantId = message.participantId || message.from || message.to;
+
+      if (!participantId) {
+        throw new Error('Message must have either "from" or "to" field');
+      }
+
       const obj = message.toObject();
 
-      // Convertir fechas a ISO strings para DynamoDB
+      // ✅ Preparar item para DynamoDB con todos los campos requeridos
       const item = {
-        ...obj,
-        messageId: message.id,
-        participantId: participantId,
+        // Campos del modelo Message
+        id: message.id,
+        conversationId: obj.conversationId,
+        direction: obj.direction,
+        type: obj.type,
+        content: obj.content,
+        from: obj.from,
+        to: obj.to,
+        status: obj.status,
+        metadata: obj.metadata || {},
+
+        // ✅ Campos requeridos por DynamoDB
+        messageId: message.id,  // Partition Key - CRÍTICO
+        participantId: participantId,  // Para GSI
         timestamp: obj.createdAt ? new Date(obj.createdAt).getTime() : Date.now(),
         createdAt: obj.createdAt ? new Date(obj.createdAt).toISOString() : new Date().toISOString(),
         updatedAt: obj.updatedAt ? new Date(obj.updatedAt).toISOString() : new Date().toISOString()
@@ -300,15 +318,36 @@ class ConversationRepository {
 
       const command = new PutCommand({
         TableName: TABLES.MESSAGES,
-        Item: item
+        Item: item,
+        ConditionExpression: 'attribute_not_exists(messageId)'
       });
 
       await docClient.send(command);
-      logger.debug(`Mensaje guardado en DynamoDB: ${message.id}`);
+      logger.debug(`✅ [DYNAMODB] Mensaje guardado: ${message.id}`);
 
       return message;
     } catch (error) {
-      logger.error('Error guardando mensaje:', error);
+      // ✅ Ignorar duplicados silenciosamente
+      if (error.name === 'ConditionalCheckFailedException') {
+        logger.warn(`⚠️ [DYNAMODB] Mensaje duplicado ignorado: ${message.id}`);
+        return message;
+      }
+
+      // ✅ Mejorar logging de errores con detalles completos
+      logger.error(`❌ [DYNAMODB] Error guardando mensaje:`, {
+        messageId: message.id,
+        errorName: error.name,
+        errorMessage: error.message,
+        errorCode: error.code,
+        httpStatus: error.$metadata?.httpStatusCode,
+        tableName: TABLES.MESSAGES
+      });
+
+      // Log del stack trace completo para debugging
+      if (process.env.LOG_LEVEL === 'debug') {
+        logger.error('Stack trace:', error.stack);
+      }
+
       throw error;
     }
   }
