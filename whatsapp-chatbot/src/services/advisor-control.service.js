@@ -163,8 +163,9 @@ async function sendAdvisorMessage(userId, advisorData, message) {
     if (io) {
       io.emit('new-message', {
         userId: userId,
-        phoneNumber: conversation.phoneNumber,  // ✅ Número real, no wa_id
-        message: messageRecord,  // ✅ Incluye ID generado por el backend
+        phoneNumber: conversation.phoneNumber,
+        whatsappName: conversation.whatsappName || '',
+        message: messageRecord,
         timestamp: Date.now()
       });
       logger.debug(`📡 Evento 'new-message' emitido para ${userId} (asesor, ID: ${messageRecord.id})`);
@@ -530,6 +531,7 @@ async function sendAdvisorMediaMessage(userId, advisorData, mediaData, caption =
       io.emit('new-message', {
         userId: userId,
         phoneNumber: conversation.phoneNumber,
+        whatsappName: conversation.whatsappName || '',
         message: messageRecord,
         timestamp: Date.now()
       });

@@ -240,6 +240,9 @@ class ConversationRepository {
    * @returns {Promise<Array<Conversation>>}
    */
   async findActive(options = {}) {
+    // ✅ FIX: Add guard — other methods have this but findActive() was missing it
+    if (!this._isAvailable()) return [];
+
     // Destructuring con valores por defecto para evitar undefined
     const { limit = 50, offset = 0 } = options;
 

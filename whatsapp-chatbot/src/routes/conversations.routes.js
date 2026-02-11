@@ -1425,69 +1425,97 @@ router.get('/whatsapp-chats', requireAuth, async (req, res) => {
 
     logger.info(`📱 Obteniendo chats (limit: ${limitNum})`);
 
-    let chats = [];
-    let source = 'none';
+    // ✅ FIX: Merge data from ALL sources instead of stopping at the first one.
+    // This ensures conversations from Baileys, memory, AND DynamoDB are all returned.
+    const chatsByUserId = new Map();
+    const sources = [];
 
-    // 1. Intentar obtener desde Baileys
-    const whatsappProvider = require('../providers/whatsapp');
-    chats = await whatsappProvider.fetchChats(limitNum);
-
-    if (chats && chats.length > 0) {
-      source = 'baileys';
-      logger.info(`📱 ${chats.length} chats desde Baileys`);
-    }
-
-    // 2. Si Baileys está vacío, usar memoria
-    if ((!chats || chats.length === 0)) {
-      const memoryConversations = conversationStateService.getAllConversations();
-
-      if (memoryConversations.length > 0) {
-        chats = memoryConversations.map(conv => ({
-          userId: conv.userId,
-          phoneNumber: conv.phoneNumber,
-          whatsappName: conv.whatsappName || 'Sin nombre',
-          registeredName: conv.registeredName || conv.whatsappName || 'Sin nombre',
-          lastMessage: conv.lastMessage || '',
-          lastInteraction: conv.lastInteraction || Date.now(),
-          unreadCount: 0,
-          status: conv.status || 'active',
-          bot_active: conv.bot_active !== undefined ? conv.bot_active : true
-        }));
-        source = 'memory';
-        logger.info(`📱 ${chats.length} chats desde memoria`);
+    // 1. Obtener desde Baileys
+    try {
+      const whatsappProvider = require('../providers/whatsapp');
+      const baileysChats = await whatsappProvider.fetchChats(limitNum);
+      if (baileysChats && baileysChats.length > 0) {
+        baileysChats.forEach(c => chatsByUserId.set(c.userId, c));
+        sources.push('baileys');
+        logger.info(`📱 ${baileysChats.length} chats desde Baileys`);
       }
+    } catch (e) {
+      logger.warn(`⚠️ Error obteniendo chats de Baileys: ${e.message}`);
     }
 
-    // 3. Si memoria está vacío, cargar desde DynamoDB
-    if ((!chats || chats.length === 0)) {
-      logger.info('📱 Memoria vacía, cargando desde DynamoDB...');
+    // 2. Obtener desde memoria y MERGE (no reemplazar)
+    try {
+      const memoryConversations = conversationStateService.getAllConversations();
+      if (memoryConversations.length > 0) {
+        memoryConversations.forEach(conv => {
+          const memChat = {
+            userId: conv.userId,
+            phoneNumber: conv.phoneNumber,
+            whatsappName: conv.whatsappName || 'Sin nombre',
+            registeredName: conv.registeredName || conv.whatsappName || 'Sin nombre',
+            lastMessage: conv.lastMessage || '',
+            lastInteraction: conv.lastInteraction || Date.now(),
+            unreadCount: 0,
+            status: conv.status || 'active',
+            bot_active: conv.bot_active !== undefined ? conv.bot_active : true
+          };
+          const existing = chatsByUserId.get(conv.userId);
+          if (existing) {
+            // Merge: prefer memory status/lastMessage (more up-to-date) but keep Baileys name
+            Object.assign(existing, {
+              status: conv.status || existing.status,
+              lastMessage: conv.lastMessage || existing.lastMessage,
+              lastInteraction: Math.max(conv.lastInteraction || 0, existing.lastInteraction || 0),
+              bot_active: conv.bot_active !== undefined ? conv.bot_active : existing.bot_active
+            });
+          } else {
+            chatsByUserId.set(conv.userId, memChat);
+          }
+        });
+        sources.push('memory');
+        logger.info(`📱 ${memoryConversations.length} chats desde memoria (merged)`);
+      }
+    } catch (e) {
+      logger.warn(`⚠️ Error obteniendo chats de memoria: ${e.message}`);
+    }
 
+    // 3. Obtener desde DynamoDB y MERGE (siempre, no solo cuando vacío)
+    try {
       const conversationRepository = require('../repositories/conversation.repository');
       const dbConversations = await conversationRepository.findActive({ limit: limitNum });
-
       if (dbConversations.length > 0) {
-        chats = dbConversations.map(conv => {
+        dbConversations.forEach(conv => {
           const data = conv.toObject ? conv.toObject() : conv;
           const phoneNumber = (data.participantId || '')
             .replace('@s.whatsapp.net', '')
             .replace('@g.us', '')
             .replace('@lid', '');
-          return {
+          const dbChat = {
             userId: data.participantId,
             phoneNumber: phoneNumber,
             whatsappName: data.participantName || 'Sin nombre',
             registeredName: data.participantName || 'Sin nombre',
             lastMessage: data.lastMessage || '',
-            lastInteraction: data.lastInteraction || data.updatedAt ? new Date(data.updatedAt).getTime() : Date.now(),
+            lastInteraction: data.lastInteraction || (data.updatedAt ? new Date(data.updatedAt).getTime() : Date.now()),
             unreadCount: 0,
             status: data.status || 'active',
             bot_active: data.status !== 'advisor_handled'
           };
+          // Only add if not already present from Baileys/memory
+          if (!chatsByUserId.has(data.participantId)) {
+            chatsByUserId.set(data.participantId, dbChat);
+          }
         });
-        source = 'dynamodb';
-        logger.info(`📱 ${chats.length} chats desde DynamoDB`);
+        sources.push('dynamodb');
+        logger.info(`📱 ${dbConversations.length} chats desde DynamoDB (merged)`);
       }
+    } catch (e) {
+      logger.warn(`⚠️ Error obteniendo chats de DynamoDB: ${e.message}`);
     }
+
+    const chats = Array.from(chatsByUserId.values());
+    const source = sources.length > 0 ? sources.join('+') : 'none';
+    logger.info(`📱 Total: ${chats.length} chats combinados desde [${source}]`);
 
     // Enriquecer con información del control de números
     const enrichedChats = chats.map(chat => {

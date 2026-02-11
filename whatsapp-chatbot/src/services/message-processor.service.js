@@ -1076,6 +1076,7 @@ async function saveMessage(userId, message, sender, messageType = 'text') {
       io.emit('new-message', {
         userId: userId,
         phoneNumber: conversation.phoneNumber,
+        whatsappName: conversation.whatsappName || '',
         message: messageRecord,
         timestamp: Date.now()
       });

@@ -139,6 +139,28 @@
         return d.toLocaleDateString([], { day: '2-digit', month: '2-digit' });
     }
 
+    /**
+     * Merge new conversations into existing array by userId.
+     * Updates existing entries in-place, appends truly new ones.
+     * Preserves conversations that the server didn't return.
+     */
+    function mergeConversations(existing, incoming) {
+        const map = new Map();
+        // Index existing by userId
+        existing.forEach(c => map.set(c.userId, c));
+        // Update or insert from incoming
+        incoming.forEach(c => {
+            const prev = map.get(c.userId);
+            if (prev) {
+                // Update all fields from server, keeping the same reference slot
+                Object.assign(prev, c);
+            } else {
+                map.set(c.userId, c);
+            }
+        });
+        return Array.from(map.values());
+    }
+
     function showToast(message, type = 'success') {
         let container = document.getElementById('toast-container');
         if (!container) {
@@ -287,9 +309,11 @@
                 conversationsOffset = offset;
 
                 if (offset === 0) {
-                    conversations = data.conversations;
+                    // ✅ FIX: Merge instead of replace to preserve conversations
+                    // the server didn't return (e.g. Baileys returning partial data)
+                    conversations = mergeConversations(conversations, data.conversations);
                 } else {
-                    conversations = conversations.concat(data.conversations);
+                    conversations = mergeConversations(conversations, data.conversations);
                 }
 
                 renderConversationList();
@@ -977,8 +1001,43 @@
             const msg = data.message;
             const userId = data.userId;
 
-            // Update conversation list
-            loadConversationList();
+            // ✅ FIX: Update conversation list IN-PLACE instead of full reload
+            // This prevents replacing the entire array with partial server data
+            const existingConv = conversations.find(c => c.userId === userId);
+            if (existingConv) {
+                // Update existing conversation metadata
+                existingConv.lastMessage = msg.message || msg.text || existingConv.lastMessage;
+                existingConv.lastMessageTime = msg.timestamp || Date.now();
+                existingConv.lastInteraction = msg.timestamp || Date.now();
+                if (data.status) existingConv.status = data.status;
+                if (data.whatsappName) {
+                    existingConv.whatsappName = data.whatsappName;
+                    existingConv.registeredName = data.whatsappName;
+                }
+            } else {
+                // New conversation — add it to the array
+                conversations.unshift({
+                    userId: userId,
+                    phoneNumber: data.phoneNumber || normalizePhoneNumber(userId),
+                    whatsappName: data.whatsappName || msg.senderName || 'Sin nombre',
+                    registeredName: data.whatsappName || msg.senderName || 'Sin nombre',
+                    lastMessage: msg.message || msg.text || '',
+                    lastMessageTime: msg.timestamp || Date.now(),
+                    lastInteraction: msg.timestamp || Date.now(),
+                    status: data.status || 'active',
+                    unreadCount: 1
+                });
+            }
+
+            // Sort conversations: most recent first
+            conversations.sort((a, b) => {
+                const timeA = a.lastMessageTime || a.lastInteraction || 0;
+                const timeB = b.lastMessageTime || b.lastInteraction || 0;
+                return timeB - timeA;
+            });
+
+            // Re-render the sidebar list (no HTTP request)
+            renderConversationList();
             loadStats();
 
             // If chat is open for this user, append message
