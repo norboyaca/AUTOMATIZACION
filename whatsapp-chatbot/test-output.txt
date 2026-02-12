@@ -1,0 +1,61 @@
+FAIL tests/unit/chat.service.test.js
+  chat.service
+    Consent Management
+      ÔêÜ hasUserConsent debe retornar false para nuevo usuario (4 ms)
+      ÔêÜ setConsentResponse debe registrar aceptaci├│n (1 ms)
+      ÔêÜ setConsentResponse debe registrar rechazo (1 ms)
+    resetUserState
+      ÔêÜ debe limpiar todo el estado del usuario
+    Pending Messages
+      ÔêÜ getPendingMessage debe retornar null para nuevo usuario
+      ÔêÜ clearPendingMessage no debe lanzar error en usuario sin pendiente
+    getUserInteractionCount
+      ÔêÜ debe retornar 0 para nuevo usuario
+    cleanQuestionMarks
+      ÔêÜ debe limpiar signos de interrogaci├│n
+      ÔêÜ debe manejar texto sin signos
+    getEscalationMessage
+      ├ù debe retornar un mensaje de escalaci├│n v├ílido (4 ms)
+    getOutOfHoursMessage
+      ├ù debe retornar un mensaje de fuera de horario v├ílido (1 ms)
+
+  ÔùÅ chat.service ÔÇ║ getEscalationMessage ÔÇ║ debe retornar un mensaje de escalaci├│n v├ílido
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "string"
+    Received: "object"
+
+      167 |         test('debe retornar un mensaje de escalaci├│n v├ílido', () => {
+      168 |             const msg = chatService.getEscalationMessage();
+    > 169 |             expect(typeof msg).toBe('string');
+          |                                ^
+      170 |             expect(msg.length).toBeGreaterThan(0);
+      171 |         });
+      172 |     });
+
+      at Object.toBe (tests/unit/chat.service.test.js:169:32)
+
+  ÔùÅ chat.service ÔÇ║ getOutOfHoursMessage ÔÇ║ debe retornar un mensaje de fuera de horario v├ílido
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "string"
+    Received: "object"
+
+      175 |         test('debe retornar un mensaje de fuera de horario v├ílido', () => {
+      176 |             const msg = chatService.getOutOfHoursMessage();
+    > 177 |             expect(typeof msg).toBe('string');
+          |                                ^
+      178 |             expect(msg.length).toBeGreaterThan(0);
+      179 |         });
+      180 |     });
+
+      at Object.toBe (tests/unit/chat.service.test.js:177:32)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 9 passed, 11 total
+Snapshots:   0 total
+Time:        0.512 s, estimated 1 s
+Ran all test suites matching /tests\\unit\\chat.service.test.js/i.
+Force exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?

@@ -115,24 +115,26 @@ const escalationRules = {
   // maxRetries: 3,
 
   // Horario laboral (PUNTO DE CONTROL 4)
-  workingHours: {
-    // Lunes a Viernes
-    start: 8,  // 8:00 AM
-    end: 16,   // 4:00 PM (se usa con endMinute para el cálculo)
-    endMinute: 30,  // 4:30 PM - Horario FINAL de atención
-    timezone: 'America/Bogota',
-    weekdays: [1, 2, 3, 4, 5], // Lun-Vie (0=Domingo, 6=Sábado)
-    // Sábado (horario diferente)
-    saturday: {
-      start: 9,  // 9:00 AM
-      end: 12,   // 12:00 PM (medio día)
-      endMinute: 0,   // 12:00 PM exacto
-      enabled: true   // Sí se atiende sábado
-    },
-    // Domingo
-    sunday: {
-      enabled: false  // No se atiende domingo
-    }
+  // ✅ ACTUALIZADO: Lee de schedule-config.service.js (configurable desde dashboard)
+  get workingHours() {
+    const scheduleConfig = require('./schedule-config.service');
+    const cfg = scheduleConfig.getConfig();
+    return {
+      start: cfg.weekdays.start,
+      end: cfg.weekdays.endHour,
+      endMinute: cfg.weekdays.endMinute,
+      timezone: cfg.timezone,
+      weekdays: cfg.weekdays.days || [1, 2, 3, 4, 5],
+      saturday: {
+        start: cfg.saturday.start,
+        end: cfg.saturday.endHour,
+        endMinute: cfg.saturday.endMinute,
+        enabled: cfg.saturday.enabled
+      },
+      sunday: {
+        enabled: cfg.sunday.enabled
+      }
+    };
   },
 
   // Tiempo mínimo entre mensajes para considerar "reintento"
@@ -392,15 +394,19 @@ function getNextOpeningTime() {
 
   let nextOpening = new Date(now);
 
-  // Definir horarios según día
+  // Definir horarios según día - ✅ ACTUALIZADO: lee dinámicamente
+  const wh = escalationRules.workingHours;
+  const weekdayEndDecimal = wh.end + (wh.endMinute / 60);
+  const satEndDecimal = wh.saturday.enabled ? wh.saturday.end + (wh.saturday.endMinute / 60) : 0;
+
   const schedule = {
-    1: { start: 8, end: 16.5, name: 'lunes' },      // Lunes
-    2: { start: 8, end: 16.5, name: 'martes' },     // Martes
-    3: { start: 8, end: 16.5, name: 'miércoles' },  // Miércoles
-    4: { start: 8, end: 16.5, name: 'jueves' },     // Jueves
-    5: { start: 8, end: 16.5, name: 'viernes' },    // Viernes
-    6: saturday.enabled ? { start: 9, end: 12, name: 'sábado' } : null,  // Sábado
-    0: sunday.enabled ? { start: 0, end: 0, name: 'domingo' } : null      // Domingo
+    1: { start: wh.start, end: weekdayEndDecimal, name: 'lunes' },
+    2: { start: wh.start, end: weekdayEndDecimal, name: 'martes' },
+    3: { start: wh.start, end: weekdayEndDecimal, name: 'miércoles' },
+    4: { start: wh.start, end: weekdayEndDecimal, name: 'jueves' },
+    5: { start: wh.start, end: weekdayEndDecimal, name: 'viernes' },
+    6: wh.saturday.enabled ? { start: wh.saturday.start, end: satEndDecimal, name: 'sábado' } : null,
+    0: wh.sunday.enabled ? { start: 0, end: 0, name: 'domingo' } : null
   };
 
   // Si estamos dentro del horario actual de hoy, retornar null

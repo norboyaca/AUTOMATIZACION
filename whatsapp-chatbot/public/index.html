@@ -3865,8 +3865,8 @@
               </div>
             </div>
 
-            <!-- Controles de Horario y Festivos -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <!-- Control de Horario -->
+            <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 20px;">
 
               <!-- Control de Horario -->
               <div
@@ -3875,14 +3875,55 @@
                   <div style="flex: 1;">
                     <h3 style="margin: 0 0 5px 0; color: var(--primary-green); font-size: 1em;">⏰ Control de Horario
                     </h3>
-                    <p style="margin: 0; font-size: 0.8em; color: var(--medium-gray);">
-                      Horario: 8:00 AM - 4:30 PM
+                    <p id="schedule-hours-label" style="margin: 0; font-size: 0.8em; color: var(--medium-gray);">
+                      Horario: Cargando...
                     </p>
                     <p style="margin: 5px 0 0 0; font-size: 0.8em;">
                       Estado: <span id="schedule-status" style="font-weight: bold;">Verificando...</span>
                     </p>
                   </div>
                 </div>
+
+                <!-- Inputs de horario L-V -->
+                <div
+                  style="background: white; border-radius: 6px; padding: 10px; margin-bottom: 8px; border: 1px solid #e0e0e0;">
+                  <label
+                    style="font-size: 0.75em; font-weight: 600; color: #555; display: block; margin-bottom: 6px;">📅 Lun
+                    - Vie</label>
+                  <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                    <select id="sched-wd-start"
+                      style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em; min-width: 80px;"></select>
+                    <span style="font-size: 0.8em; color: #999;">→</span>
+                    <select id="sched-wd-end"
+                      style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em; min-width: 80px;"></select>
+                  </div>
+                </div>
+
+                <!-- Inputs de horario Sábado -->
+                <div
+                  style="background: white; border-radius: 6px; padding: 10px; margin-bottom: 8px; border: 1px solid #e0e0e0;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <label style="font-size: 0.75em; font-weight: 600; color: #555;">📅 Sábado</label>
+                    <label style="font-size: 0.7em; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                      <input type="checkbox" id="sched-sat-enabled" style="width: 14px; height: 14px;">
+                      <span>Habilitado</span>
+                    </label>
+                  </div>
+                  <div id="sched-sat-times" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                    <select id="sched-sat-start"
+                      style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em; min-width: 80px;"></select>
+                    <span style="font-size: 0.8em; color: #999;">→</span>
+                    <select id="sched-sat-end"
+                      style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em; min-width: 80px;"></select>
+                  </div>
+                </div>
+
+                <!-- Botón guardar horario -->
+                <button class="upload-btn" onclick="saveScheduleConfig()"
+                  style="background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%); font-size: 0.8em; padding: 8px 10px; margin-bottom: 8px;">
+                  💾 Guardar Horario
+                </button>
+
                 <div style="display: flex; gap: 8px; margin-top: auto;">
                   <button class="upload-btn" id="btn-enable-schedule" onclick="toggleScheduleCheck(true)"
                     style="flex: 1; background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); font-size: 0.8em; padding: 8px 10px;">
@@ -3890,32 +3931,6 @@
                   </button>
                   <button class="upload-btn" id="btn-disable-schedule" onclick="toggleScheduleCheck(false)"
                     style="flex: 1; background: linear-gradient(135deg, #f44336 0%, #c62828 100%); font-size: 0.8em; padding: 8px 10px;">
-                    ❌ Desactivar
-                  </button>
-                </div>
-              </div>
-
-              <!-- Control de Días Festivos -->
-              <div
-                style="display: flex; flex-direction: column; padding: 15px; background: #fff3e0; border-radius: 8px; border: 2px solid #ff9800;">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
-                  <div style="flex: 1;">
-                    <h3 style="margin: 0 0 5px 0; color: #e65100; font-size: 1em;">🎉 Control de Festivos</h3>
-                    <p style="margin: 0; font-size: 0.8em; color: var(--medium-gray);">
-                      Verifica días festivos
-                    </p>
-                    <p style="margin: 5px 0 0 0; font-size: 0.8em;">
-                      Estado: <span id="holiday-status" style="font-weight: bold;">Verificando...</span>
-                    </p>
-                  </div>
-                </div>
-                <div style="display: flex; gap: 8px; margin-top: auto;">
-                  <button class="upload-btn" id="btn-enable-holiday" onclick="toggleHolidayCheck(true)"
-                    style="flex: 1; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); font-size: 0.8em; padding: 8px 10px; color: white;">
-                    ✅ Activar
-                  </button>
-                  <button class="upload-btn" id="btn-disable-holiday" onclick="toggleHolidayCheck(false)"
-                    style="flex: 1; background: linear-gradient(135deg, #9e9e9e 0%, #616161 100%); font-size: 0.8em; padding: 8px 10px;">
                     ❌ Desactivar
                   </button>
                 </div>
@@ -4384,6 +4399,122 @@
         </div>
         <!-- Fin del content-card -->
 
+        <!-- ========================================
+         DÍAS FESTIVOS VIEW
+         ======================================== -->
+        <div id="holidays-view" style="display: none;">
+          <div class="view-header">
+            <h2 style="font-size: 24px; margin-bottom: 8px;">📅 Días Festivos</h2>
+            <p style="color: #666;">Click en día para toggle festivo | Rojo = activo</p>
+          </div>
+
+          <!-- Control de Días Festivos (toggle activar/desactivar) -->
+          <div style="margin-top: 16px; margin-bottom: 16px;">
+            <div
+              style="display: flex; flex-direction: column; padding: 15px; background: #fff3e0; border-radius: 8px; border: 2px solid #ff9800;">
+              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                <div style="flex: 1;">
+                  <h3 style="margin: 0 0 5px 0; color: #e65100; font-size: 1em;">🎉 Control de Festivos</h3>
+                  <p style="margin: 0; font-size: 0.8em; color: var(--medium-gray);">
+                    Verifica días festivos
+                  </p>
+                  <p style="margin: 5px 0 0 0; font-size: 0.8em;">
+                    Estado: <span id="holiday-status" style="font-weight: bold;">Verificando...</span>
+                  </p>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: auto;">
+                <button class="upload-btn" id="btn-enable-holiday" onclick="toggleHolidayCheck(true)"
+                  style="flex: 1; background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); font-size: 0.8em; padding: 8px 10px; color: white;">
+                  ✅ Activar
+                </button>
+                <button class="upload-btn" id="btn-disable-holiday" onclick="toggleHolidayCheck(false)"
+                  style="flex: 1; background: linear-gradient(135deg, #9e9e9e 0%, #616161 100%); font-size: 0.8em; padding: 8px 10px;">
+                  ❌ Desactivar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Control de Horario (dentro de días festivos) -->
+          <div style="margin-bottom: 16px;">
+            <div
+              style="display: flex; flex-direction: column; padding: 15px; background: #e3f2fd; border-radius: 8px; border: 2px solid #1565c0;">
+              <div style="margin-bottom: 10px;">
+                <h3 style="margin: 0 0 8px 0; color: #1565c0; font-size: 1em;">⏰ Control de Horario</h3>
+                <p style="margin: 3px 0; font-size: 0.8em;">
+                  Estado: <span id="holiday-schedule-status" style="font-weight: bold;">Verificando...</span>
+                </p>
+                <div id="holiday-schedule-details" style="margin-top: 8px; font-size: 0.8em; color: #444;">
+                  <p style="margin: 2px 0;">📅 <strong>L-V:</strong> <span id="hol-sched-weekdays">Cargando...</span>
+                  </p>
+                  <p style="margin: 2px 0;">📅 <strong>Sáb:</strong> <span id="hol-sched-saturday">Cargando...</span>
+                  </p>
+                  <p style="margin: 2px 0;">📅 <strong>Dom:</strong> <span id="hol-sched-sunday">Cargando...</span></p>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: auto;">
+                <button class="upload-btn" id="btn-enable-schedule-holiday" onclick="toggleScheduleCheck(true)"
+                  style="flex: 1; background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); font-size: 0.8em; padding: 8px 10px;">
+                  ✅ Activar Horario
+                </button>
+                <button class="upload-btn" id="btn-disable-schedule-holiday" onclick="toggleScheduleCheck(false)"
+                  style="flex: 1; background: linear-gradient(135deg, #f44336 0%, #c62828 100%); font-size: 0.8em; padding: 8px 10px;">
+                  ❌ Desactivar Horario
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 24px;">
+            <!-- Calendario completo con selector de año -->
+            <div class="card"
+              style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+
+              <!-- Controles: Año y Mes -->
+              <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <button onclick="changeYear(-1)"
+                    style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-weight: bold;">«</button>
+                  <select id="year-select" onchange="selectYear(this.value)"
+                    style="padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                  </select>
+                  <button onclick="changeYear(1)"
+                    style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-weight: bold;">»</button>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <button onclick="changeMonth(-1)"
+                    style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer;">◀</button>
+                  <span id="current-month-year"
+                    style="padding: 8px 16px; font-weight: 600; min-width: 150px; text-align: center;"></span>
+                  <button onclick="changeMonth(1)"
+                    style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer;">▶</button>
+                </div>
+              </div>
+
+              <!-- Grid de calendario: 12 meses -->
+              <div id="year-calendar-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+                <!-- Los 12 meses se generarán aquí -->
+              </div>
+
+              <!-- Leyenda -->
+              <div style="margin-top: 20px; display: flex; gap: 20px; font-size: 12px; justify-content: center;">
+                <div style="display: flex; align-items: center; gap: 6px; cursor: pointer;"
+                  onclick="toggleAllHolidays()">
+                  <div style="width: 20px; height: 20px; background: #ff6b6b; border-radius: 4px;"></div>
+                  <span>🎉 Festivo (click para toggle)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <div
+                    style="width: 20px; height: 20px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
+                  </div>
+                  <span>Día normal</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
       <!-- Fin del dashboard-content -->
 
@@ -4445,62 +4576,7 @@
       </div>
     </div>
 
-    <!-- ========================================
-         DÍAS FESTIVOS VIEW
-         ======================================== -->
-    <div id="holidays-view" style="display: none;">
-      <div class="view-header">
-        <h2 style="font-size: 24px; margin-bottom: 8px;">📅 Días Festivos</h2>
-        <p style="color: #666;">Click en día para toggle festivo | Rojo = activo</p>
-      </div>
 
-      <div style="display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 24px;">
-        <!-- Calendario completo con selector de año -->
-        <div class="card"
-          style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-
-          <!-- Controles: Año y Mes -->
-          <div
-            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <button onclick="changeYear(-1)"
-                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-weight: bold;">«</button>
-              <select id="year-select" onchange="selectYear(this.value)"
-                style="padding: 8px 16px; border: 1px solid #ddd; border-radius: 6px; font-size: 16px; font-weight: 600; cursor: pointer;">
-              </select>
-              <button onclick="changeYear(1)"
-                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer; font-weight: bold;">»</button>
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <button onclick="changeMonth(-1)"
-                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer;">◀</button>
-              <span id="current-month-year"
-                style="padding: 8px 16px; font-weight: 600; min-width: 150px; text-align: center;"></span>
-              <button onclick="changeMonth(1)"
-                style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; cursor: pointer;">▶</button>
-            </div>
-          </div>
-
-          <!-- Grid de calendario: 12 meses -->
-          <div id="year-calendar-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
-            <!-- Los 12 meses se generarán aquí -->
-          </div>
-
-          <!-- Leyenda -->
-          <div style="margin-top: 20px; display: flex; gap: 20px; font-size: 12px; justify-content: center;">
-            <div style="display: flex; align-items: center; gap: 6px; cursor: pointer;" onclick="toggleAllHolidays()">
-              <div style="width: 20px; height: 20px; background: #ff6b6b; border-radius: 4px;"></div>
-              <span>🎉 Festivo (click para toggle)</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <div style="width: 20px; height: 20px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
-              </div>
-              <span>Día normal</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
   </div>
   <!-- Fin del dashboard-wrapper -->
@@ -4785,30 +4861,34 @@
       socket.off('message-received');
       socket.off('bot-response');
       socket.off('escalation-detected');
+      socket.off('new-message'); // ✅ FIX: Eliminar listener previo para evitar duplicados
 
       // ===========================================
-      // ✅ CORREGIDO: Listener unificado para evitar duplicación
+      // ✅ FIX: Throttle para evitar HTTP flood al recibir mensajes rápidos
       // ===========================================
-      // Usamos UN solo listener 'new-message' que emite el backend
+      let _convReloadTimer = null;
+      function throttledLoadConversations() {
+        if (_convReloadTimer) clearTimeout(_convReloadTimer);
+        _convReloadTimer = setTimeout(() => {
+          const conversationsView = document.getElementById('conversations-view');
+          if (conversationsView && conversationsView.style.display !== 'none') {
+            loadConversations();
+          }
+        }, 500); // Agrupar actualizaciones en ventanas de 500ms
+      }
+
+      // ===========================================
+      // ✅ CORREGIDO: UN SOLO listener 'new-message' (se eliminó el duplicado)
+      // ===========================================
       // Este se dispara tanto para mensajes de usuario como del bot y del asesor
-
-      // Auto-refresh conversaciones cuando llega un nuevo mensaje
       socket.on('new-message', (data) => {
         console.log('💬 [SOCKET] Nuevo mensaje recibido:', data);
-        console.log('   → userId del mensaje:', data.userId);
-        console.log('   → Chat abierto para:', currentChatUserId);
-        console.log('   → Mensaje:', data.message?.message?.substring(0, 50));
-        console.log('   → Sender:', data.message?.sender);
 
         const msg = data.message;
         const userId = data.userId;
 
-        // Si estamos en la vista de conversaciones, actualizar la tabla
-        const conversationsView = document.getElementById('conversations-view');
-        if (conversationsView && conversationsView.style.display !== 'none') {
-          console.log('🔄 Actualizando conversaciones después de nuevo mensaje...');
-          loadConversations();
-        }
+        // Actualizar tabla de conversaciones con throttle (evita HTTP flood)
+        throttledLoadConversations();
 
         // ✅ NUEVO: Validar que el mensaje no esté ya renderizado para evitar duplicados
         const messageId = msg.id || msg.messageId || null;
@@ -4929,12 +5009,8 @@
           console.log('Error reproduciendo sonido:', e);
         }
 
-        // Actualizar lista de conversaciones si está visible
-        const conversationsView = document.getElementById('conversations-view');
-        if (conversationsView && conversationsView.style.display !== 'none') {
-          console.log('🔄 Actualizando conversaciones después de escalación...');
-          loadConversations();
-        }
+        // Actualizar lista de conversaciones con throttle
+        throttledLoadConversations();
       });
 
       // ✅ NUEVO: Listener para bloqueo por spam en tiempo real
@@ -4961,76 +5037,13 @@
         console.log('📊 Estado de conversación cambiado:', data);
         updatePendingBadge();
 
-        // Actualizar lista si está visible
-        const conversationsView = document.getElementById('conversations-view');
-        if (conversationsView && conversationsView.style.display !== 'none') {
-          loadConversations();
-        }
+        // Actualizar lista con throttle
+        throttledLoadConversations();
       });
 
-      // ✅ NUEVO: Actualización automática de mensajes en tiempo real
-      socket.on('new-message', (data) => {
-        console.log('💬 Nuevo mensaje recibido (new-message):', data);
-
-        const msg = data.message;
-        const userId = data.userId;
-
-        // ✅ NUEVO: Validar que el mensaje no esté ya renderizado para evitar duplicados
-        const messageId = msg.id || msg.messageId || null;
-
-        if (messageId && renderedMessageIds.has(messageId)) {
-          console.log(`⏭️ Mensaje ${messageId} ya está renderizado, skipping...`);
-          return; // No agregar si ya existe
-        }
-
-        // Si el modal de chat está abierto y es para este usuario, agregar el mensaje
-        if (currentChatUserId === userId) {
-          // Si muestra "Cargando mensajes..." o "No hay mensajes aún", limpiar primero
-          const messagesDiv = document.getElementById('chat-messages');
-          if (messagesDiv && (messagesDiv.innerHTML.includes('Cargando mensajes...') ||
-            messagesDiv.innerHTML.includes('No hay mensajes aún'))) {
-            messagesDiv.innerHTML = '';
-          }
-
-          // Determinar el tipo de remitente
-          const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
-          const senderName = msg.senderName || (msg.sender === 'admin' ? 'Asesor' : (msg.sender === 'bot' ? '🤖 Bot' : 'Usuario'));
-
-          // ✅ NUEVO: Generar ID único temporal si el mensaje no tiene ID
-          const tempMessageId = messageId || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-          // Crear HTML del mensaje con data attribute para tracking
-          const messageHtml = `
-            <div class="chat-message ${senderClass}" data-message-id="${tempMessageId}">
-              <div class="message-sender">${senderName}</div>
-              <div class="message-bubble">
-                <div class="message-text">${msg.message}</div>
-              </div>
-              <div class="message-time">${msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()}</div>
-            </div>
-          `;
-
-          // Agregar mensaje
-          if (messagesDiv) {
-            messagesDiv.innerHTML += messageHtml;
-
-            // ✅ NUEVO: Marcar mensaje como renderizado
-            renderedMessageIds.add(tempMessageId);
-
-            // Scroll al final automáticamente
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-          }
-
-          console.log(`✅ Mensaje agregado al chat para ${userId} (ID: ${tempMessageId})`);
-        }
-
-        // Si estamos en la vista de conversaciones, actualizar la tabla
-        const conversationsView = document.getElementById('conversations-view');
-        if (conversationsView && conversationsView.style.display !== 'none') {
-          console.log('🔄 Actualizando conversaciones después de nuevo mensaje...');
-          loadConversations();
-        }
-      });
+      // ✅ FIX: Listener duplicado de 'new-message' ELIMINADO
+      // El handler principal arriba (línea ~4872) ya maneja toda la lógica
+      // incluyendo multimedia, dedup, y actualización de tabla con throttle
 
       console.log('✅ Listeners de tiempo real inicializados');
     }
@@ -5910,6 +5923,139 @@
     }
 
     // ==========================================
+    // CONFIGURACIÓN DE HORARIO (EDITAR HORAS)
+    // ==========================================
+
+    // Generar opciones de hora para los selects (cada 30 min)
+    function populateTimeSelects() {
+      const selects = ['sched-wd-start', 'sched-wd-end', 'sched-sat-start', 'sched-sat-end'];
+
+      selects.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = '';
+        for (let h = 0; h < 24; h++) {
+          for (let m = 0; m < 60; m += 30) {
+            const h12 = h % 12 || 12;
+            const ampm = h < 12 ? 'AM' : 'PM';
+            const label = `${h12}:${m.toString().padStart(2, '0')} ${ampm}`;
+            const value = `${h}:${m}`;
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.textContent = label;
+            el.appendChild(opt);
+          }
+        }
+      });
+
+      // Toggle sábado habilitar/deshabilitar inputs
+      const satCheck = document.getElementById('sched-sat-enabled');
+      if (satCheck) {
+        satCheck.addEventListener('change', () => {
+          const timesDiv = document.getElementById('sched-sat-times');
+          if (timesDiv) {
+            timesDiv.style.opacity = satCheck.checked ? '1' : '0.4';
+            timesDiv.style.pointerEvents = satCheck.checked ? 'auto' : 'none';
+          }
+        });
+      }
+    }
+
+    // Cargar configuración de horario desde el backend
+    async function loadScheduleConfig() {
+      try {
+        const response = await authenticatedFetch('/api/settings/schedule');
+        const data = await response.json();
+
+        if (data.success && data.schedule) {
+          const s = data.schedule;
+
+          // Poblar selects de L-V
+          const wdStart = document.getElementById('sched-wd-start');
+          const wdEnd = document.getElementById('sched-wd-end');
+          if (wdStart) wdStart.value = `${s.weekdays.start}:0`;
+          if (wdEnd) wdEnd.value = `${s.weekdays.endHour}:${s.weekdays.endMinute}`;
+
+          // Poblar selects de Sábado
+          const satStart = document.getElementById('sched-sat-start');
+          const satEnd = document.getElementById('sched-sat-end');
+          const satEnabled = document.getElementById('sched-sat-enabled');
+          if (satStart) satStart.value = `${s.saturday.start}:0`;
+          if (satEnd) satEnd.value = `${s.saturday.endHour}:${s.saturday.endMinute}`;
+          if (satEnabled) {
+            satEnabled.checked = s.saturday.enabled;
+            const timesDiv = document.getElementById('sched-sat-times');
+            if (timesDiv) {
+              timesDiv.style.opacity = s.saturday.enabled ? '1' : '0.4';
+              timesDiv.style.pointerEvents = s.saturday.enabled ? 'auto' : 'none';
+            }
+          }
+
+          // Actualizar label de horario
+          const label = document.getElementById('schedule-hours-label');
+          if (label && s.formatted) {
+            label.textContent = `L-V: ${s.formatted.weekdaysLabel} | Sáb: ${s.formatted.saturdayLabel}`;
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando configuración de horario:', error);
+      }
+    }
+
+    // Guardar cambios de horario
+    async function saveScheduleConfig() {
+      try {
+        const parseTime = (selectId) => {
+          const val = document.getElementById(selectId)?.value;
+          if (!val) return null;
+          const [h, m] = val.split(':').map(Number);
+          return { hour: h, minute: m };
+        };
+
+        const wdStart = parseTime('sched-wd-start');
+        const wdEnd = parseTime('sched-wd-end');
+        const satStart = parseTime('sched-sat-start');
+        const satEnd = parseTime('sched-sat-end');
+        const satEnabled = document.getElementById('sched-sat-enabled')?.checked ?? true;
+
+        const body = {
+          weekdays: {
+            start: wdStart?.hour ?? 8,
+            endHour: wdEnd?.hour ?? 16,
+            endMinute: wdEnd?.minute ?? 30
+          },
+          saturday: {
+            start: satStart?.hour ?? 9,
+            endHour: satEnd?.hour ?? 12,
+            endMinute: satEnd?.minute ?? 0,
+            enabled: satEnabled
+          }
+        };
+
+        const response = await authenticatedFetch('/api/settings/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          alert('✅ Horario actualizado correctamente');
+          loadScheduleConfig();
+        } else {
+          alert('Error: ' + (data.error || 'Error desconocido'));
+        }
+      } catch (error) {
+        console.error('Error guardando horario:', error);
+        alert('Error al guardar la configuración de horario');
+      }
+    }
+
+    // Inicializar selects al cargar
+    populateTimeSelects();
+
+    // ==========================================
     // CONTROL DE DÍAS FESTIVOS
     // ==========================================
 
@@ -5990,9 +6136,6 @@
         // Cargar estado del control de horario
         loadScheduleCheckStatus();
 
-        // Cargar estado del control de festivos
-        loadHolidayCheckStatus();
-
         if (data.success) {
           // Estadísticas existentes
           document.getElementById('stat-total').textContent = data.stats.total;
@@ -6043,6 +6186,8 @@
 
       // Cargar datos
       loadConversations();
+      loadScheduleCheckStatus();
+      loadScheduleConfig();
     }
 
     // Ocultar vista de conversaciones
@@ -6089,12 +6234,18 @@
 
     // Mostrar vista de días festivos
     function showHolidaysView() {
+      // Ocultar content-card completo (evita cuadro vacío)
+      const contentCard = document.querySelector('.content-card');
+      if (contentCard) contentCard.style.display = 'none';
+
       const hView = document.getElementById('holidays-view');
       if (hView) {
         hView.style.display = 'block';
       }
-      // Cargar datos de días festivos
+      // Cargar datos de días festivos y estado de los toggles
       loadHolidaysData();
+      loadHolidayCheckStatus();
+      loadScheduleStatusForHolidays();
     }
 
     // Ocultar vista de días festivos
@@ -6102,6 +6253,54 @@
       const hView = document.getElementById('holidays-view');
       if (hView) {
         hView.style.display = 'none';
+      }
+      // Restaurar content-card
+      const contentCard = document.querySelector('.content-card');
+      if (contentCard) contentCard.style.display = '';
+    }
+
+    // Cargar estado del horario para la vista de festivos
+    async function loadScheduleStatusForHolidays() {
+      try {
+        // Formato de hora AM/PM
+        function fmtTime(hour, minute) {
+          const h = hour % 12 || 12;
+          const m = (minute || 0).toString().padStart(2, '0');
+          const ampm = hour < 12 ? 'AM' : 'PM';
+          return h + ':' + m + ' ' + ampm;
+        }
+
+        const response = await authenticatedFetch('/api/conversations/schedule-check-status');
+        const data = await response.json();
+        const statusEl = document.getElementById('holiday-schedule-status');
+        if (data.success && statusEl) {
+          const enabled = data.enabled;
+          statusEl.textContent = enabled ? '✅ ACTIVO' : '❌ INACTIVO';
+          statusEl.style.color = enabled ? '#2e7d32' : '#c62828';
+        }
+
+        // Cargar horas configuradas
+        const schedResp = await authenticatedFetch('/api/conversations/schedule-config');
+        const schedData = await schedResp.json();
+        if (schedData.success && schedData.config) {
+          const c = schedData.config;
+          const wdEl = document.getElementById('hol-sched-weekdays');
+          const satEl = document.getElementById('hol-sched-saturday');
+          const sunEl = document.getElementById('hol-sched-sunday');
+          if (wdEl && c.weekdays) {
+            wdEl.textContent = fmtTime(c.weekdays.start, 0) + ' - ' + fmtTime(c.weekdays.endHour, c.weekdays.endMinute);
+          }
+          if (satEl && c.saturday) {
+            satEl.textContent = c.saturday.enabled
+              ? fmtTime(c.saturday.start, 0) + ' - ' + fmtTime(c.saturday.endHour, c.saturday.endMinute)
+              : 'Cerrado';
+          }
+          if (sunEl) {
+            sunEl.textContent = (c.sunday && c.sunday.enabled) ? 'Abierto' : 'Cerrado';
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando estado de horario para festivos:', error);
       }
     }
 

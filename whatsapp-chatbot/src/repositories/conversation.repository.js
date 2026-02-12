@@ -235,7 +235,7 @@ class ConversationRepository {
   }
 
   /**
-   * Lista conversaciones activas
+   * Lista TODAS las conversaciones (sin filtro de status)
    * @param {Object} options - Opciones de paginación
    * @returns {Promise<Array<Conversation>>}
    */
@@ -249,16 +249,10 @@ class ConversationRepository {
     try {
       logger.info(`🔍 [DYNAMO] Iniciando findActive con limit=${limit}, offset=${offset}`);
 
-      // Por ahora hacemos un scan (en producción usar índice GSI)
+      // ✅ FIX: Scan sin filtro de status para devolver TODAS las conversaciones
+      // Antes filtraba solo status='active', excluyendo pending_advisor, advisor_handled, etc.
       const command = new ScanCommand({
         TableName: TABLES.CONVERSATIONS,
-        FilterExpression: '#status = :status',
-        ExpressionAttributeNames: {
-          '#status': 'status'
-        },
-        ExpressionAttributeValues: {
-          ':status': 'active'
-        },
         Limit: limit
       });
 
@@ -268,7 +262,7 @@ class ConversationRepository {
 
       const conversations = (response.Items || [])
         .map(item => {
-          logger.info(`📦 [DYNAMO] Item: participantId=${item.participantId}, status=${item.status}`);
+          logger.debug(`📦 [DYNAMO] Item: participantId=${item.participantId}, status=${item.status}`);
           return new Conversation(item);
         })
         .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
@@ -280,7 +274,7 @@ class ConversationRepository {
 
       return sliced;
     } catch (error) {
-      logger.error('❌ [DYNAMO] Error listando conversaciones activas:', error);
+      logger.error('❌ [DYNAMO] Error listando conversaciones:', error);
       logger.error(`   Error: ${error.message}, Código: ${error.$metadata?.httpStatusCode}`);
       return [];
     }

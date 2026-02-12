@@ -603,4 +603,81 @@ function reloadAIProviders() {
   }
 }
 
+// ===========================================
+// ✅ NUEVO: ENDPOINTS DE CONFIGURACIÓN DE HORARIO
+// ===========================================
+const scheduleConfig = require('../services/schedule-config.service');
+const timeSimulation = require('../services/time-simulation.service');
+
+/**
+ * GET /api/settings/schedule
+ * Devuelve la configuración completa de horario + estados de toggles
+ */
+router.get('/settings/schedule', requireAuth, (req, res) => {
+  try {
+    const config = scheduleConfig.getConfig();
+    const formatted = scheduleConfig.getFormattedSchedule();
+    const scheduleStatus = timeSimulation.getScheduleCheckStatus();
+
+    res.json({
+      success: true,
+      schedule: {
+        ...config,
+        formatted,
+        scheduleCheckEnabled: scheduleStatus.enabled,
+        currentTime: scheduleStatus.currentTime,
+        timezone: scheduleStatus.timezone
+      }
+    });
+  } catch (error) {
+    logger.error('Error obteniendo configuración de horario:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/settings/schedule
+ * Actualiza la configuración de horario (horas inicio/fin, días)
+ *
+ * Body esperado (todos los campos son opcionales):
+ * {
+ *   weekdays: { start: 8, endHour: 16, endMinute: 30 },
+ *   saturday: { start: 9, endHour: 12, endMinute: 0, enabled: true },
+ *   sunday: { enabled: false }
+ * }
+ */
+router.post('/settings/schedule', requireAuth, (req, res) => {
+  try {
+    const { weekdays, saturday, sunday } = req.body;
+
+    if (!weekdays && !saturday && !sunday) {
+      return res.status(400).json({
+        success: false,
+        error: 'Debe enviar al menos un campo para actualizar (weekdays, saturday, sunday)'
+      });
+    }
+
+    const result = scheduleConfig.updateConfig({ weekdays, saturday, sunday });
+
+    if (result.success) {
+      logger.info('📅 Configuración de horario actualizada desde dashboard');
+      const formatted = scheduleConfig.getFormattedSchedule();
+
+      res.json({
+        success: true,
+        message: 'Horario actualizado correctamente',
+        schedule: {
+          ...result.config,
+          formatted
+        }
+      });
+    } else {
+      res.status(400).json({ success: false, error: result.error });
+    }
+  } catch (error) {
+    logger.error('Error actualizando configuración de horario:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

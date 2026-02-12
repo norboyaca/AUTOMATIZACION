@@ -197,10 +197,9 @@ class BaileysProvider extends EventEmitter {
 
           logger.info(`✅ ${importedCount} nuevos chats importados desde historial`);
 
-          // Guardar las conversaciones importadas
+          // Los chats ya se persistieron individualmente via getOrCreateConversation -> persistConversation
           if (importedCount > 0) {
-            const { saveConversationsToFile } = require('../../services/conversation-state.service');
-            await saveConversationsToFile();
+            logger.info(`✅ ${importedCount} chats del historial ya persistidos individualmente`);
           }
         }
       });
@@ -526,10 +525,9 @@ class BaileysProvider extends EventEmitter {
 
       logger.info(`✅ Importación de chats completada (${source}): ${importedCount} nuevos, ${updatedCount} actualizados`);
 
-      // Guardar las conversaciones importadas
-      const { saveConversationsToFile } = require('../../services/conversation-state.service');
+      // Los chats ya se persistieron individualmente via getOrCreateConversation -> persistConversation
       if (importedCount > 0 || updatedCount > 0) {
-        await saveConversationsToFile();
+        logger.info(`✅ Chats históricos ya persistidos individualmente (${importedCount} nuevos, ${updatedCount} actualizados)`);
       }
 
     } catch (error) {

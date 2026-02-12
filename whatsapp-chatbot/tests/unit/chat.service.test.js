@@ -88,6 +88,14 @@ jest.mock('../../src/services/context-detector.service', () => ({
     }
 }));
 
+jest.mock('../../src/services/schedule-config.service', () => ({
+    getFormattedSchedule: jest.fn().mockReturnValue({
+        weekdaysLabel: '8:00 AM - 4:30 PM',
+        saturdayLabel: '9:00 AM - 12:00 PM',
+        sundayLabel: 'Cerrado'
+    })
+}));
+
 const chatService = require('../../src/services/chat.service');
 
 describe('chat.service', () => {
@@ -166,16 +174,18 @@ describe('chat.service', () => {
     describe('getEscalationMessage', () => {
         test('debe retornar un mensaje de escalación válido', () => {
             const msg = chatService.getEscalationMessage();
-            expect(typeof msg).toBe('string');
-            expect(msg.length).toBeGreaterThan(0);
+            expect(typeof msg).toBe('object');
+            expect(msg.type).toBe('escalation');
+            expect(msg.text).toBeDefined();
         });
     });
 
     describe('getOutOfHoursMessage', () => {
         test('debe retornar un mensaje de fuera de horario válido', () => {
             const msg = chatService.getOutOfHoursMessage();
-            expect(typeof msg).toBe('string');
-            expect(msg.length).toBeGreaterThan(0);
+            expect(typeof msg).toBe('object');
+            expect(msg.type).toBe('out_of_hours');
+            expect(msg.text).toContain('8:00 AM - 4:30 PM');
         });
     });
 });

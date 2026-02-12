@@ -19,6 +19,7 @@ const escalationService = require('./escalation.service');
 const embeddingsService = require('./embeddings.service'); // ✅ NUEVO: Búsqueda vectorial
 const ragOptimized = require('./rag-optimized.service'); // ✅ NUEVO: RAG Optimizado
 const contextDetector = require('./context-detector.service'); // ✅ CRÍTICO: Detector de contexto
+const scheduleConfig = require('./schedule-config.service'); // ✅ NUEVO: Configuración dinámica de horario
 
 // Inicializar base de conocimiento
 knowledgeBase.initialize();
@@ -868,13 +869,14 @@ const getEscalationMessage = (escalation) => {
  */
 const getOutOfHoursMessage = () => {
   const nextOpening = escalationService.getNextOpeningTime();
+  const sched = scheduleConfig.getFormattedSchedule();
 
   return {
     type: 'out_of_hours',
     text: `Sumercé, nuestro horario de atención es:
-📅 Lunes a Viernes: 8:00 AM - 4:30 PM
-📅 Sábados: 9:00 AM - 12:00 PM
-❌ Domingos: Cerrado
+📅 Lunes a Viernes: ${sched.weekdaysLabel}
+📅 Sábados: ${sched.saturdayLabel}
+❌ Domingos: ${sched.sundayLabel}
 
 Lo atenderemos con gusto:
 📅 ${nextOpening.formatted}

@@ -1581,24 +1581,60 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
 
     logger.info(`📜 Obteniendo mensajes para ${userId} (normalizado: ${normalizedUserId}, limit: ${limitNum})`);
 
-    // CARGAR DIRECTAMENTE DESDE DYNAMODB (fuente de verdad)
-    // DynamoDB tiene TODOS los mensajes guardados, traemos solo los últimos 200
-    logger.info(`📜 Cargando últimos ${limitNum} mensajes desde DynamoDB...`);
-    const conversationRepository = require('../repositories/conversation.repository');
-    const dbMessages = await conversationRepository.getHistory(normalizedUserId, { limit: limitNum });
+    // ===========================================
+    // ✅ FIX: Cargar desde DynamoDB con fallback a MEMORIA
+    // DynamoDB save es asíncrono (setImmediate), así que hay una ventana
+    // donde la memoria tiene mensajes pero DynamoDB aún no.
+    // ===========================================
+    let messages = [];
+    let source = 'none';
 
-    const messages = dbMessages.map(msg => ({
-      id: msg.id || msg.messageId,
-      sender: msg.metadata?.sender || (msg.direction === 'incoming' ? 'user' : 'bot'),
-      senderName: msg.metadata?.sender === 'admin' ? (msg.metadata?.senderName || 'Asesor') : undefined,
-      message: msg.content?.text || '[Multimedia]',
-      text: msg.content?.text || '[Multimedia]',
-      type: msg.metadata?.originalType || msg.messageType || 'text',
-      timestamp: msg.timestamp || msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now(),
-      direction: msg.direction || 'incoming'
-    }));
+    // 1. Intentar cargar desde DynamoDB (fuente de verdad para historial)
+    try {
+      logger.info(`📜 Cargando últimos ${limitNum} mensajes desde DynamoDB...`);
+      const conversationRepository = require('../repositories/conversation.repository');
+      const dbMessages = await conversationRepository.getHistory(normalizedUserId, { limit: limitNum });
 
-    logger.info(`📜 ${messages.length} mensajes cargados desde DynamoDB`);
+      if (dbMessages && dbMessages.length > 0) {
+        messages = dbMessages.map(msg => ({
+          id: msg.id || msg.messageId,
+          sender: msg.metadata?.sender || (msg.direction === 'incoming' ? 'user' : 'bot'),
+          senderName: msg.metadata?.sender === 'admin' ? (msg.metadata?.senderName || 'Asesor') : undefined,
+          message: msg.content?.text || '[Multimedia]',
+          text: msg.content?.text || '[Multimedia]',
+          type: msg.metadata?.originalType || msg.messageType || 'text',
+          timestamp: msg.timestamp || msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now(),
+          direction: msg.direction || 'incoming'
+        }));
+        source = 'dynamodb';
+        logger.info(`📜 ${messages.length} mensajes cargados desde DynamoDB`);
+      } else {
+        logger.info(`📜 0 mensajes en DynamoDB, intentando memoria...`);
+      }
+    } catch (dbError) {
+      logger.warn(`⚠️ Error cargando desde DynamoDB: ${dbError.message}, intentando memoria...`);
+    }
+
+    // 2. Fallback a MEMORIA si DynamoDB está vacío o falló
+    if (messages.length === 0) {
+      const conversation = conversationStateService.getConversation(normalizedUserId);
+      if (conversation && conversation.messages && conversation.messages.length > 0) {
+        messages = conversation.messages.map(msg => ({
+          id: msg.id || msg.messageId || `mem_${msg.timestamp}`,
+          sender: msg.sender || 'user',
+          senderName: msg.senderName,
+          message: msg.message || msg.text || '',
+          text: msg.message || msg.text || '',
+          type: msg.type || 'text',
+          timestamp: msg.timestamp || Date.now(),
+          direction: msg.direction || (msg.sender === 'user' ? 'incoming' : 'outgoing')
+        }));
+        source = 'memory';
+        logger.info(`📜 ${messages.length} mensajes cargados desde MEMORIA (fallback)`);
+      } else {
+        logger.info(`📜 Sin mensajes en memoria para ${normalizedUserId}`);
+      }
+    }
 
     // Ordenar por timestamp (más antiguos primero para chat)
     messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
@@ -1610,7 +1646,7 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
       nextCursor: null,
       total: messages.length,
       returned: messages.length,
-      source: 'dynamodb'
+      source: source
     });
 
   } catch (error) {

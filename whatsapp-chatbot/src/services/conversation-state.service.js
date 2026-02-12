@@ -176,12 +176,15 @@ async function persistConversation(conversation, immediate = false) {
 
 /**
  * Inicializar la persistencia al cargar el módulo
- * DESACTIVADO: Ahora usamos Baileys directamente para leer chats y mensajes
+ * ✅ RE-HABILITADO: Cargar conversaciones desde DynamoDB al arrancar
+ * para que el dashboard muestre conversaciones existentes inmediatamente.
+ * Baileys sigue siendo fuente de verdad para chats nuevos.
  */
-// loadConversationsFromDB().then(() => {
-//   logger.info('✅ Sistema de estado sincronizado con DynamoDB');
-// });
-logger.info('✅ Sistema de estado usando Baileys como fuente de verdad');
+loadConversationsFromDB().then(() => {
+  logger.info('✅ Sistema de estado sincronizado con DynamoDB');
+}).catch(err => {
+  logger.warn('⚠️ No se pudo cargar desde DynamoDB, la memoria se llenará con eventos de Baileys:', err.message);
+});
 
 // ===========================================
 // Lógica de Negocio
@@ -650,5 +653,7 @@ module.exports = {
   getAdvisorHandledConversations,
   updateWhatsappName,
   getMessagesByDateRange,
-  cleanOldMessages
+  cleanOldMessages,
+  // ✅ Exportar para que Baileys y otros módulos puedan recargar
+  loadConversationsFromDB
 };

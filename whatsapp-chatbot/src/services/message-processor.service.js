@@ -43,13 +43,10 @@ const NO_INFO_MESSAGE = 'El asesor de NORBOY 👩‍💼 encargado de este tema 
 // CONFIGURACIÓN DE HORARIO DE ATENCIÓN
 // ===========================================
 /**
- * Horario de atención: hasta las 4:30 PM
+ * Horario de atención - ahora lee de schedule-config.service.js
+ * (antes estaba hardcodeado a endHour:16, endMinute:30)
  */
-const BUSINESS_HOURS = {
-  endHour: 16,          // 4:00 PM
-  endMinute: 30,        // 4:30 PM
-  timezone: 'America/Bogota'
-};
+const scheduleConfig = require('./schedule-config.service');
 
 // ===========================================
 // ✅ NUEVO: CONFIGURACIÓN DE FLUJO DE MENÚ
@@ -906,22 +903,47 @@ async function isOutOfHours() {
     return false;
   }
 
-  // ✅ ACTUALIZADO: Usar zona horaria fija (no depende del servidor AWS)
+  // ✅ ACTUALIZADO: Lee horario de schedule-config.service.js (configurable desde dashboard)
   const time = timeSimulation.getCurrentTime();
   const currentTimeDecimal = time.decimal;
-  const endTimeDecimal = BUSINESS_HOURS.endHour + (BUSINESS_HOURS.endMinute / 60);
+  const cfg = scheduleConfig.getConfig();
 
-  const isAfter = currentTimeDecimal > endTimeDecimal;
+  const now = new Date();
+  const day = now.getDay(); // 0=Dom, 6=Sáb
 
-  if (isAfter || timeSimulation.isSimulationActive()) {
+  // Domingo
+  if (day === 0 && !cfg.sunday.enabled) {
+    logger.debug('⏰ Hoy es domingo - Fuera de horario');
+    return true;
+  }
+
+  // Sábado
+  if (day === 6) {
+    if (!cfg.saturday.enabled) {
+      logger.debug('⏰ Hoy es sábado - No se atiende');
+      return true;
+    }
+    const satStart = cfg.saturday.start;
+    const satEndDecimal = cfg.saturday.endHour + (cfg.saturday.endMinute / 60);
+    const outOfSat = currentTimeDecimal < satStart || currentTimeDecimal > satEndDecimal;
+    logger.debug(`⏰ Sábado: ${time.timeString} ${outOfSat ? 'FUERA' : 'DENTRO'} de ${satStart}:00-${cfg.saturday.endHour}:${cfg.saturday.endMinute.toString().padStart(2, '0')}`);
+    return outOfSat;
+  }
+
+  // Lunes a Viernes
+  const startDecimal = cfg.weekdays.start;
+  const endTimeDecimal = cfg.weekdays.endHour + (cfg.weekdays.endMinute / 60);
+  const isOutside = currentTimeDecimal < startDecimal || currentTimeDecimal > endTimeDecimal;
+
+  if (isOutside || timeSimulation.isSimulationActive()) {
     const timeSource = timeSimulation.isSimulationActive()
       ? `HORA SIMULADA: ${timeSimulation.getSimulatedTime()}`
       : `Horario actual: ${time.timeString} (${time.timezone})`;
 
-    logger.debug(`⏰ ${timeSource} > ${BUSINESS_HOURS.endHour}:${BUSINESS_HOURS.endMinute.toString().padStart(2, '0')}? ${isAfter ? 'FUERA' : 'DENTRO'}`);
+    logger.debug(`⏰ ${timeSource} → ${isOutside ? 'FUERA' : 'DENTRO'} de ${cfg.weekdays.start}:00-${cfg.weekdays.endHour}:${cfg.weekdays.endMinute.toString().padStart(2, '0')}`);
   }
 
-  return isAfter;
+  return isOutside;
 }
 
 /**
@@ -930,6 +952,9 @@ async function isOutOfHours() {
  * @returns {Promise<string>} Mensaje de fuera de horario
  */
 async function getOutOfHoursMessage() {
+  // Generar mensaje con horarios dinámicos desde la configuración
+  const sched = scheduleConfig.getFormattedSchedule();
+
   // Verificar si hoy es festivo para personalizar el mensaje
   try {
     const holidaysService = require('./holidays.service');
@@ -937,13 +962,13 @@ async function getOutOfHoursMessage() {
 
     if (isTodayHoliday) {
       const holidayName = await holidaysService.getHolidayName(new Date());
-      return `🎉 Hoy es ${holidayName}\n\nNuestro horario de atención es:\n\n📅 Lunes a Viernes: 8:00 AM - 4:30 PM\n📅 Sábados: 9:00 AM - 12:00 PM\n\nSu mensaje será atendido en el siguiente día hábil. Gracias por su comprensión.`;
+      return `🎉 Hoy es ${holidayName}\n\nNuestro horario de atención es:\n\n📅 Lunes a Viernes: ${sched.weekdaysLabel}\n📅 Sábados: ${sched.saturdayLabel}\n\nSu mensaje será atendido en el siguiente día hábil. Gracias por su comprensión.`;
     }
   } catch (error) {
     logger.warn('Error verificando festivo para mensaje:', error.message);
   }
 
-  return "Nuestro horario de atención es:\n\n📅 Lunes a Viernes: 8:00 AM - 4:30 PM\n📅 Sábados: 9:00 AM - 12:00 PM\n❌ Domingos: Cerrado\n\nSu mensaje será atendido en el siguiente horario hábil. Gracias por su comprensión.";
+  return `Nuestro horario de atención es:\n\n📅 Lunes a Viernes: ${sched.weekdaysLabel}\n📅 Sábados: ${sched.saturdayLabel}\n❌ Domingos: ${sched.sundayLabel}\n\nSu mensaje será atendido en el siguiente horario hábil. Gracias por su comprensión.`;
 }
 
 /**
