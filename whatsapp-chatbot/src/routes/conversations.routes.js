@@ -25,7 +25,8 @@ const advisorControlService = require('../services/advisor-control.service');
 const timeSimulation = require('../services/time-simulation.service');
 const numberControlService = require('../services/number-control.service');
 const spamControlService = require('../services/spam-control.service');
-const mediaService = require('../services/media.service');  // ✅ NUEVO
+const mediaService = require('../services/media.service');  // Legacy service
+const mediaStorageService = require('../services/media-storage.service'); // ✅ NUEVO: almacenamiento persistente (S3)
 const whatsappProvider = require('../providers/whatsapp');  // ✅ NUEVO para fetchChats
 const { requireAuth } = require('../middlewares/auth.middleware');
 const { single } = require('../middlewares/upload.middleware');  // ✅ NUEVO
@@ -1770,16 +1771,32 @@ router.post('/:userId/send-audio', requireAuth, single('audio'), async (req, res
     // Enviar audio vía WhatsApp
     await whatsappProvider.sendAudio(userId, filePath);
 
+    // ✅ FIX: Guardar audio enviado en almacenamiento persistente (S3/Local)
+    let mediaInfo = null;
+    try {
+      const fs = require('fs');
+      const buffer = fs.readFileSync(filePath);
+      const mimeType = req.file.mimetype || 'audio/ogg';
+      mediaInfo = await mediaStorageService.saveOutboundMedia(buffer, req.file.originalname, mimeType, userId);
+    } catch (saveError) {
+      logger.warn(`⚠️ Error guardando audio outbound: ${saveError.message}`);
+    }
+
     // Guardar mensaje en la conversación
     const conversation = conversationStateService.getConversation(userId);
     if (conversation) {
       if (!conversation.messages) conversation.messages = [];
       conversation.messages.push({
-        id: `audio_${Date.now()}`,
+        id: mediaInfo ? mediaInfo.messageId : `audio_${Date.now()}`,
         sender: 'admin',
         type: 'audio',
         message: '[Audio enviado]',
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        // ✅ Metadata para reproducción
+        mediaUrl: mediaInfo ? mediaInfo.mediaUrl : null,
+        fileName: mediaInfo ? mediaInfo.fileName : req.file.originalname,
+        mimeType: mediaInfo ? mediaInfo.mimeType : 'audio/ogg',
+        fileSize: mediaInfo ? mediaInfo.fileSize : req.file.size
       });
     }
 
@@ -1857,17 +1874,32 @@ router.post('/:userId/send-file', requireAuth, single('file'), async (req, res) 
         break;
     }
 
+    // ✅ FIX: Guardar archivo enviado en almacenamiento persistente (S3/Local)
+    let mediaInfo = null;
+    try {
+      const fs = require('fs');
+      const buffer = fs.readFileSync(filePath);
+      const mimeType = req.file.mimetype || 'application/octet-stream';
+      mediaInfo = await mediaStorageService.saveOutboundMedia(buffer, originalName, mimeType, userId);
+    } catch (saveError) {
+      logger.warn(`⚠️ Error guardando archivo outbound: ${saveError.message}`);
+    }
+
     // Guardar mensaje en la conversación
     const conversation = conversationStateService.getConversation(userId);
     if (conversation) {
       if (!conversation.messages) conversation.messages = [];
       conversation.messages.push({
-        id: `file_${Date.now()}`,
+        id: mediaInfo ? mediaInfo.messageId : `file_${Date.now()}`,
         sender: 'admin',
         type: fileType,
         message: `[${fileType === 'image' ? 'Imagen' : fileType === 'audio' ? 'Audio' : 'Documento'} enviado: ${originalName}]`,
         fileName: originalName,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        // ✅ Metadata para visualización/descarga
+        mediaUrl: mediaInfo ? mediaInfo.mediaUrl : null,
+        mimeType: mediaInfo ? mediaInfo.mimeType : req.file.mimetype,
+        fileSize: mediaInfo ? mediaInfo.fileSize : req.file.size
       });
     }
 

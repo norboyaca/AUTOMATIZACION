@@ -19,6 +19,11 @@ const logger = require('../../utils/logger');
 const EventEmitter = require('events');
 const conversationStateService = require('../../services/conversation-state.service');
 
+// ✅ FFMPEG para conversión de audio (Compatibilidad móvil)
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegPath = require('ffmpeg-static');
+ffmpeg.setFfmpegPath(ffmpegPath);
+
 class BaileysProvider extends EventEmitter {
   constructor() {
     super();
@@ -807,36 +812,66 @@ class BaileysProvider extends EventEmitter {
       throw new Error('WhatsApp no está conectado');
     }
 
+    let finalAudioPath = audioPath;
+    let needsCleanup = false;
+
     try {
       const chatId = this._formatNumber(to);
-
-      // Determinar mimetype según extensión
       const ext = path.extname(audioPath).toLowerCase();
-      let mimetype = 'audio/mpeg';  // Default
 
-      if (ext === '.ogg') mimetype = 'audio/ogg';
-      else if (ext === '.wav') mimetype = 'audio/wav';
-      else if (ext === '.webm') mimetype = 'audio/webm';
-      else if (ext === '.m4a') mimetype = 'audio/mp4';
-      else if (ext === '.mp3') mimetype = 'audio/mpeg';
+      // ✅ CONVERSIÓN FFMPEG: Garantizar OGG/Opus para móviles
+      // WhatsApp móvil es muy estricto con el formato de notas de voz.
+      // WebM (Chrome) y OGG (Firefox) a veces no tienen los codecs exactos.
+      if (ext === '.webm' || ext === '.ogg' || ext === '.mp3' || ext === '.wav' || ext === '.m4a') {
+        const outputPath = path.join(path.dirname(audioPath), `converted_${Date.now()}.ogg`);
 
-      // Leer audio como buffer
-      const audioBuffer = fs.readFileSync(audioPath);
+        logger.info(`🔄 Convirtiendo audio ${ext} a OGG/Opus para compatibilidad móvil...`);
+
+        await new Promise((resolve, reject) => {
+          ffmpeg(audioPath)
+            .audioCodec('libopus')
+            .toFormat('ogg')
+            .addOutputOption('-avoid_negative_ts make_zero') // Fix timestamps
+            .on('end', () => resolve(true))
+            .on('error', (err) => {
+              logger.error('Error conversión ffmpeg:', err);
+              reject(err);
+            })
+            .save(outputPath);
+        });
+
+        finalAudioPath = outputPath;
+        needsCleanup = true;
+        logger.info(`✅ Audio convertido: ${finalAudioPath}`);
+      }
+
+      // Leer audio final
+      const audioBuffer = fs.readFileSync(finalAudioPath);
 
       // Enviar audio
       const result = await this.sock.sendMessage(
         chatId,
         {
           audio: audioBuffer,
-          mimetype: mimetype,
-          ptt: false  // No es mensaje de voz (nota de audio)
+          mimetype: 'audio/ogg; codecs=opus', // Siempre enviar como OGG/Opus
+          ptt: true
         }
       );
 
-      logger.debug(`Audio enviado a ${to} (${mimetype})`);
+      logger.info(`✅ Audio enviado a ${to} (OGG/Opus, ptt=true)`);
+
+      // Limpiar archivo temporal
+      if (needsCleanup && fs.existsSync(finalAudioPath)) {
+        fs.unlinkSync(finalAudioPath);
+      }
+
       return result;
     } catch (error) {
       logger.error('Error enviando audio:', error);
+      // Limpiar archivo temporal en caso de error
+      if (needsCleanup && finalAudioPath && fs.existsSync(finalAudioPath)) {
+        try { fs.unlinkSync(finalAudioPath); } catch (e) { }
+      }
       throw error;
     }
   }

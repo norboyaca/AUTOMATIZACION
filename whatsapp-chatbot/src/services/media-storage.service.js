@@ -19,12 +19,14 @@ const path = require('path');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const config = require('../config');
 const logger = require('../utils/logger');
+const s3Service = require('./s3.service');
 
 // ===========================================
 // CONFIGURACIÓN
 // ===========================================
 const MAX_FILE_SIZE_BYTES = (config.media.maxFileSizeMB || 25) * 1024 * 1024;
 const UPLOADS_BASE_DIR = path.resolve(config.media.uploadDir || './uploads');
+const RETENTION_MS = 4 * 60 * 60 * 1000; // 4 horas de retención local (Hot Cache)
 
 // Mapa en memoria: messageId → { filePath, fileName, mimeType, fileSize }
 const mediaIndex = new Map();
@@ -73,8 +75,52 @@ function _saveIndex() {
     }, 500); // debounce 500ms
 }
 
+
+
 // Cargar índice al iniciar el módulo
 _loadIndex();
+
+/**
+ * Limpia archivos locales antiguos que ya están en S3
+ * Se ejecuta automáticamente cada hora
+ */
+async function cleanupOldLocalFiles() {
+    if (!config.s3.enabled) return;
+
+    logger.info('🧹 [MEDIA-STORAGE] Iniciando limpieza de caché local...');
+    const now = Date.now();
+    let deletedCount = 0;
+    let freedSpace = 0;
+
+    for (const [id, info] of mediaIndex.entries()) {
+        // Solo borrar si: 
+        // 1. Está en S3 (info.s3Key)
+        // 2. Es antiguo (> 4 horas)
+        // 3. Existe archivo local
+        if (info.s3Key && (now - (info.savedAt || 0) > RETENTION_MS)) {
+            try {
+                if (fs.existsSync(info.filePath)) {
+                    await fsPromises.unlink(info.filePath);
+                    deletedCount++;
+                    freedSpace += (info.fileSize || 0);
+                    // No actualizamos info.filePath para mantener la ruta "teórica" 
+                    // getMediaBuffer detectará que no existe y bajará de S3
+                }
+            } catch (err) {
+                logger.warn(`⚠️ [MEDIA-STORAGE] Error borrando archivo local ${id}: ${err.message}`);
+            }
+        }
+    }
+
+    if (deletedCount > 0) {
+        logger.info(`🧹 [MEDIA-STORAGE] Limpieza completada: ${deletedCount} archivos eliminados, ${(freedSpace / 1024 / 1024).toFixed(2)} MB liberados`);
+    } else {
+        logger.debug('🧹 [MEDIA-STORAGE] Limpieza completada: Sin archivos para borrar');
+    }
+}
+
+// Programar limpieza cada hora
+setInterval(cleanupOldLocalFiles, 60 * 60 * 1000);
 
 // ===========================================
 // EXTENSIONES POR MIME TYPE
@@ -242,7 +288,24 @@ async function saveMediaFromMessage(transformedMessage) {
             mediaType,
             chatId,
             savedAt: timestamp,
+            s3Key: null // Se actualizará tras subida a S3
         };
+
+        // Subir a S3 en segundo plano (fire & forget para no bloquear responsividad)
+        // Pero actualizamos el índice cuando termine
+        if (config.s3.enabled) {
+            const s3Key = s3Service.generateS3Key(mimeType, uniqueName, chatId);
+            s3Service.uploadFile(s3Key, buffer, mimeType)
+                .then(result => {
+                    if (result) {
+                        mediaInfo.s3Key = result.s3Key;
+                        mediaIndex.set(messageId, mediaInfo);
+                        _saveIndex();
+                        logger.info(`☁️ [MEDIA-STORAGE] Sync S3 completado: ${result.s3Key}`);
+                    }
+                })
+                .catch(err => logger.error(`❌ [MEDIA-STORAGE] Error sync S3: ${err.message}`));
+        }
 
         mediaIndex.set(messageId, mediaInfo);
         _saveIndex();
@@ -290,9 +353,99 @@ function getStats() {
     };
 }
 
+/**
+ * Guarda un archivo enviado desde el dashboard (Outbound)
+ *
+ * @param {Buffer} buffer
+ * @param {string} fileName
+ * @param {string} mimeType
+ * @param {string} userId (chatId)
+ * @returns {Object} mediaInfo
+ */
+async function saveOutboundMedia(buffer, fileName, mimeType, userId) {
+    try {
+        const messageId = `out_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        const chatId = userId.replace('@s.whatsapp.net', '');
+        const ext = MIME_TO_EXT[mimeType] || '.bin';
+        const uniqueName = `${chatId}_${messageId}${ext}`;
+
+        // Guardar local
+        const chatDir = await ensureUploadDir(chatId);
+        const filePath = path.join(chatDir, uniqueName);
+        await fsPromises.writeFile(filePath, buffer);
+
+        // Metadata
+        const mediaInfo = {
+            mediaUrl: `/api/media/download/${messageId}`,
+            fileName,
+            mimeType,
+            fileSize: buffer.length,
+            filePath,
+            mediaType: mimeType.split('/')[0],
+            chatId,
+            savedAt: Date.now(),
+            s3Key: null
+        };
+
+        // Subir a S3
+        if (config.s3.enabled) {
+            const s3Key = s3Service.generateS3Key(mimeType, uniqueName, chatId);
+            const s3Result = await s3Service.uploadFile(s3Key, buffer, mimeType);
+            if (s3Result) {
+                mediaInfo.s3Key = s3Result.s3Key;
+            }
+        }
+
+        mediaIndex.set(messageId, mediaInfo);
+        _saveIndex();
+
+        return { ...mediaInfo, messageId };
+    } catch (error) {
+        logger.error(`❌ [MEDIA-STORAGE] Error guardando outbound media: ${error.message}`);
+        throw error;
+    }
+}
+
+/**
+ * Obtiene el buffer del archivo (Local > S3)
+ */
+async function getMediaBuffer(messageId) {
+    const info = mediaIndex.get(messageId);
+    if (!info) return null;
+
+    // 1. Intentar local
+    try {
+        if (fs.existsSync(info.filePath)) {
+            return await fsPromises.readFile(info.filePath);
+        }
+    } catch (e) { /* ignore */ }
+
+    // 2. Intentar S3
+    if (config.s3.enabled && info.s3Key) {
+        logger.info(`☁️ [MEDIA-STORAGE] Recuperando ${messageId} desde S3...`);
+        const buffer = await s3Service.downloadFile(info.s3Key);
+        // Restaurar caché local si se descarga
+        if (buffer) {
+            try {
+                const dir = path.dirname(info.filePath);
+                if (!fs.existsSync(dir)) await fsPromises.mkdir(dir, { recursive: true });
+                await fsPromises.writeFile(info.filePath, buffer);
+            } catch (err) {
+                logger.warn(`⚠️ [MEDIA-STORAGE] No se pudo restaurar caché local: ${err.message}`);
+            }
+        }
+        return buffer;
+    }
+
+    return null;
+}
+
 module.exports = {
     saveMediaFromMessage,
+    saveOutboundMedia,
     getMediaInfo,
+    getMediaBuffer,
+    cleanupOldLocalFiles,
     hasMedia,
     getStats,
     ensureUploadDir,

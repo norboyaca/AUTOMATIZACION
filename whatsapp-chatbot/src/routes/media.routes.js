@@ -24,7 +24,7 @@ const router = express.Router();
  * Descarga un archivo multimedia por su messageId.
  * Requiere autenticación.
  */
-router.get('/download/:messageId', requireAuth, (req, res) => {
+router.get('/download/:messageId', requireAuth, async (req, res) => {
     try {
         const { messageId } = req.params;
 
@@ -46,33 +46,26 @@ router.get('/download/:messageId', requireAuth, (req, res) => {
             });
         }
 
-        // Verificar que el archivo exista en disco
-        if (!fs.existsSync(mediaInfo.filePath)) {
-            logger.error(`❌ [MEDIA-ROUTE] Archivo en índice pero no en disco: ${mediaInfo.filePath}`);
+        // Obtener buffer del archivo (Local o S3)
+        const fileBuffer = await mediaStorageService.getMediaBuffer(messageId);
+
+        if (!fileBuffer) {
             return res.status(404).json({
                 success: false,
-                error: 'Archivo no disponible'
+                error: 'Archivo no encontrado (ni local ni en S3)'
             });
         }
 
         // Determinar nombre para descarga
-        const downloadName = mediaInfo.fileName || path.basename(mediaInfo.filePath);
+        const downloadName = mediaInfo.fileName || `archivo_${messageId}.${mediaInfo.mimeType.split('/')[1]}`;
 
         // Configurar headers para descarga
         res.setHeader('Content-Type', mediaInfo.mimeType || 'application/octet-stream');
-        res.setHeader('Content-Length', mediaInfo.fileSize);
+        res.setHeader('Content-Length', fileBuffer.length);
         res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(downloadName)}"`);
 
-        // Stream del archivo al cliente
-        const fileStream = fs.createReadStream(mediaInfo.filePath);
-        fileStream.pipe(res);
-
-        fileStream.on('error', (err) => {
-            logger.error(`❌ [MEDIA-ROUTE] Error streaming archivo: ${err.message}`);
-            if (!res.headersSent) {
-                res.status(500).json({ success: false, error: 'Error leyendo archivo' });
-            }
-        });
+        // Enviar buffer
+        res.send(fileBuffer);
 
         logger.info(`📤 [MEDIA-ROUTE] Descargando ${mediaInfo.mediaType}: ${downloadName}`);
 
@@ -89,31 +82,30 @@ router.get('/download/:messageId', requireAuth, (req, res) => {
  * No fuerza descarga, permite inline playback.
  * Requiere autenticación.
  */
-router.get('/stream/:messageId', requireAuth, (req, res) => {
+router.get('/stream/:messageId', requireAuth, async (req, res) => {
     try {
         const { messageId } = req.params;
         const mediaInfo = mediaStorageService.getMediaInfo(messageId);
 
-        if (!mediaInfo || !fs.existsSync(mediaInfo.filePath)) {
-            return res.status(404).json({ success: false, error: 'Archivo no encontrado' });
+        if (!mediaInfo) {
+            return res.status(404).json({ success: false, error: 'Archivo no encontrado en índice' });
+        }
+
+        // Obtener buffer del archivo (Local o S3)
+        const fileBuffer = await mediaStorageService.getMediaBuffer(messageId);
+
+        if (!fileBuffer) {
+            return res.status(404).json({ success: false, error: 'Archivo no encontrado (ni local ni en S3)' });
         }
 
         // Para streaming inline (audio player, image preview)
         res.setHeader('Content-Type', mediaInfo.mimeType || 'application/octet-stream');
-        res.setHeader('Content-Length', mediaInfo.fileSize);
+        res.setHeader('Content-Length', fileBuffer.length);
         res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(mediaInfo.fileName || 'file')}"`);
         // No-cache para evitar problemas de autenticación en caché
         res.setHeader('Cache-Control', 'private, no-cache');
 
-        const fileStream = fs.createReadStream(mediaInfo.filePath);
-        fileStream.pipe(res);
-
-        fileStream.on('error', (err) => {
-            logger.error(`❌ [MEDIA-ROUTE] Error streaming: ${err.message}`);
-            if (!res.headersSent) {
-                res.status(500).json({ success: false, error: 'Error leyendo archivo' });
-            }
-        });
+        res.send(fileBuffer);
 
     } catch (error) {
         logger.error(`❌ [MEDIA-ROUTE] Error en stream:`, error);

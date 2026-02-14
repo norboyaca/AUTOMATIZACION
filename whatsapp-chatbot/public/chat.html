@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NORBOY Chat - Conversaciones</title>
-  <meta name="description" content="Panel de chat en tiempo real para gestión de conversaciones WhatsApp - NORBOY Chatbot">
+  <meta name="description"
+    content="Panel de chat en tiempo real para gestión de conversaciones WhatsApp - NORBOY Chatbot">
   <link rel="stylesheet" href="css/chat-page.css">
 </head>
+
 <body>
 
   <!-- ========================================
@@ -163,7 +166,8 @@
           <div class="conv-list-header">
             <div class="conv-search-container">
               <span class="conv-search-icon">🔍</span>
-              <input type="text" class="conv-search-input" id="conv-search-input" placeholder="Buscar por nombre o teléfono...">
+              <input type="text" class="conv-search-input" id="conv-search-input"
+                placeholder="Buscar por nombre o teléfono...">
             </div>
             <div class="conv-filter-row">
               <button class="conv-filter-btn active" data-filter="all">Todos</button>
@@ -202,7 +206,8 @@
             <!-- Chat Header -->
             <div class="chat-header">
               <div class="chat-header-left">
-                <button class="mobile-back-btn chat-footer-btn" onclick="ChatPage.mobileBack()" title="Volver" style="display:none">←</button>
+                <button class="mobile-back-btn chat-footer-btn" onclick="ChatPage.mobileBack()" title="Volver"
+                  style="display:none">←</button>
                 <div class="chat-header-avatar" id="chat-header-initials">??</div>
                 <div class="chat-header-info">
                   <span class="chat-header-name" id="chat-header-name">Contacto</span>
@@ -231,8 +236,8 @@
 
               <button class="chat-send-btn" id="chat-send-btn" title="Enviar">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="22" y1="2" x2="11" y2="13"/>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
                 </svg>
               </button>
 
@@ -283,9 +288,12 @@
               </div>
 
               <!-- Hidden file inputs -->
-              <input type="file" id="file-image-input" accept="image/*" style="display:none">
-              <input type="file" id="file-document-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" style="display:none">
-              <input type="file" id="file-audio-input" accept="audio/*" style="display:none">
+              <div
+                style="display: none !important; height: 0; width: 0; overflow: hidden; visibility: hidden; opacity: 0; pointer-events: none;">
+                <input type="file" id="file-image-input" accept="image/*">
+                <input type="file" id="file-document-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv">
+                <input type="file" id="file-audio-input" accept="audio/*">
+              </div>
             </div>
 
           </div><!-- /chat-active -->
@@ -305,4 +313,5 @@
   <script src="js/chat-page.js"></script>
 
 </body>
+
 </html>

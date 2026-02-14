@@ -45,12 +45,22 @@ const logging = {
 };
 
 // ===========================================
+// CONFIGURACIÓN DE AWS S3
+// ===========================================
+const s3 = {
+  bucket: process.env.AWS_S3_BUCKET || '',
+  region: process.env.AWS_REGION || 'us-east-1',
+  enabled: !!process.env.AWS_S3_BUCKET
+};
+
+// ===========================================
 // EXPORTAR CONFIGURACIÓN COMPLETA
 // ===========================================
 module.exports = {
   server,
   media,
   logging,
+  s3,
   openai: openaiConfig,
   whatsapp: whatsappConfig
 };

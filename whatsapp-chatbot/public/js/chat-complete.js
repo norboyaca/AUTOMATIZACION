@@ -411,13 +411,20 @@
       // Solicitar permiso
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      // ✅ Usar formato OGG en lugar de WebM para mejor compatibilidad
-      let options = { mimeType: 'audio/ogg' };
-      // Verificar si el navegador soporta OGG
-      if (!MediaRecorder.isTypeSupported('audio/ogg')) {
-        // Fallback a webm si ogg no está soportado
-        options = { mimeType: 'audio/webm' };
+      // ✅ Usar WebM como formato preferido (más compatible en navegadores)
+      let options = { mimeType: 'audio/webm' };
+
+      // Si no soporta webm, intentar ogg (algunos navegadores viejos)
+      if (!MediaRecorder.isTypeSupported('audio/webm')) {
+        if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          options = { mimeType: 'audio/ogg' };
+        } else {
+          // Último recurso: default del navegador
+          options = {};
+        }
       }
+
+      console.log('🎤 Iniciando grabación con format:', options.mimeType || 'default');
 
       audioRecorder = new MediaRecorder(stream, options);
       audioChunks = [];
@@ -711,6 +718,14 @@
     if (attachBtn) attachBtn.style.display = '';
     if (audioBtn) audioBtn.style.display = '';
     if (emojiBtn) emojiBtn.style.display = '';
+
+    // ✅ FIX: Asegurar que los inputs de archivo estén ocultos
+    // Esto evita que aparezcan botones "Choose File" fantasma
+    ['file-image-input', 'file-document-input', 'file-audio-input', 'file-camera-input']
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
   }
 
   /**
@@ -1039,8 +1054,49 @@
   }
 
   // ===========================================
-  // INICIALIZACIÓN
+  // 6. GHOST BUSTER - ELIMINADOR DE INPUTS FANTASMA
   // ===========================================
+  function initGhostBuster() {
+    console.log('👻 Iniciando Ghost Buster para eliminar inputs fantasma...');
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          // Caso 1: El nodo agregado es un input file
+          if (node.nodeType === 1 && node.tagName === 'INPUT' && node.type === 'file') {
+            // Si el input no tiene ID conocido (nuestros inputs ocultos tienen ID)
+            // O si está visible, lo eliminamos
+            if (!node.id || !node.id.startsWith('file-')) {
+              console.warn('👻 Ghost file input detectado y eliminado:', node);
+              node.remove();
+            } else if (node.style.display !== 'none') {
+              // Si es uno de los nuestros pero se hizo visible sin querer
+              node.style.display = 'none';
+              node.style.visibility = 'hidden';
+            }
+          }
+
+          // Caso 2: El nodo agregado CONTIENE un input file
+          if (node.nodeType === 1 && node.querySelectorAll) {
+            const inputs = node.querySelectorAll('input[type="file"]');
+            inputs.forEach(input => {
+              if (!input.id || !input.id.startsWith('file-')) {
+                console.warn('👻 Ghost file input (anidado) detectado y eliminado:', input);
+                input.remove();
+              } else if (input.style.display !== 'none') {
+                input.style.display = 'none';
+                input.style.visibility = 'hidden';
+              }
+            });
+          }
+        });
+      });
+    });
+
+    // Observar todo el body por si acaso los agregan al final
+    observer.observe(document.body, { childList: true, subtree: true });
+    console.log('👻 Ghost Buster activo y vigilando.');
+  }
 
   /**
    * Inicializa todos los event listeners
@@ -1190,8 +1246,12 @@
   // Inicializar cuando el DOM esté listo
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initChat);
+    // Iniciar Ghost Buster para mantener la UI limpia
+    initGhostBuster();
   } else {
     initChat();
+    // Iniciar Ghost Buster inmediatamente si ya cargó
+    initGhostBuster();
   }
 
 })();

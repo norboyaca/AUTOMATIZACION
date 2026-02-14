@@ -68,6 +68,48 @@
     // ==========================================
     // UTILITY
     // ==========================================
+    // ==========================================
+    // UTILITY
+    // ==========================================
+
+    // ✅ GHOST BUSTER: Elimina inputs de archivo que aparecen dinámicamente
+    function initGhostBuster() {
+        console.log('👻 Iniciando Ghost Buster para eliminar inputs fantasma...');
+
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.addedNodes.forEach((node) => {
+                    // Caso 1: El nodo agregado es un input file
+                    if (node.nodeType === 1 && node.tagName === 'INPUT' && node.type === 'file') {
+                        if (!node.id || !node.id.startsWith('file-')) {
+                            console.warn('👻 Ghost file input detectado y eliminado:', node);
+                            node.remove();
+                        } else if (node.parentElement && node.parentElement.style.display !== 'none') {
+                            // Si es uno de los nuestros pero se hizo visible sin querer
+                            node.style.display = 'none';
+                        }
+                    }
+
+                    // Caso 2: El nodo agregado CONTIENE un input file
+                    if (node.nodeType === 1 && node.querySelectorAll) {
+                        const inputs = node.querySelectorAll('input[type="file"]');
+                        inputs.forEach(input => {
+                            if (!input.id || !input.id.startsWith('file-')) {
+                                console.warn('👻 Ghost file input (anidado) detectado y eliminado:', input);
+                                input.remove();
+                            } else {
+                                input.style.display = 'none';
+                            }
+                        });
+                    }
+                });
+            });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+        console.log('👻 Ghost Buster activo y vigilando.');
+    }
+
     function normalizePhoneNumber(phoneNumber) {
         if (!phoneNumber) return '';
         let normalized = String(phoneNumber).trim();
@@ -908,7 +950,20 @@
                 return;
             }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            let options = MediaRecorder.isTypeSupported('audio/ogg') ? { mimeType: 'audio/ogg' } : { mimeType: 'audio/webm' };
+
+            // ✅ Usar WebM como formato preferido (más compatible en navegadores)
+            let options = { mimeType: 'audio/webm' };
+
+            // Si no soporta webm, intentar ogg (algunos navegadores viejos)
+            if (!MediaRecorder.isTypeSupported('audio/webm')) {
+                if (MediaRecorder.isTypeSupported('audio/ogg')) {
+                    options = { mimeType: 'audio/ogg' };
+                } else {
+                    options = {}; // Default browser
+                }
+            }
+
+            console.log('🎤 Iniciando grabación con format:', options.mimeType || 'default');
 
             audioRecorder = new MediaRecorder(stream, options);
             audioChunks = [];
@@ -954,7 +1009,7 @@
         if (sendBtn) { sendBtn.disabled = true; sendBtn.innerHTML = '⏳'; }
 
         try {
-            const ext = mimeType === 'audio/webm' ? 'webm' : 'ogg';
+            const ext = (mimeType && mimeType.includes('webm')) ? 'webm' : 'ogg';
             const formData = new FormData();
             formData.append('file', blob, `audio.${ext}`);
             formData.append('type', 'audio');
@@ -1024,7 +1079,20 @@
     function restoreInputUI() {
         const indicator = document.getElementById('audio-recording-indicator');
         if (indicator) indicator.remove();
-        document.querySelectorAll('.chat-footer > *').forEach(el => el.style.display = '');
+        document.querySelectorAll('.chat-footer > *').forEach(el => {
+            // NO mostrar inputs de archivo
+            if (el.tagName === 'INPUT' && el.type === 'file') {
+                el.style.display = 'none';
+            } else {
+                el.style.display = '';
+            }
+        });
+
+        // Asegurar que los inputs específicos estén ocultos
+        ['file-image-input', 'file-document-input', 'file-audio-input'].forEach(id => {
+            const input = document.getElementById(id);
+            if (input) input.style.display = 'none';
+        });
     }
 
     // ==========================================
@@ -1317,6 +1385,7 @@
     // APP INIT
     // ==========================================
     function initApp() {
+        initGhostBuster(); // ✅ Iniciar Ghost Buster
         initDarkMode();
         initClock();
         initSocket();
