@@ -74,13 +74,14 @@ async function loadConversationsFromDB() {
 
         // Timestamps - convertir strings ISO a Date
         cycleStart: convData.createdAt ? new Date(convData.createdAt).getTime() : Date.now(),
-        lastInteraction: convData.lastInteraction || Date.now(),
+        lastInteraction: convData.lastInteraction || (convData.updatedAt ? new Date(convData.updatedAt).getTime() : Date.now()),
         createdAt: convData.createdAt ? new Date(convData.createdAt) : new Date(),
         updatedAt: convData.updatedAt ? new Date(convData.updatedAt) : new Date(),
 
-        // Consentimiento
-        consentStatus: 'pending', // No se guarda en DynamoDB actualmente
-        consentMessageSent: false,
+        // Consentimiento - ✅ FIX: Restaurar estado desde DynamoDB para no reenviar consent
+        consentStatus: convData.consentStatus || 'pending',
+        consentMessageSent: convData.consentMessageSent || false,
+        datosAceptados: convData.datosAceptados || false,
 
         // Contadores
         interactionCount: 0,
@@ -214,6 +215,7 @@ function getOrCreateConversation(userId, options = {}) {
       interactionCount: 0,
       welcomeSent: false,
       consentMessageSent: false,
+      datosAceptados: false, // ✅ NUEVO: Persistente - true cuando acepta tratamiento de datos (no se repite)
       lastMessage: '',
       messageCount: 0,
       needsHuman: false,
@@ -366,6 +368,7 @@ function resetConversation(userId) {
     interactionCount: 0,
     welcomeSent: false,
     consentMessageSent: false,
+    datosAceptados: false, // ✅ NUEVO: Se reinicia al reinicar ciclo
     lastMessage: '',
     messageCount: 0,
     needsHuman: false,

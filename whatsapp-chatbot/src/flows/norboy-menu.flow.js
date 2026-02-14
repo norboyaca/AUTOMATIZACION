@@ -111,18 +111,43 @@ class NorboyMenuFlow extends BaseFlow {
     }
 
     if (selectedOption === null) {
-      // Opción inválida, repetir menú
-      logger.info(`❌ Opción inválida: "${input}". Reenviando menú.`);
+      // ✅ MEJORADO: Toda entrada de texto libre se trata como pregunta
+      // No importa la longitud, si no es un número válido, se trata como pregunta libre
+      const isFreeQuestion = input && input.trim().length > 1;
+
+      if (isFreeQuestion) {
+        // Tratar como consulta libre → retornar flag especial para que message-processor
+        // envíe consentimiento informativo + respuesta IA inmediata
+        logger.info(`💬 Pregunta libre detectada: "${input}". Enviando datos personales + respuesta inmediata.`);
+        this.data.selectedOption = 1; // Tratar como opción IA/RAG
+        this.data.originalQuery = input; // Guardar pregunta original para responder después
+        this.data.isFreeQuestion = true;
+        this.waitingForMenuSelection = false;
+
+        // ✅ NUEVO: Retornar resultado especial para que message-processor maneje todo
+        return {
+          message: null,
+          step: 'welcome',
+          freeQuestionDetected: true,
+          originalQuery: input,
+          selectedOption: 1
+        };
+      }
+
+      // Input muy corto (1 carácter) y no es número válido → reenviar menú sin mensaje de error
+      logger.info(`🔄 Input no reconocido: "${input}". Reenviando menú.`);
 
       return {
-        message: `Por favor, selecciona una opción válida escribiendo el número:
+        message: `Escribe el número de la opción 👇
 
 *1.* Elegimos Juntos 2026-2029
+
 *2.* Servicio de crédito
+
 *3.* Cuentas de ahorro
+
 *4.* Otras consultas`,
         step: 'welcome',
-        isError: true,
         waitingForInput: true,
         inputType: 'menu_selection'
       };
@@ -175,9 +200,7 @@ https://www.whatsapp.com/legal
 ¿Aceptas las políticas de tratamiento de datos personales?
 
 Por favor, digita:
-
 1. Si
-
 2. No`;
 
       return {
@@ -208,24 +231,41 @@ Por favor, digita:
     // Verificar si rechaza
     if (normalizedInput === 'no' || normalizedInput === '2' ||
       normalizedInput.includes('rechaz')) {
-      logger.info(`❌ Usuario ${this.context.userId} RECHAZÓ el consentimiento`);
+      logger.info(`📋 Usuario ${this.context.userId} rechazó consentimiento, pero se procede a responder`);
       this.data.consentGiven = false;
+      this.waitingForConsent = false;
 
-      // Finalizar flujo (no continuar)
-      return this.complete();
+      // ✅ MODIFICADO: Avanzar al siguiente paso igualmente (responder la pregunta)
+      this.currentStepIndex++;
+      return await this.handleProcess(null, true);
     }
 
-    // Respuesta inválida
-    logger.info(`❌ Respuesta de consentimiento inválida: "${input}"`);
+    // ✅ MEJORADO: Si no es respuesta de consentimiento, detectar pregunta libre
+    const isFreeQuestion = input && input.trim().length > 1;
+
+    if (isFreeQuestion) {
+      // Tratar como pregunta libre → retornar flag para que message-processor responda
+      logger.info(`💬 Pregunta libre detectada durante consentimiento: "${input}". Respondiendo inmediatamente.`);
+      this.data.selectedOption = 1;
+      this.data.originalQuery = input;
+      this.data.isFreeQuestion = true;
+      this.waitingForConsent = false;
+
+      return {
+        message: null,
+        step: 'consent',
+        freeQuestionDetected: true,
+        originalQuery: input,
+        selectedOption: 1
+      };
+    }
+
+    // Input muy corto → pedir respuesta de consentimiento
+    logger.info(`🔄 Input no reconocido en consentimiento: "${input}". Pidiendo Si/No.`);
 
     return {
-      message: `Por favor, responde únicamente con:
-
-Si
-
-No`,
+      message: `Por favor, responde con:\n\nSi\n\nNo`,
       step: 'consent',
-      isError: true,
       waitingForInput: true,
       inputType: 'consent_response'
     };

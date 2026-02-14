@@ -15,21 +15,36 @@
    =========================================== */
 :root {
   /* Colores exactos de WhatsApp */
-  --wa-bg-primary: #0b141a;        /* Fondo principal del chat */
-  --wa-bg-secondary: #111b21;       /* Fondo secundario */
-  --wa-bg-tertiary: #202c33;        /* Fondo header/footer/mensajes recibidos */
-  --wa-bubble-sent: #005c4b;        /* Mensajes enviados (verde) */
-  --wa-bubble-sent-dark: #004d3e;   /* Hover mensajes enviados */
-  --wa-bubble-received: #202c33;    /* Mensajes recibidos */
-  --wa-bubble-received-light: #2a3942; /* Hover recibidos */
-  --wa-text-primary: #e9edef;       /* Texto principal (blanco/claro) */
-  --wa-text-secondary: #8696a0;     /* Texto secundario (gris claro) */
-  --wa-text-timestamp: #667781;     /* Hora de mensaje */
-  --wa-border: #2a3942;             /* Bordes */
-  --wa-divider: #2f3b43;            /* Separadores */
-  --wa-accent: #00a884;             /* Acento verde */
-  --wa-check-blue: #53bdeb;         /* Check azul (visto) */
-  --wa-online-status: #00a884;      /* Estado en línea */
+  --wa-bg-primary: #0b141a;
+  /* Fondo principal del chat */
+  --wa-bg-secondary: #111b21;
+  /* Fondo secundario */
+  --wa-bg-tertiary: #202c33;
+  /* Fondo header/footer/mensajes recibidos */
+  --wa-bubble-sent: #005c4b;
+  /* Mensajes enviados (verde) */
+  --wa-bubble-sent-dark: #004d3e;
+  /* Hover mensajes enviados */
+  --wa-bubble-received: #202c33;
+  /* Mensajes recibidos */
+  --wa-bubble-received-light: #2a3942;
+  /* Hover recibidos */
+  --wa-text-primary: #e9edef;
+  /* Texto principal (blanco/claro) */
+  --wa-text-secondary: #8696a0;
+  /* Texto secundario (gris claro) */
+  --wa-text-timestamp: #667781;
+  /* Hora de mensaje */
+  --wa-border: #2a3942;
+  /* Bordes */
+  --wa-divider: #2f3b43;
+  /* Separadores */
+  --wa-accent: #00a884;
+  /* Acento verde */
+  --wa-check-blue: #53bdeb;
+  /* Check azul (visto) */
+  --wa-online-status: #00a884;
+  /* Estado en línea */
 }
 
 /* ===========================================
@@ -589,6 +604,7 @@
     opacity: 0 !important;
     transform: translateY(10px) !important;
   }
+
   to {
     opacity: 1 !important;
     transform: translateY(0) !important;
@@ -629,9 +645,12 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1 !important;
   }
+
   50% {
     opacity: 0.7 !important;
   }
@@ -945,4 +964,65 @@ html:not([data-theme="dark"]) .message-check {
 
 html:not([data-theme="dark"]) .message-check.read {
   color: #53bdeb !important;
+}
+
+/* ===========================================
+   BOTONES DE DESCARGA MULTIMEDIA
+   =========================================== */
+.message-image {
+  position: relative !important;
+}
+
+.media-download-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 6px 12px !important;
+  background: rgba(0, 0, 0, 0.1) !important;
+  color: var(--wa-text-primary) !important;
+  border-radius: 16px !important;
+  text-decoration: none !important;
+  font-size: 12px !important;
+  margin-top: 4px !important;
+  transition: background 0.2s !important;
+  font-weight: 500 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.media-download-btn:hover {
+  background: rgba(0, 0, 0, 0.2) !important;
+  text-decoration: none !important;
+}
+
+/* Botón flotante sobre la imagen */
+.message-image .media-download-btn {
+  position: absolute !important;
+  bottom: 8px !important;
+  right: 8px !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  color: white !important;
+  backdrop-filter: blur(4px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  margin-top: 0 !important;
+  opacity: 0.9 !important;
+}
+
+.message-image .media-download-btn:hover {
+  background: rgba(0, 0, 0, 0.8) !important;
+  opacity: 1 !important;
+}
+
+/* Botón para audio */
+.message-audio .media-download-btn {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  margin-top: 0 !important;
+  font-size: 16px !important;
+}
+
+.message-audio .media-download-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
 }

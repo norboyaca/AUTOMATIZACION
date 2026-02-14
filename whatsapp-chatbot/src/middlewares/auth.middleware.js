@@ -29,15 +29,25 @@ const logger = require('../utils/logger');
 const requireAuth = (req, res, next) => {
   try {
     // Obtener header Authorization
+    // Obtener header Authorization o query param
     const authHeader = req.headers.authorization;
+    let token = null;
 
-    if (!authHeader) {
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.query.token) {
+      // ✅ NUEVO: Permitir token en query param (para descargas/streams)
+      token = req.query.token;
+    }
+
+    if (!token) {
       return res.status(401).json({
         error: 'No se proporcionó token de autenticación',
         code: 'NO_TOKEN'
       });
     }
 
+    /*
     // Extraer token del header "Bearer <token>"
     const parts = authHeader.split(' ');
 
@@ -49,6 +59,7 @@ const requireAuth = (req, res, next) => {
     }
 
     const token = parts[1];
+    */
 
     // Verificar token
     const decoded = jwt.verify(token, authConfig.jwtSecret);

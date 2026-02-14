@@ -16,6 +16,7 @@ const webhookRoutes = require('./webhook.routes');
 const authRoutes = require('./auth.routes');
 const conversationsRoutes = require('./conversations.routes');
 const holidaysRoutes = require('./holidays.routes');
+const mediaRoutes = require('./media.routes');
 const { requireAuth } = require('../middlewares/auth.middleware');
 const { messageLimiter } = require('../middlewares/rate-limit.middleware');
 const chatService = require('../services/chat.service');
@@ -60,6 +61,9 @@ router.use('/conversations', conversationsRoutes);
 
 // Rutas de días festivos: /api/holidays/*
 router.use('/holidays', holidaysRoutes);
+
+// Rutas de media: /api/media/*
+router.use('/media', mediaRoutes);
 
 // ===========================================
 // ✅ ENDPOINT DE MÉTRICAS

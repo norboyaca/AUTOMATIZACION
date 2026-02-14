@@ -104,6 +104,12 @@ whatsappWeb.on('disconnected', (reason) => {
   io.emit('disconnected', reason);
 });
 
+// ✅ NUEVO: Cuando la sesión expira o se invalida → regenerar QR automáticamente
+whatsappWeb.on('session-expired', (reason) => {
+  io.emit('session-expired', reason);
+  logger.warn(`⚠️ Sesión expirada: ${reason}`);
+});
+
 // ===========================================
 // PROCESAR MENSAJES DE WHATSAPP
 // ===========================================
@@ -402,6 +408,18 @@ whatsappWeb.on('message', async (message) => {
     } else if (type === 'audio' || type === 'image' || type === 'document' || type === 'video') {
       logger.info(`🔄 Procesando mensaje multimedia (${type}) con messageProcessor...`);
 
+      // ✅ NUEVO: Persistir archivo multimedia en disco
+      let mediaData = null;
+      try {
+        const mediaStorageService = require('./src/services/media-storage.service');
+        mediaData = await mediaStorageService.saveMediaFromMessage(message);
+        if (mediaData) {
+          logger.info(`✅ Media guardada: ${mediaData.mediaUrl} (${mediaData.fileName})`);
+        }
+      } catch (mediaError) {
+        logger.warn(`⚠️ Error guardando media (no crítico): ${mediaError.message}`);
+      }
+
       // Para mensajes multimedia, pasar el tipo y datos del mensaje original
       const mediaBody = type === 'audio' ? '[Audio recibido]' :
         type === 'image' ? '[Imagen recibida]' :
@@ -411,7 +429,8 @@ whatsappWeb.on('message', async (message) => {
       const response = await messageProcessor.processIncomingMessage(from, mediaBody, {
         pushName,
         messageType: type,
-        originalMessage: message
+        originalMessage: message,
+        mediaData: mediaData  // ✅ Pasar metadata de media
       });
 
       if (!response) {

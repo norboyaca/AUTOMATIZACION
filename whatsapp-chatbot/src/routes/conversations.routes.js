@@ -464,6 +464,74 @@ router.post('/:userId/reactivate-bot', requireAuth, async (req, res) => {
 });
 
 /**
+ * POST /api/conversations/:userId/deactivate-bot
+ *
+ * Desactiva el bot manualmente desde el dashboard
+ * Permite al asesor tomar control sin enviar un mensaje primero
+ */
+router.post('/:userId/deactivate-bot', requireAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { advisor } = req.body;
+
+    if (!advisor || !advisor.id || !advisor.name) {
+      return res.status(400).json({
+        success: false,
+        error: 'Datos del asesor requeridos'
+      });
+    }
+
+    logger.info(`🔴 Desactivando bot manualmente para ${userId} por ${advisor.name}`);
+
+    const conversation = conversationStateService.getOrCreateConversation(userId);
+
+    if (!conversation) {
+      return res.status(404).json({
+        success: false,
+        error: 'Conversación no encontrada'
+      });
+    }
+
+    // Desactivar bot
+    conversation.bot_active = false;
+    conversation.status = 'advisor_handled';
+    conversation.assignedTo = advisor.id;
+    conversation.advisorName = advisor.name;
+    conversation.needs_human = true;
+    conversation.botDeactivatedAt = Date.now();
+    conversation.botDeactivatedBy = advisor.id;
+
+    // Limpiar flujo activo si existe
+    try {
+      const flowManager = require('../flows');
+      if (flowManager.hasActiveFlow(userId)) {
+        flowManager.endFlow(userId);
+        conversation.activeFlow = null;
+        logger.info(`🔄 Flujo activo limpiado para ${userId}`);
+      }
+    } catch (e) {
+      logger.warn(`⚠️ Error limpiando flujo: ${e.message}`);
+    }
+
+    logger.info(`✅ Bot desactivado para ${userId} por ${advisor.name}`);
+
+    res.json({
+      success: true,
+      message: 'Bot desactivado correctamente',
+      botActive: false,
+      status: conversation.status
+    });
+
+  } catch (error) {
+    logger.error('Error desactivando bot:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
  * GET /api/conversations/:userId/bot-status
  *
  * Verifica si el bot está activo
@@ -1537,7 +1605,12 @@ router.get('/whatsapp-chats', requireAuth, async (req, res) => {
     });
 
     // Ordenar por última interacción (más recientes primero)
-    enrichedChats.sort((a, b) => (b.lastInteraction || 0) - (a.lastInteraction || 0));
+    // ✅ FIX: Fallback a updatedAt/createdAt si lastInteraction no está disponible
+    const getTimestamp = (chat) => {
+      const t = chat.lastInteraction || chat.updatedAt || chat.createdAt || 0;
+      return typeof t === 'number' ? t : new Date(t).getTime();
+    };
+    enrichedChats.sort((a, b) => getTimestamp(b) - getTimestamp(a));
 
     // Aplicar límite
     const limitedChats = enrichedChats.slice(0, limitNum);
@@ -1604,7 +1677,12 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
           text: msg.content?.text || '[Multimedia]',
           type: msg.metadata?.originalType || msg.messageType || 'text',
           timestamp: msg.timestamp || msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now(),
-          direction: msg.direction || 'incoming'
+          direction: msg.direction || 'incoming',
+          // ✅ NUEVO: Campos de media para renderizado multimedia
+          mediaUrl: msg.content?.mediaUrl || null,
+          fileName: msg.content?.fileName || null,
+          fileSize: msg.content?.fileSize || null,
+          mimeType: msg.content?.mimeType || null
         }));
         source = 'dynamodb';
         logger.info(`📜 ${messages.length} mensajes cargados desde DynamoDB`);
@@ -1627,7 +1705,12 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
           text: msg.message || msg.text || '',
           type: msg.type || 'text',
           timestamp: msg.timestamp || Date.now(),
-          direction: msg.direction || (msg.sender === 'user' ? 'incoming' : 'outgoing')
+          direction: msg.direction || (msg.sender === 'user' ? 'incoming' : 'outgoing'),
+          // ✅ NUEVO: Campos de media para renderizado multimedia
+          mediaUrl: msg.mediaUrl || null,
+          fileName: msg.fileName || null,
+          fileSize: msg.fileSize || null,
+          mimeType: msg.mimeType || null
         }));
         source = 'memory';
         logger.info(`📜 ${messages.length} mensajes cargados desde MEMORIA (fallback)`);

@@ -350,6 +350,10 @@ class BaileysProvider extends EventEmitter {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
+      // ✅ NUEVO: Detectar fallo de autenticación para auto-limpiar sesión
+      const isAuthFailure = statusCode === DisconnectReason.loggedOut
+        || statusCode === 401 || statusCode === 403;
+
       logger.warn(`Conexión cerrada. Status: ${statusCode}`);
       this.isReady = false;
       this.isConnecting = false;
@@ -360,7 +364,23 @@ class BaileysProvider extends EventEmitter {
 
       this.emit('disconnected', lastDisconnect?.error?.message || 'Desconectado');
 
-      if (shouldReconnect) {
+      // ✅ NUEVO: Si es fallo de autenticación → limpiar sesión automáticamente
+      if (isAuthFailure) {
+        logger.warn('🔑 Sesión inválida detectada, limpiando credenciales automáticamente...');
+        try {
+          if (fs.existsSync(this.authPath)) {
+            fs.rmSync(this.authPath, { recursive: true, force: true });
+            logger.info('✅ Sesión inválida eliminada automáticamente de baileys_auth/');
+          }
+        } catch (e) {
+          logger.error('Error limpiando sesión:', e.message);
+        }
+        this.emit('session-expired', 'Sesión inválida. Generando nuevo QR automáticamente...');
+        // También reconectar para generar nuevo QR
+        logger.info('♻️ Regenerando QR en 5 segundos...');
+        setTimeout(() => this.initialize(), 5000);
+      } else if (shouldReconnect) {
+        // Reconexión normal (misma lógica original)
         logger.info('Reconectando en 5 segundos...');
         setTimeout(() => this.initialize(), 5000);
       } else {
@@ -383,7 +403,6 @@ class BaileysProvider extends EventEmitter {
 
     logger.info('Código QR generado - Escanea con WhatsApp');
     this.status = 'waiting_qr';
-    this.qrCode = qr;
     this.qrEmitted = true;
 
     // Mostrar QR en terminal
@@ -392,11 +411,15 @@ class BaileysProvider extends EventEmitter {
     // Generar QR como data URL para web
     try {
       const qrDataUrl = await qrcodeImage.toDataURL(qr);
+      // ✅ FIX: Almacenar la data URL (no el string crudo) para que
+      // get-qr devuelva una imagen válida al frontend
+      this.qrCode = qrDataUrl;
       this.emit('qr', qrDataUrl);
       logger.info('QR code emitido como data URL');
     } catch (err) {
       logger.error('Error generando QR data URL:', err);
       // En caso de error, emitir el QR crudo como fallback
+      this.qrCode = qr;
       this.emit('qr', qr);
     }
   }

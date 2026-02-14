@@ -74,7 +74,7 @@ const USE_NEW_MENU_FLOW = process.env.USE_NEW_MENU_FLOW === 'true';
  */
 async function processIncomingMessage(userId, message, options = {}) {
   try {
-    const { pushName, realPhoneNumber } = options;
+    const { pushName, realPhoneNumber, mediaData } = options;
     logger.info(`📨 Procesando mensaje de ${userId}: "${message.substring(0, 50)}..."`);
 
     // ✅ NUEVO: Flag para evitar guardar el mismo mensaje dos veces
@@ -89,6 +89,26 @@ async function processIncomingMessage(userId, message, options = {}) {
     // Actualizar última interacción
     conversation.lastInteraction = Date.now();
     conversation.lastMessage = message;
+
+    // ===========================================
+    // PUNTO DE CONTROL 1: BOT ACTIVO? (VERIFICAR PRIMERO)
+    // ===========================================
+    // Si el bot está desactivado (asesor atendiendo), NO responder
+    // IMPORTANTE: Se verifica ANTES del flujo activo para que el asesor
+    // pueda responder en cualquier momento sin que el flujo interfiera
+    if (conversation.bot_active === false) {
+      logger.info(`🔴 Bot DESACTIVADO para ${userId}. No se responde automáticamente.`);
+      logger.info(`   Razón: Estado actual = ${conversation.status}`);
+      logger.info(`   Desactivado por: ${conversation.botDeactivatedBy || 'sistema'}`);
+
+      // Guardar mensaje pero NO responder
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
+        userMessageSaved = true;
+      }
+
+      return null;
+    }
 
     // ===========================================
     // PUNTO DE CONTROL -1: SALUDO INSTITUCIONAL OBLIGATORIO
@@ -106,7 +126,7 @@ async function processIncomingMessage(userId, message, options = {}) {
 
       // Guardar mensaje del usuario (para historial)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
         userMessageSaved = true;
       }
 
@@ -117,6 +137,92 @@ async function processIncomingMessage(userId, message, options = {}) {
         // Usar nuevo flujo de menú
         logger.info(`🆕 Usando NUEVO flujo de menú NORBOY`);
 
+        // ✅ NUEVO: Detectar si el primer mensaje es una pregunta (no un saludo simple)
+        const normalizedFirstMsg = message.toLowerCase().trim();
+        const isGreeting = ['hola', 'hi', 'hello', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches', 'hey', 'ola'].some(g => normalizedFirstMsg === g || normalizedFirstMsg.startsWith(g + ' '));
+        const isFirstMessageQuestion = message.trim().length > 3 && !isGreeting;
+
+        if (isFirstMessageQuestion) {
+          // ✅ PRIMER MENSAJE ES UNA PREGUNTA: Saludo + Datos personales (informativo) + Respuesta IA inmediata
+          logger.info(`💬 Primer mensaje es una pregunta: "${message.substring(0, 50)}...". Saludo + Datos + Respuesta inmediata.`);
+
+          try {
+            // Marcar estado
+            conversation.welcomeSent = true;
+            conversation.interactionCount = 1;
+            conversation.consentMessageSent = true;
+            conversation.consentStatus = 'noted';
+
+            // 1. Enviar saludo institucional
+            const saludoMsg = `Hola, soy AntonIA Santos, su asesor en línea`;
+            await whatsappProvider.sendMessage(userId, saludoMsg);
+            await saveMessage(userId, saludoMsg, 'bot', 'welcome');
+
+            // 2. Enviar mensaje de datos personales (INFORMATIVO, sin esperar respuesta)
+            const consentMsg = `👋 ¡Gracias por escribirnos!\n\nPara poder asesorarte mejor, te solicitamos autorizar el tratamiento de tus datos personales.\n\n👉 Conócenos aquí:\nhttps://norboy.coop/\n\n📄 Consulta nuestras políticas:\n🔒 Política de Protección de Datos Personales:\nhttps://norboy.coop/proteccion-de-datos-personales/\n\n💬 Uso de WhatsApp:\nhttps://www.whatsapp.com/legal`;
+            await whatsappProvider.sendMessage(userId, consentMsg);
+            await saveMessage(userId, consentMsg, 'bot', 'consent');
+
+            // 3. Responder la pregunta del usuario inmediatamente con IA
+            try {
+              const aiResponse = await chatService.generateTextResponse(userId, message, { skipConsent: true });
+
+              // ✅ VERIFICAR SI ES ESCALACIÓN (no tiene info en documentos)
+              if (aiResponse && typeof aiResponse === 'object' &&
+                (aiResponse.type === 'escalation' || aiResponse.type === 'escalation_no_info')) {
+                logger.info(`🚨 Escalación detectada para ${userId} (pregunta en primer mensaje)`);
+                const escalationText = aiResponse.text || 'El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...';
+
+                // Actualizar estado de la conversación
+                conversation.status = 'pending_advisor';
+                conversation.bot_active = false;
+                conversation.needs_human = true;
+                conversation.needsHumanReason = aiResponse.escalation?.reason || 'no_information';
+                conversation.escalationMessageSent = true;
+                conversation.waitingForHuman = true;
+                conversation.lastEscalationMessageAt = Date.now();
+
+                await whatsappProvider.sendMessage(userId, escalationText);
+                await saveMessage(userId, escalationText, 'bot', 'escalation');
+
+                // Emitir evento de escalación al dashboard
+                if (io) {
+                  io.emit('escalation-detected', {
+                    userId, phoneNumber: conversation.phoneNumber,
+                    reason: aiResponse.escalation?.reason || 'no_information',
+                    priority: aiResponse.escalation?.priority || 'medium',
+                    message, timestamp: Date.now()
+                  });
+                }
+                return null;
+              }
+
+              let responseText = null;
+              if (aiResponse && typeof aiResponse === 'object' && aiResponse.text) {
+                responseText = aiResponse.text;
+              } else if (typeof aiResponse === 'string') {
+                responseText = aiResponse;
+              }
+              if (responseText) {
+                await whatsappProvider.sendMessage(userId, responseText);
+                await saveMessage(userId, responseText, 'bot', 'text');
+                logger.info(`✅ Respuesta IA enviada a ${userId} (pregunta en primer mensaje)`);
+              }
+            } catch (aiError) {
+              logger.error(`❌ Error generando respuesta IA: ${aiError.message}`);
+              const fallbackMsg = `En qué le podemos servir?`;
+              await whatsappProvider.sendMessage(userId, fallbackMsg);
+              await saveMessage(userId, fallbackMsg, 'bot', 'system');
+            }
+
+            logger.info(`✅ Saludo + Datos + Respuesta enviados a ${userId} (pregunta detectada en primer mensaje)`);
+            return null;
+          } catch (flowError) {
+            logger.error(`❌ Error en flujo de pregunta directa: ${flowError.message}`);
+          }
+        }
+
+        // Flujo normal: Saludo + Menú
         try {
           // Iniciar flujo de menú
           const flowResult = await flowManager.startFlow(userId, 'norboy-menu', {
@@ -208,17 +314,11 @@ Mientras tanto, en qué podemos ayudarle?`;
             await flowManager.endFlow(userId);
             conversation.activeFlow = null;
 
-            // Si el usuario rechazó el consentimiento
+            // ✅ MODIFICADO: Si el usuario rechazó el consentimiento, igual se procede
             if (flowResult.data && flowResult.data.consentGiven === false) {
-              conversation.consentStatus = 'rejected';
-              conversation.bot_active = false;
-
-              const rejectionMsg = `Entendido, sumercé. Su decisión ha sido registrada.\n\nSi cambia de opinión, puede escribirnos nuevamente.`;
-
-              await whatsappProvider.sendMessage(userId, rejectionMsg);
-              await saveMessage(userId, rejectionMsg, 'bot', 'system');
-
-              logger.info(`❌ Usuario rechazó consentimiento - conversación finalizada`);
+              logger.info(`📋 Usuario rechazó consentimiento, pero se procede a responder`);
+              conversation.consentStatus = 'noted';
+              // NO desactivar bot, NO enviar mensaje de rechazo
             }
 
             return null;
@@ -232,16 +332,49 @@ Mientras tanto, en qué podemos ayudarle?`;
             if (flowResult.step === 'process') {
               conversation.consentStatus = 'accepted';
               conversation.consentMessageSent = true;
+              conversation.datosAceptados = true; // ✅ NUEVO: No volver a pedir consentimiento
 
               if (selectedOption === 1) {
-                // Opción 1: Enviar confirmación y permitir IA/RAG
+                // Opción 1: Continuando con IA/RAG
                 logger.info(`✅ Opción 1 seleccionada - Continuando con IA/RAG`);
-                await whatsappProvider.sendMessage(userId, flowResult.message);
-                await saveMessage(userId, flowResult.message, 'bot', 'system');
 
                 // Finalizar flujo para que los siguientes mensajes vayan a IA
                 await flowManager.endFlow(userId);
                 conversation.activeFlow = null;
+
+                // ✅ CORREGIDO: Verificar si hay pregunta libre pendiente ANTES de enviar "En qué le podemos servir?"
+                const pendingQuestion = (flowResult.data && flowResult.data.isFreeQuestion && flowResult.data.originalQuery)
+                  ? flowResult.data.originalQuery
+                  : conversation.pendingFreeQuestion || null;
+
+                if (pendingQuestion) {
+                  // Hay pregunta pendiente → responder directamente (NO enviar "En qué le podemos servir?")
+                  logger.info(`💬 Procesando pregunta libre pendiente: "${pendingQuestion}"`);
+                  conversation.pendingFreeQuestion = null; // Limpiar
+                  try {
+                    const aiResponse = await chatService.generateTextResponse(userId, pendingQuestion, { skipConsent: true });
+                    let pendingResponseText = null;
+                    if (aiResponse && typeof aiResponse === 'object' && aiResponse.text) {
+                      pendingResponseText = aiResponse.text;
+                    } else if (typeof aiResponse === 'string') {
+                      pendingResponseText = aiResponse;
+                    }
+                    if (pendingResponseText) {
+                      await whatsappProvider.sendMessage(userId, pendingResponseText);
+                      await saveMessage(userId, pendingResponseText, 'bot', 'text');
+                      logger.info(`✅ Respuesta a pregunta libre enviada a ${userId}`);
+                    }
+                  } catch (freeQError) {
+                    logger.error(`❌ Error procesando pregunta libre pendiente: ${freeQError.message}`);
+                    // Fallback: enviar el mensaje genérico
+                    await whatsappProvider.sendMessage(userId, flowResult.message);
+                    await saveMessage(userId, flowResult.message, 'bot', 'system');
+                  }
+                } else {
+                  // No hay pregunta pendiente → enviar "En qué le podemos servir?"
+                  await whatsappProvider.sendMessage(userId, flowResult.message);
+                  await saveMessage(userId, flowResult.message, 'bot', 'system');
+                }
 
                 return null;
               } else {
@@ -268,17 +401,103 @@ Mientras tanto, en qué podemos ayudarle?`;
             }
           }
 
-          // ✅ CASO 3: Error en el flujo (opción inválida, respuesta inválida)
+          // ✅ CASO 3: Pregunta libre detectada → Enviar datos personales (si no se envió) + respuesta IA inmediata
+          if (flowResult.freeQuestionDetected && flowResult.originalQuery) {
+            logger.info(`💬 Pregunta libre detectada en flujo activo: "${flowResult.originalQuery}"`);
+
+            // Finalizar flujo para que los siguientes mensajes vayan a IA
+            await flowManager.endFlow(userId);
+            conversation.activeFlow = null;
+
+            // ✅ CORREGIDO: Solo enviar datos personales si NO se enviaron ya en el paso de consent del flujo
+            const alreadySentConsent = conversation.consentMessageSent === true;
+            conversation.consentMessageSent = true;
+            conversation.consentStatus = 'noted';
+            conversation.datosAceptados = true; // No volver a pedir
+
+            if (!alreadySentConsent) {
+              // Solo enviar si el flujo no lo envió ya (ej: pregunta libre desde menú, sin pasar por consent)
+              const consentMsg = `👋 ¡Gracias por escribirnos!\n\nPara poder asesorarte mejor, te solicitamos autorizar el tratamiento de tus datos personales.\n\n👉 Conócenos aquí:\nhttps://norboy.coop/\n\n📄 Consulta nuestras políticas:\n🔒 Política de Protección de Datos Personales:\nhttps://norboy.coop/proteccion-de-datos-personales/\n\n💬 Uso de WhatsApp:\nhttps://www.whatsapp.com/legal`;
+              await whatsappProvider.sendMessage(userId, consentMsg);
+              await saveMessage(userId, consentMsg, 'bot', 'consent');
+              logger.info(`📋 Mensaje de datos personales enviado (primera vez)`);
+            } else {
+              logger.info(`📋 Mensaje de datos personales YA enviado por el flujo, no se reenvía`);
+            }
+
+            // 2. Responder la pregunta inmediatamente con IA
+            try {
+              const aiResponse = await chatService.generateTextResponse(userId, flowResult.originalQuery, { skipConsent: true });
+
+              // ✅ VERIFICAR SI ES ESCALACIÓN (no tiene info en documentos)
+              if (aiResponse && typeof aiResponse === 'object' &&
+                (aiResponse.type === 'escalation' || aiResponse.type === 'escalation_no_info')) {
+                logger.info(`🚨 Escalación detectada para ${userId} (pregunta libre en flujo activo)`);
+                const escalationText = aiResponse.text || 'El asesor de NORBOY 👩‍💼 encargado de este tema le atenderá en breve...';
+
+                // Actualizar estado de la conversación
+                conversation.status = 'pending_advisor';
+                conversation.bot_active = false;
+                conversation.needs_human = true;
+                conversation.needsHumanReason = aiResponse.escalation?.reason || 'no_information';
+                conversation.escalationMessageSent = true;
+                conversation.waitingForHuman = true;
+                conversation.lastEscalationMessageAt = Date.now();
+
+                await whatsappProvider.sendMessage(userId, escalationText);
+                await saveMessage(userId, escalationText, 'bot', 'escalation');
+
+                // Emitir evento de escalación al dashboard
+                if (io) {
+                  io.emit('escalation-detected', {
+                    userId, phoneNumber: conversation.phoneNumber,
+                    reason: aiResponse.escalation?.reason || 'no_information',
+                    priority: aiResponse.escalation?.priority || 'medium',
+                    message: flowResult.originalQuery, timestamp: Date.now()
+                  });
+                }
+                return null;
+              }
+
+              let responseText = null;
+              if (aiResponse && typeof aiResponse === 'object' && aiResponse.text) {
+                responseText = aiResponse.text;
+              } else if (typeof aiResponse === 'string') {
+                responseText = aiResponse;
+              }
+              if (responseText) {
+                await whatsappProvider.sendMessage(userId, responseText);
+                await saveMessage(userId, responseText, 'bot', 'text');
+                logger.info(`✅ Respuesta IA enviada a ${userId} (pregunta libre en flujo activo)`);
+              }
+            } catch (aiError) {
+              logger.error(`❌ Error generando respuesta IA (pregunta libre): ${aiError.message}`);
+              const fallbackMsg = `En qué le podemos servir?`;
+              await whatsappProvider.sendMessage(userId, fallbackMsg);
+              await saveMessage(userId, fallbackMsg, 'bot', 'system');
+            }
+
+            return null;
+          }
+
+          // ✅ CASO 4: Error en el flujo (opción inválida, respuesta inválida)
           if (flowResult.isError && flowResult.message) {
             await whatsappProvider.sendMessage(userId, flowResult.message);
             await saveMessage(userId, flowResult.message, 'bot', 'flow_error');
             return null;
           }
 
-          // ✅ CASO 4: Mensaje normal del flujo (consent, waiting for input, etc.)
+          // ✅ CASO 5: Mensaje normal del flujo (consent, waiting for input, etc.)
           if (flowResult.message) {
             await whatsappProvider.sendMessage(userId, flowResult.message);
             await saveMessage(userId, flowResult.message, 'bot', 'flow');
+
+            // ✅ CORREGIDO: Si el flujo envió el mensaje de consentimiento, marcarlo como enviado
+            if (flowResult.step === 'consent') {
+              conversation.consentMessageSent = true;
+              logger.info(`📋 Mensaje de consentimiento enviado por el flujo para ${userId}`);
+            }
+
             return null;
           }
         }
@@ -340,7 +559,7 @@ Mientras tanto, en qué podemos ayudarle?`;
 
       // Guardar mensaje del usuario (para historial) pero NO responder
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
         userMessageSaved = true;
       }
 
@@ -377,14 +596,15 @@ Mientras tanto, en qué podemos ayudarle?`;
     // este es el SEGUNDO mensaje - solicitar consentimiento
     if (conversation.welcomeSent &&
       !conversation.consentMessageSent &&
-      conversation.consentStatus === 'pending') {
+      conversation.consentStatus === 'pending' &&
+      !conversation.datosAceptados) { // ✅ NUEVO: No repetir si ya aceptó
 
       logger.info(`📋 SEGUNDO MENSAJE de ${userId} - Solicitando consentimiento`);
       logger.info(`   Mensaje guardado como pendiente: "${message.substring(0, 50)}..."`);
 
       // Guardar mensaje del usuario (pendiente para después) - solo si no se guardó antes
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
         userMessageSaved = true;
       }
 
@@ -434,13 +654,13 @@ Por favor, digita:
     // VERIFICACIÓN DE CONSENTIMIENTO (RESPUESTA)
     // ===========================================
     // Si el consentimiento está solicitado, verificar la respuesta del usuario
-    if (conversation.consentMessageSent === true && conversation.consentStatus === 'pending') {
+    if (conversation.consentMessageSent === true && conversation.consentStatus === 'pending' && !conversation.datosAceptados) { // ✅ NUEVO: No repetir si ya aceptó
       const normalizedMessage = message.toLowerCase().trim();
       logger.info(`📋 Verificando respuesta de consentimiento: "${normalizedMessage}"`);
 
       // ✅ NUEVO: Guardar mensaje del usuario PRIMERO (para que aparezca en el dashboard)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user', 'consent_response');
+        await saveMessage(userId, message, 'user', 'consent_response', mediaData);
         userMessageSaved = true;
       }
 
@@ -456,6 +676,7 @@ Por favor, digita:
         chatService.setConsentResponse(userId, true);
         conversation.consentStatus = 'accepted';
         conversation.consentMessageSent = false;
+        conversation.datosAceptados = true; // ✅ NUEVO: No volver a pedir consentimiento
 
         // Enviar confirmación
         const confirmationMsg = `¡Perfecto, sumercé! 👍\n\nAhora puedo asesorarte.\n\n¿En qué puedo ayudarte?`;
@@ -465,59 +686,35 @@ Por favor, digita:
         return null; // No procesar más este mensaje
       }
 
-      // Verificar si rechaza
+      // Verificar si rechaza — ✅ MODIFICADO: Se procede igual a responder
       if (normalizedMessage === 'no' || normalizedMessage === '2' ||
         normalizedMessage.includes('rechaz')) {
-        logger.info(`❌ Usuario ${userId} RECHAZÓ el consentimiento`);
+        logger.info(`📋 Usuario ${userId} rechazó consentimiento, pero se procede a responder`);
 
-        // ✅ NUEVO: Enviar mensaje de verificación temporal
-        const verifyingMsg = `⏳ Verificando su respuesta, por favor espere...`;
-        await saveMessage(userId, verifyingMsg, 'bot', 'processing');
-
-        chatService.setConsentResponse(userId, false);
-        conversation.consentStatus = 'rejected';
+        chatService.setConsentResponse(userId, true); // Marcar como procesado
+        conversation.consentStatus = 'noted';
         conversation.consentMessageSent = false;
-        conversation.bot_active = false; // Desactivar bot
+        conversation.datosAceptados = true; // No volver a preguntar
 
-        // Enviar mensaje de rechazo
-        const rejectionMsg = `Entendido, sumercé. Su decisión ha sido registrada.\n\nSi cambia de opinión, puede escribirnos nuevamente.`;
-        await whatsappProvider.sendMessage(userId, rejectionMsg);
-        await saveMessage(userId, rejectionMsg, 'bot', 'system');
+        // Enviar confirmación y continuar
+        const confirmationMsg = `Entendido, sumercé. 👍\n\n¿En qué puedo ayudarte?`;
+        await whatsappProvider.sendMessage(userId, confirmationMsg);
+        await saveMessage(userId, confirmationMsg, 'bot', 'system');
 
-        return null; // No procesar más este mensaje
-      }
-    }
-
-    // ✅ NUEVO: Log del estado actual al recibir mensaje
-    logger.debug(`🔍 Estado INICIAL de conversación ${userId}:`);
-    logger.debug(`   bot_active: ${conversation.bot_active}`);
-    logger.debug(`   status: ${conversation.status}`);
-    logger.debug(`   waitingForHuman: ${conversation.waitingForHuman}`);
-    logger.debug(`   escalationMessageSent: ${conversation.escalationMessageSent}`);
-
-    // ===========================================
-    // PUNTO DE CONTROL 1: BOT ACTIVO?
-    // ===========================================
-    // Si el bot está desactivado, NO responder automáticamente
-    if (conversation.bot_active === false) {
-      logger.info(`🔴 Bot DESACTIVADO para ${userId}. No se responde automáticamente.`);
-      logger.info(`   Razón: Estado actual = ${conversation.status}`);
-      logger.info(`   Desactivado por: ${conversation.botDeactivatedBy || 'sistema'}`);
-      logger.debug(`🔍 Estado conversación ${userId}:`);
-      logger.debug(`   bot_active: ${conversation.bot_active}`);
-      logger.debug(`   status: ${conversation.status}`);
-      logger.debug(`   waitingForHuman: ${conversation.waitingForHuman}`);
-
-      // Guardar mensaje pero NO responder (solo si no se guardó antes)
-      if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user');
-        userMessageSaved = true;
+        return null;
       }
 
-      // Si está en estado advisor_handled, no hacer nada más
-      // El asesor está atendiendo manualmente
-      return null;
+      // ✅ NUEVO: Si el usuario envía cualquier otro mensaje (no si/no),
+      // marcar consent como "notificado" y continuar al procesamiento de IA
+      logger.info(`📋 Usuario ${userId} no respondió si/no al consentimiento. Continuando sin reenviar.`);
+      conversation.consentStatus = 'noted';
+      conversation.datosAceptados = true;
+      conversation.consentMessageSent = false;
+      chatService.setConsentResponse(userId, true);
+      // No retornar — continuar al procesamiento normal de IA
     }
+
+    // (PUNTO DE CONTROL 1 movido arriba - bot_active se verifica antes del flujo)
 
     // ===========================================
     // NUEVA REGLA: ESPERA POR ASESOR (evitar repetición)
@@ -531,7 +728,7 @@ Por favor, digita:
 
       // Solo guardar el mensaje del usuario (si no se guardó antes)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
         userMessageSaved = true;
       }
       return null;
@@ -547,7 +744,7 @@ Por favor, digita:
       if (conversation.escalationMessageSent === true) {
         logger.info(`   Mensaje de fuera de horario ya enviado. Solo guardando mensaje.`);
         if (!userMessageSaved) {
-          await saveMessage(userId, message, 'user');
+          await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
           userMessageSaved = true;
         }
         return null;
@@ -568,7 +765,7 @@ Por favor, digita:
 
       // Guardar mensajes (solo si no se guardó antes)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
         userMessageSaved = true;
       }
       await saveMessage(userId, outOfHoursMsg, 'bot', 'out_of_hours');
@@ -611,7 +808,7 @@ Por favor, digita:
       if (conversation.escalationMessageSent === true) {
         logger.info(`   Mensaje de escalación ya enviado. Solo guardando mensaje.`);
         if (!userMessageSaved) {
-          await saveMessage(userId, message, 'user');
+          await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
           userMessageSaved = true;
         }
         return null;
@@ -635,7 +832,7 @@ Por favor, digita:
 
       // Guardar mensajes (solo si no se guardó antes)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
         userMessageSaved = true;
       }
       await saveMessage(userId, escalationMsg, 'bot', 'escalation');
@@ -720,7 +917,7 @@ Por favor, digita:
 
       // Guardar mensajes (solo si no se guardó antes)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
         userMessageSaved = true;
       }
 
@@ -799,7 +996,7 @@ Por favor, digita:
 
       // Guardar mensajes (solo si no se guardó antes)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
         userMessageSaved = true;
       }
       await saveMessage(userId, fallbackMsg, 'bot', 'escalation_fallback');
@@ -830,7 +1027,7 @@ Por favor, digita:
 
     // Guardar mensajes (solo si no se guardó antes)
     if (!userMessageSaved) {
-      await saveMessage(userId, message, 'user');
+      await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
       userMessageSaved = true;
     }
 
@@ -861,7 +1058,7 @@ Por favor, digita:
 
       await whatsappProvider.sendMessage(userId, fallbackMsg);
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user');
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
       }
       await saveMessage(userId, fallbackMsg, 'bot');
 
@@ -982,8 +1179,9 @@ async function getOutOfHoursMessage() {
  * @param {string|Object} message - Contenido del mensaje (objeto si tiene type especial)
  * @param {string} sender - 'user' | 'bot' | 'admin' | 'system'
  * @param {string} messageType - 'text' | 'consent' | 'system' | 'escalation' (opcional)
+ * @param {Object} mediaData - Metadata de media (opcional): { mediaUrl, fileName, mimeType, fileSize }
  */
-async function saveMessage(userId, message, sender, messageType = 'text') {
+async function saveMessage(userId, message, sender, messageType = 'text', mediaData = null) {
   try {
     // Obtener conversación
     const conversation = conversationStateService.getConversation(userId);
@@ -1020,6 +1218,15 @@ async function saveMessage(userId, message, sender, messageType = 'text') {
       type: messageActualType,
       direction: sender === 'user' ? 'incoming' : 'outgoing'
     };
+
+    // ✅ NUEVO: Agregar metadata de media si existe
+    if (mediaData) {
+      messageRecord.mediaUrl = mediaData.mediaUrl || null;
+      messageRecord.fileName = mediaData.fileName || null;
+      messageRecord.mimeType = mediaData.mimeType || null;
+      messageRecord.fileSize = mediaData.fileSize || null;
+      messageRecord.type = mediaData.mediaType || messageActualType;
+    }
 
     // ===========================================
     // ✅ OPCIÓN 3 - HÍBRIDA
@@ -1066,7 +1273,15 @@ async function saveMessage(userId, message, sender, messageType = 'text') {
             participantId: userId,
             direction: sender === 'user' ? 'incoming' : 'outgoing',
             type: messageActualType === 'text' ? 'text' : messageActualType,
-            content: { text: messageText },
+            content: {
+              text: messageText,
+              ...(mediaData ? {
+                mediaUrl: mediaData.mediaUrl,
+                fileName: mediaData.fileName,
+                mimeType: mediaData.mimeType,
+                fileSize: mediaData.fileSize
+              } : {})
+            },
             from: sender === 'user' ? userId : undefined,
             to: sender === 'bot' ? userId : undefined,
             status: 'delivered',

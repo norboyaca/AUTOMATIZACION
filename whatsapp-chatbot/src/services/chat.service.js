@@ -205,15 +205,22 @@ const generateTextResponse = async (userId, message, options = {}) => {
 
     logger.info(`🔍 Contexto detectado: ${contextResult.type} (NORBOY: ${contextResult.isNorboyRelated})`);
 
-    // Si NO es sobre NORBOY → Mensaje restrictivo inmediato
+    // Si NO es sobre NORBOY → ESCALAR a asesor humano inmediatamente
     if (!contextResult.isNorboyRelated && contextResult.type !== 'greeting' && contextResult.type !== 'gratitude') {
       logger.warn(`❌ Pregunta FUERA DE CONTEXTO: "${message.substring(0, 50)}..."`);
       logger.warn(`   Razón: ${contextResult.reason}`);
+      logger.warn(`   ✅ ESCALANDO a asesor humano`);
 
       return {
-        type: 'out_of_scope',
-        text: contextDetector.MESSAGES.outOfScope,
-        shouldEscalate: false,
+        type: 'escalation_no_info',
+        text: contextDetector.MESSAGES.noInformation,
+        needsHuman: true,
+        shouldEscalate: true,
+        escalation: {
+          reason: 'out_of_scope',
+          priority: 'medium',
+          message: `Tema fuera del alcance del bot: ${contextResult.reason}`
+        },
         context: contextResult
       };
     }
@@ -571,12 +578,15 @@ const generateWithAI = async (userId, message, options = {}) => {
     'no cuento con información',
     'no dispongo de información',
     'no se encuentra información',
+    'no encuentro información',           // ✅ NUEVO: Patrón que usa el prompt del sistema
+    'no encuentro info',                   // ✅ NUEVO: Variante corta
     'no mencionas',
     'no especificas',
     'lo siento pero no',
     'no tengo información disponible',
     'no cuento con detalles',
-    'estamos verificando esa información'
+    'estamos verificando esa información',
+    'no tenemos esa información'           // ✅ NUEVO: Del prompt de norboy
   ];
 
   const normalizedResponse = cleanedResponse.toLowerCase().trim();

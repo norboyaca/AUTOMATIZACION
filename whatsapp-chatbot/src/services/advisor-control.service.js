@@ -78,6 +78,18 @@ async function sendAdvisorMessage(userId, advisorData, message) {
     conversation.botDeactivatedAt = Date.now();
     conversation.botDeactivatedBy = advisorData.id;
 
+    // ✅ NUEVO: Limpiar flujo activo para que no interfiera
+    try {
+      const flowManager = require('../flows');
+      if (flowManager.hasActiveFlow(userId)) {
+        flowManager.endFlow(userId);
+        conversation.activeFlow = null;
+        logger.info(`🔄 Flujo activo limpiado para ${userId} (asesor tomó control)`);
+      }
+    } catch (e) {
+      logger.warn(`⚠️ Error limpiando flujo activo: ${e.message}`);
+    }
+
     // ===========================================
     // ✅ CORRECCIÓN PROBLEMA 1: Guardar mensaje en UN SOLO lugar
     // ===========================================

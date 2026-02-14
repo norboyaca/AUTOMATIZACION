@@ -14,7 +14,7 @@
  * Fecha: 2026-02-08
  */
 
-(function() {
+(function () {
   'use strict';
 
   // ===========================================
@@ -67,39 +67,7 @@
    * Genera un token temporal si no existe uno en localStorage
    */
   async function authenticatedFetch(url, options = {}) {
-    let token = localStorage.getItem('token');
-
-    // Si no hay token, generar uno temporal para desarrollo
-    if (!token) {
-      try {
-        // Intentar obtener token desde el servidor
-        const loginResponse = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: 'admin',
-            password: 'norboy2026'
-          })
-        });
-
-        if (loginResponse.ok) {
-          const loginData = await loginResponse.json();
-          if (loginData.token) {
-            token = loginData.token;
-            localStorage.setItem('token', token);
-            localStorage.setItem('authUser', JSON.stringify({
-              id: 'admin',
-              username: 'admin',
-              name: 'Administrador',
-              email: 'admin@norboy.coop'
-            }));
-            console.log('✅ Token obtenido automáticamente');
-          }
-        }
-      } catch (e) {
-        console.warn('⚠️ No se pudo obtener token:', e);
-      }
-    }
+    const token = localStorage.getItem('authToken');
 
     const headers = {
       ...options.headers,
@@ -794,6 +762,12 @@
     if (url.startsWith('/uploads/')) {
       return window.location.origin + url;
     }
+    // Para rutas protegidas de API, adjuntar token si existe
+    if (url.startsWith('/api/media/')) {
+      const token = localStorage.getItem('authToken');
+      const absoluteUrl = window.location.origin + url;
+      return token ? `${absoluteUrl}?token=${token}` : absoluteUrl;
+    }
     return url;
   }
 
@@ -806,10 +780,10 @@
 
     // Determinar tipo de mensaje
     const senderClass = msg.sender === 'admin' ? 'admin' :
-                       msg.sender === 'bot' ? 'bot' : 'user';
+      msg.sender === 'bot' ? 'bot' : 'user';
 
     const senderName = msg.senderName || (senderClass === 'admin' ? 'Asesor' :
-                         senderClass === 'bot' ? '🤖 Bot' : 'Tú');
+      senderClass === 'bot' ? '🤖 Bot' : 'Tú');
 
     // Checks de visto para mensajes enviados
     const checksHTML = senderClass !== 'user' ? `
@@ -827,41 +801,66 @@
       new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     // Normalizar URL de media para asegurar que sea absoluta
-    const mediaUrl = normalizeMediaUrl(msg.mediaUrl);
+    let mediaUrl = normalizeMediaUrl(msg.mediaUrl);
+
+    // ✅ NUEVO: Si no hay mediaUrl explícita pero es mensaje multimedia de usuario,
+    // construir URL de descarga usando el messageId y la API de media
+    if (!mediaUrl && msg.id && ['audio', 'image', 'document', 'video'].includes(msg.type)) {
+      mediaUrl = normalizeMediaUrl(`/api/media/download/${msg.id}`);
+    }
+
+    // URL de streaming para audio (mejor para reproducción en línea)
+    const streamUrl = msg.id && (msg.type === 'audio') ?
+      normalizeMediaUrl(`/api/media/stream/${msg.id}`) : mediaUrl;
 
     // Generar contenido según tipo
     let messageContent = '';
-    if (msg.type === 'audio') {
+    if (msg.type === 'audio' && (mediaUrl || streamUrl)) {
       messageContent = `
         <div class="message-audio">
           <div class="audio-player">
             <svg class="audio-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
             </svg>
-            <audio controls src="${mediaUrl}" class="audio-control">
+            <audio controls src="${streamUrl || mediaUrl}" class="audio-control">
               Tu navegador no soporta audio.
             </audio>
           </div>
+          <a class="media-download-btn" href="${mediaUrl}" download title="Descargar audio">
+            ⬇️
+          </a>
         </div>
       `;
-    } else if (msg.type === 'image') {
+    } else if (msg.type === 'audio') {
+      // Audio sin URL disponible
+      messageContent = `<div class="message-text">🎤 ${escapeHtml(msg.message || 'Audio')}</div>`;
+    } else if (msg.type === 'image' && mediaUrl) {
       messageContent = `
         <div class="message-image">
           <img src="${mediaUrl}" alt="Imagen" onclick="window.open('${mediaUrl}', '_blank')">
+          <a class="media-download-btn" href="${mediaUrl}" download title="Descargar imagen">
+            ⬇️ Descargar
+          </a>
         </div>
-        ${msg.message ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}
+        ${msg.message && msg.message !== '[Imagen recibida]' ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}
       `;
-    } else if (msg.type === 'document') {
+    } else if (msg.type === 'image') {
+      messageContent = `<div class="message-text">🖼️ ${escapeHtml(msg.message || 'Imagen')}</div>`;
+    } else if (msg.type === 'document' && mediaUrl) {
+      const displayName = msg.fileName || 'Documento';
+      const fileSizeStr = msg.fileSize ? ` (${(msg.fileSize / 1024).toFixed(1)} KB)` : '';
       messageContent = `
         <div class="message-document">
           <span class="message-document-icon">📄</span>
           <div class="message-document-info">
-            <div class="message-document-name">${escapeHtml(msg.fileName || 'Documento')}</div>
+            <div class="message-document-name">${escapeHtml(displayName)}${fileSizeStr}</div>
             <a class="message-document-link" href="${mediaUrl}" download>Descargar</a>
           </div>
         </div>
-        ${msg.message ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}
+        ${msg.message && msg.message !== '[Documento recibido]' ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}
       `;
+    } else if (msg.type === 'document') {
+      messageContent = `<div class="message-text">📄 ${escapeHtml(msg.message || 'Documento')}</div>`;
     } else {
       messageContent = `<div class="message-text">${escapeHtml(msg.message || '')}</div>`;
     }
@@ -1053,7 +1052,7 @@
     const input = document.getElementById('chat-message-input');
     if (input) {
       input.addEventListener('keydown', handleChatKeydown);
-      input.addEventListener('input', function() {
+      input.addEventListener('input', function () {
         // Auto-resize
         this.style.height = 'auto';
         this.style.height = Math.min(this.scrollHeight, 100) + 'px';
@@ -1086,18 +1085,18 @@
 
     // Emojis en el picker
     document.querySelectorAll('.emoji-picker-item').forEach(item => {
-      item.addEventListener('click', function() {
+      item.addEventListener('click', function () {
         insertEmoji(this.textContent);
       });
     });
 
     // Items del menú de adjuntar - PROBLEMA 2: Conectar clicks a los inputs
     document.querySelectorAll('.attach-menu-item').forEach(item => {
-      item.addEventListener('click', function() {
+      item.addEventListener('click', function () {
         const action = this.getAttribute('data-action');
         let inputId = '';
 
-        switch(action) {
+        switch (action) {
           case 'image':
             inputId = 'file-image-input';
             break;

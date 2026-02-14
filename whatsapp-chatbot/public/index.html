@@ -4680,6 +4680,33 @@
       return normalized;
     }
 
+    // ✅ NUEVO: Redirigir programáticamente a Inicio (sin depender de evento click)
+    function redirectToHome() {
+      // Resetear todos los nav items
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      // Activar nav item de Inicio
+      const homeNav = document.querySelector('.nav-item[onclick*="home"]');
+      if (homeNav) homeNav.classList.add('active');
+
+      // Actualizar breadcrumb
+      const viewName = document.getElementById('current-view-name');
+      const breadcrumb = document.getElementById('breadcrumb-active');
+      if (viewName) viewName.textContent = 'Inicio';
+      if (breadcrumb) breadcrumb.textContent = 'Inicio';
+
+      // Ocultar todas las vistas especiales
+      try { hideConversationsView(); } catch (e) { }
+      try { hideNumberControlView(); } catch (e) { }
+      try { hideHolidaysView(); } catch (e) { }
+      try { hideDocumentsView(); } catch (e) { }
+
+      // Ocultar botón de subir
+      const uploadBtn = document.getElementById('header-upload-btn');
+      if (uploadBtn) uploadBtn.style.display = 'none';
+
+      console.log('🏠 Redirigido automáticamente a Inicio');
+    }
+
     // Cambiar vista del sidebar
     function changeView(view) {
       // Actualizar items activos del sidebar
@@ -4781,15 +4808,19 @@
         qrContainer.innerHTML = `<img src="${qr}" alt="Código QR">`;
         instructions.style.display = 'block';
         testSection.style.display = 'none';
-        document.getElementById('new-qr-button').style.display = 'block';
-        document.getElementById('session-buttons').style.display = 'none';
+        const newQrBtn = document.getElementById('new-qr-button');
+        const sessionBtns = document.getElementById('session-buttons');
+        if (newQrBtn) newQrBtn.style.display = 'block';
+        if (sessionBtns) sessionBtns.style.display = 'none';
       });
 
       socket.on('authenticated', () => {
         updateStatus('waiting', 'Autenticando...');
         qrContainer.innerHTML = `<div class="spinner"></div><p class="qr-placeholder">Conectando...</p>`;
-        document.getElementById('new-qr-button').style.display = 'block';
-        document.getElementById('session-buttons').style.display = 'none';
+        const newQrBtn = document.getElementById('new-qr-button');
+        const sessionBtns = document.getElementById('session-buttons');
+        if (newQrBtn) newQrBtn.style.display = 'block';
+        if (sessionBtns) sessionBtns.style.display = 'none';
       });
 
       socket.on('ready', () => {
@@ -4803,16 +4834,27 @@
         `;
         instructions.style.display = 'none';
         testSection.style.display = 'block';
-        document.getElementById('new-qr-button').style.display = 'none';
-        document.getElementById('session-buttons').style.display = 'block';
+        const newQrBtn = document.getElementById('new-qr-button');
+        const sessionBtns = document.getElementById('session-buttons');
+        if (newQrBtn) newQrBtn.style.display = 'none';
+        if (sessionBtns) sessionBtns.style.display = 'block';
       });
 
       socket.on('disconnected', () => {
         updateStatus('disconnected', 'Desconectado');
         qrContainer.innerHTML = `<div class="spinner"></div><p class="qr-placeholder">Reconectando...</p>`;
         testSection.style.display = 'none';
-        document.getElementById('new-qr-button').style.display = 'block';
-        document.getElementById('session-buttons').style.display = 'none';
+        // ✅ NUEVO: Redirigir automáticamente a Inicio si no hay conexión
+        redirectToHome();
+      });
+
+      // ✅ NUEVO: Cuando la sesión expira → redirigir a Inicio y esperar nuevo QR
+      socket.on('session-expired', (reason) => {
+        updateStatus('disconnected', 'Sesión expirada');
+        qrContainer.innerHTML = `<div class="spinner"></div><p class="qr-placeholder">Regenerando QR automáticamente...</p>`;
+        testSection.style.display = 'none';
+        redirectToHome();
+        console.warn('⚠️ Sesión expirada:', reason);
       });
 
       socket.on('status', (data) => {
@@ -4827,18 +4869,32 @@
           `;
           instructions.style.display = 'none';
           testSection.style.display = 'block';
-          document.getElementById('new-qr-button').style.display = 'none';
-          document.getElementById('session-buttons').style.display = 'block';
+          const newQrBtn = document.getElementById('new-qr-button');
+          const sessionBtns = document.getElementById('session-buttons');
+          if (newQrBtn) newQrBtn.style.display = 'none';
+          if (sessionBtns) sessionBtns.style.display = 'block';
         } else if (data.hasQR) {
           socket.emit('get-qr');
-          document.getElementById('new-qr-button').style.display = 'block';
-          document.getElementById('session-buttons').style.display = 'none';
+          const newQrBtn = document.getElementById('new-qr-button');
+          const sessionBtns = document.getElementById('session-buttons');
+          if (newQrBtn) newQrBtn.style.display = 'block';
+          if (sessionBtns) sessionBtns.style.display = 'none';
+        } else {
+          // ✅ NUEVO: Si no está conectado y no hay QR → redirigir a Inicio
+          redirectToHome();
         }
       });
 
       // Request initial status
       socket.emit('get-status');
       loadSettings();
+
+      // ✅ NUEVO: Polling periódico de estado cada 30 segundos
+      setInterval(() => {
+        if (socket && socket.connected) {
+          socket.emit('get-status');
+        }
+      }, 30000);
     }
 
     // ===========================================
@@ -4862,6 +4918,7 @@
       socket.off('bot-response');
       socket.off('escalation-detected');
       socket.off('new-message'); // ✅ FIX: Eliminar listener previo para evitar duplicados
+      socket.off('session-expired'); // ✅ NUEVO: Limpiar listener de sesión expirada
 
       // ===========================================
       // ✅ FIX: Throttle para evitar HTTP flood al recibir mensajes rápidos

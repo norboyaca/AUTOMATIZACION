@@ -35,28 +35,7 @@
     // AUTH
     // ==========================================
     async function authenticatedFetch(url, options = {}) {
-        let token = localStorage.getItem('token');
-        if (!token) {
-            try {
-                const loginResponse = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: 'admin', password: 'norboy2026' })
-                });
-                if (loginResponse.ok) {
-                    const loginData = await loginResponse.json();
-                    if (loginData.token) {
-                        token = loginData.token;
-                        localStorage.setItem('token', token);
-                        localStorage.setItem('authUser', JSON.stringify({
-                            id: 'admin', username: 'admin', name: 'Administrador', email: 'admin@norboy.coop'
-                        }));
-                    }
-                }
-            } catch (e) {
-                console.warn('⚠️ No se pudo obtener token:', e);
-            }
-        }
+        const token = localStorage.getItem('authToken');
         if (!options.headers) options.headers = {};
         if (!(options.body instanceof FormData)) {
             options.headers['Content-Type'] = options.headers['Content-Type'] || 'application/json';
@@ -66,7 +45,8 @@
         }
         const response = await fetch(url, options);
         if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('token');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('authUser');
             window.location.reload();
         }
         return response;
@@ -115,6 +95,11 @@
         if (!url) return '';
         if (url.startsWith('http://') || url.startsWith('https://')) return url;
         if (url.startsWith('/uploads/')) return window.location.origin + url;
+        // ✅ FIX: Agregar token de autenticación para rutas /api/media/
+        if (url.startsWith('/api/media/')) {
+            const token = localStorage.getItem('authToken');
+            return url + (token ? '?token=' + encodeURIComponent(token) : '');
+        }
         return url;
     }
 
@@ -184,7 +169,7 @@
     // ==========================================
     function initLogin() {
         const overlay = document.getElementById('login-overlay');
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('authToken');
         if (token) {
             overlay.classList.add('hidden');
             setTimeout(() => overlay.style.display = 'none', 500);
@@ -204,7 +189,7 @@
                 });
                 const data = await res.json();
                 if (data.token) {
-                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('authToken', data.token);
                     localStorage.setItem('authUser', JSON.stringify(data.user || { id: username, username, name: username }));
                     overlay.classList.add('hidden');
                     setTimeout(() => {
@@ -372,6 +357,13 @@
             return;
         }
 
+        // ✅ MEJORADO: Siempre ordenar por más reciente primero
+        filtered.sort((a, b) => {
+            const timeA = a.lastMessageTime || a.lastInteraction || a.timestamp || 0;
+            const timeB = b.lastMessageTime || b.lastInteraction || b.timestamp || 0;
+            return timeB - timeA;
+        });
+
         scrollEl.innerHTML = filtered.map(conv => {
             const name = conv.whatsappName || conv.registeredName || 'Sin nombre';
             const phone = formatPhoneDisplay(conv.phoneNumber);
@@ -515,8 +507,19 @@
             html += `<button class="chat-action-btn take" onclick="ChatPage.takeConversation()">👥 Tomar</button>`;
         }
 
+        // ✅ Switch visual de IA - siempre visible en TODOS los chats
+        const botIsActive = currentConvData.bot_active !== false;
+        html += `
+        <div class="ia-toggle-wrapper" title="${botIsActive ? 'IA activa - Click para desactivar' : 'IA inactiva - Click para activar'}">
+            <span class="ia-toggle-label">${botIsActive ? '🤖 IA' : '🔴 IA'}</span>
+            <label class="ia-switch">
+                <input type="checkbox" id="ia-toggle-switch" ${botIsActive ? 'checked' : ''}
+                    onchange="ChatPage.toggleIA(this.checked)">
+                <span class="ia-slider"></span>
+            </label>
+        </div>`;
+
         if (currentConvData.status === 'advisor_handled') {
-            html += `<button class="chat-action-btn reactivate" onclick="ChatPage.reactivateBot()">🟢 Reactivar Bot</button>`;
             html += `<button class="chat-action-btn release" onclick="ChatPage.releaseConversation()">↩️ Liberar</button>`;
         }
 
@@ -579,21 +582,72 @@
         if (!currentChatUserId) return;
         try {
             const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/reactivate-bot`, {
-                method: 'POST'
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ advisor: getCurrentAdvisor() })
             });
             const data = await res.json();
             if (data.success) {
-                showToast('✅ Bot reactivado');
-                if (currentConvData) currentConvData.status = 'active';
+                showToast('✅ IA activada para este chat');
+                if (currentConvData) {
+                    currentConvData.status = 'active';
+                    currentConvData.bot_active = true;
+                }
                 updateChatHeaderStatus();
                 updateChatHeaderActions();
                 loadConversationList();
                 loadStats();
             } else {
                 showToast('Error: ' + data.error, 'error');
+                // Revert switch if failed
+                const sw = document.getElementById('ia-toggle-switch');
+                if (sw) sw.checked = false;
             }
         } catch (e) {
             showToast('Error: ' + e.message, 'error');
+            const sw = document.getElementById('ia-toggle-switch');
+            if (sw) sw.checked = false;
+        }
+    }
+
+    async function deactivateBot() {
+        if (!currentChatUserId) return;
+        try {
+            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/deactivate-bot`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: 'manual_deactivation', advisor: getCurrentAdvisor() })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showToast('🔴 IA desactivada para este chat');
+                if (currentConvData) {
+                    currentConvData.bot_active = false;
+                    currentConvData.status = data.status || currentConvData.status;
+                }
+                updateChatHeaderStatus();
+                updateChatHeaderActions();
+                loadConversationList();
+                loadStats();
+            } else {
+                showToast('Error: ' + data.error, 'error');
+                // Revert switch if failed
+                const sw = document.getElementById('ia-toggle-switch');
+                if (sw) sw.checked = true;
+            }
+        } catch (e) {
+            showToast('Error: ' + e.message, 'error');
+            const sw = document.getElementById('ia-toggle-switch');
+            if (sw) sw.checked = true;
+        }
+    }
+
+    // Toggle IA via switch
+    function toggleIA(enabled) {
+        if (enabled) {
+            reactivateBot();
+        } else {
+            deactivateBot();
         }
     }
 
@@ -650,7 +704,9 @@
         if (msg.type === 'audio') {
             messageContent = `<div class="message-audio"><audio controls src="${mediaUrl}" style="max-width:260px;height:36px">Audio</audio></div>`;
         } else if (msg.type === 'image') {
-            messageContent = `<div class="message-image"><img src="${mediaUrl}" alt="Imagen" onclick="window.open('${mediaUrl}','_blank')" style="max-width:280px;border-radius:6px;cursor:pointer"></div>
+            // ✅ FIX: Usar /stream/ para imágenes inline (Content-Disposition: inline)
+            const streamUrl = mediaUrl.replace('/download/', '/stream/');
+            messageContent = `<div class="message-image"><img src="${streamUrl}" alt="Imagen" onclick="window.open('${streamUrl}','_blank')" style="max-width:280px;border-radius:6px;cursor:pointer"></div>
       ${msg.message && msg.message !== msg.fileName ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}`;
         } else if (msg.type === 'document') {
             messageContent = `<div class="message-document">
@@ -1276,7 +1332,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         initLogin();
         // If already logged in, init app
-        if (localStorage.getItem('token')) {
+        if (localStorage.getItem('authToken')) {
             initApp();
         }
     });
@@ -1289,6 +1345,8 @@
         takeConversation,
         releaseConversation,
         reactivateBot,
+        deactivateBot,
+        toggleIA,
         resetConversation,
         mobileBack,
         setFilter,
