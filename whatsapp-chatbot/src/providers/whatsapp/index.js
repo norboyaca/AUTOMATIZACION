@@ -68,7 +68,7 @@ module.exports = {
    * @param {string} to - Número de destino
    * @param {string|Object} message - Mensaje a enviar
    */
-  sendMessage: (to, message) => getProvider().sendMessage(to, message),
+  sendMessage: (to, message, options) => getProvider().sendMessage(to, message, options),
 
   /**
    * Envía una imagen

@@ -50,7 +50,7 @@ const advisorMessagesHistory = new Map();
  * @param {string} message - Mensaje a enviar
  * @returns {Promise<Object>} Resultado de la operación
  */
-async function sendAdvisorMessage(userId, advisorData, message) {
+async function sendAdvisorMessage(userId, advisorData, message, replyTo = null) {
   try {
     // ✅ Usar getOrCreateConversation en lugar de getConversation
     // Esto carga la conversación desde DynamoDB si no está en memoria
@@ -64,7 +64,50 @@ async function sendAdvisorMessage(userId, advisorData, message) {
     logger.info(`   Mensaje: "${message.substring(0, 50)}..."`);
 
     // ===========================================
-    // PUNTO DE CONTROL 2: DESACTIVAR BOT
+    // PASO 1: ENVIAR MENSAJE POR WHATSAPP (PRIMERO)
+    // ===========================================
+    // Enviamos primero para obtener el ID real de Baileys
+
+    // Construir opciones de reply si es necesario
+    let sendOptions = {};
+    if (replyTo && replyTo.id) {
+      // Determinar si el mensaje original era nuestro (fromMe)
+      // Si el sender NO es 'user', entonces fue enviado por nosotros (admin o bot)
+      const isFromMe = replyTo.sender !== 'user';
+
+      const remoteJid = conversation.phoneNumber.includes('@')
+        ? conversation.phoneNumber
+        : conversation.phoneNumber + '@s.whatsapp.net';
+
+      sendOptions.quoted = {
+        key: {
+          remoteJid: remoteJid,
+          fromMe: isFromMe,
+          id: replyTo.id
+        },
+        message: {
+          conversation: replyTo.message || ''
+        }
+      };
+    }
+
+    // ID por defecto (fallback)
+    let finalMessageId = `adv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    try {
+      const result = await whatsappProvider.sendMessage(userId, message, sendOptions);
+      // ✅ CAPTURAR ID REAL DE BAILEYS
+      if (result && result.key && result.key.id) {
+        finalMessageId = result.key.id;
+        logger.debug(`✅ ID de Baileys capturado para mensaje de asesor: ${finalMessageId}`);
+      }
+    } catch (sendError) {
+      logger.error('❌ Error enviando a WhatsApp:', sendError);
+      throw sendError; // Si falla el envío, no guardamos nada
+    }
+
+    // ===========================================
+    // PASO 2: ACTUALIZAR ESTADO DEL BOT
     // ===========================================
 
     const wasActive = conversation.bot_active;
@@ -78,7 +121,7 @@ async function sendAdvisorMessage(userId, advisorData, message) {
     conversation.botDeactivatedAt = Date.now();
     conversation.botDeactivatedBy = advisorData.id;
 
-    // ✅ NUEVO: Limpiar flujo activo para que no interfiera
+    // Limpiar flujo activo
     try {
       const flowManager = require('../flows');
       if (flowManager.hasActiveFlow(userId)) {
@@ -91,21 +134,18 @@ async function sendAdvisorMessage(userId, advisorData, message) {
     }
 
     // ===========================================
-    // ✅ CORRECCIÓN PROBLEMA 1: Guardar mensaje en UN SOLO lugar
+    // PASO 3: GUARDAR MENSAJE (CON ID REAL)
     // ===========================================
-    // ANTES: Se guardaba en conversation.messages Y conversation.advisorMessages
-    //         Esto causaba duplicación cuando se combinaban en el endpoint
-    // AHORA: Solo se guarda en conversation.messages con sender='admin'
-    //         advisorMessages es un historial interno SOLO para estadísticas
 
     const messageRecord = {
-      id: `adv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: finalMessageId, // ✅ Usamos el ID real de Baileys o el fallback
       message: message,
       sender: 'admin',  // IMPORTANTE: 'admin' para que el HTML lo alinee a la derecha
       senderId: advisorData.id,
       senderName: advisorData.name,  // Nombre del asesor para mostrar
       senderEmail: advisorData.email || null,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      replyTo: replyTo || null  // ✅ NUEVO: Referencia al mensaje original
     };
 
     // ✅ ÚNICO lugar de almacenamiento para frontend: conversation.messages
@@ -137,7 +177,8 @@ async function sendAdvisorMessage(userId, advisorData, message) {
             sender: 'admin',
             senderName: advisorData.name,
             senderEmail: advisorData.email || null,
-            originalType: 'text'
+            originalType: 'text',
+            replyTo: replyTo || null
           },
           createdAt: new Date(messageRecord.timestamp),
           updatedAt: new Date()
@@ -164,14 +205,9 @@ async function sendAdvisorMessage(userId, advisorData, message) {
       logger.info(`   Asesor ${advisorData.name} continúa atención`);
     }
 
-    // Enviar mensaje por WhatsApp
-    await whatsappProvider.sendMessage(userId, message);
-
     // ===========================================
-    // ✅ CORRECCIÓN PROBLEMA 1 & 2: Emitir Socket.IO con datos correctos
+    // PASO 4: EMITIR EVENTO SOCKET
     // ===========================================
-    // IMPORTANT: Emitir después de guardar para asegurar que el ID existe
-    // El mensaje YA está guardado en conversation.messages con ID único
     if (io) {
       io.emit('new-message', {
         userId: userId,
@@ -191,7 +227,7 @@ async function sendAdvisorMessage(userId, advisorData, message) {
       status: conversation.status,
       wasPreviouslyActive: wasActive,
       message: {
-        id: messageRecord.messageId,
+        id: messageRecord.id, // Fixed: was messageRecord.messageId
         text: message,
         timestamp: messageRecord.timestamp
       }

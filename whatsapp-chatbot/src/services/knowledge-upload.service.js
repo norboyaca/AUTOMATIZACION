@@ -10,6 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
+const stagesService = require('./stages.service');
 
 // Directorio donde se guardan los archivos de conocimiento
 const KNOWLEDGE_DIR = path.join(process.cwd(), 'knowledge_files');
@@ -221,15 +222,32 @@ function extractChunks(text) {
   // Dividir por párrafos o secciones (ahora con \n normalizado)
   const paragraphs = cleanedText.split(/\n\n+/).filter(p => p.trim().length > 50);
 
+  // Configuracion de chunking
+  const CHUNK_SIZE = 800;
+  const CHUNK_OVERLAP = 100;
+
   for (const para of paragraphs) {
     // Limpiar el texto (normalizar espacios)
     const normalized = para.trim().replace(/\s+/g, ' ');
 
     if (normalized.length > 0) {
-      chunks.push({
-        text: normalized,
-        keywords: extractKeywords(normalized)
-      });
+      // ✅ NUEVO: Si el párrafo es muy largo, dividirlo en chunks con solapamiento
+      if (normalized.length > CHUNK_SIZE) {
+        const subChunks = splitIntoChunks(normalized, CHUNK_SIZE, CHUNK_OVERLAP);
+        logger.info(`🔄 Párrafo largo (${normalized.length} chars) dividido en ${subChunks.length} sub-chunks`);
+
+        subChunks.forEach(subText => {
+          chunks.push({
+            text: subText,
+            keywords: extractKeywords(subText)
+          });
+        });
+      } else {
+        chunks.push({
+          text: normalized,
+          keywords: extractKeywords(normalized)
+        });
+      }
     }
   }
 
@@ -238,11 +256,28 @@ function extractChunks(text) {
   let match;
 
   while ((match = qaPattern.exec(cleanedText)) !== null) {
-    chunks.push({
-      text: `Pregunta: ${match[1].trim()}\nRespuesta: ${match[2].trim()}`,
-      keywords: extractKeywords(match[1] + ' ' + match[2]),
-      isQA: true
-    });
+    const qaText = `Pregunta: ${match[1].trim()}\nRespuesta: ${match[2].trim()}`;
+    const qaKeywords = extractKeywords(match[1] + ' ' + match[2]);
+
+    if (qaText.length > CHUNK_SIZE) {
+      // Si el Q&A es muy largo, dividirlo también
+      const subChunks = splitIntoChunks(qaText, CHUNK_SIZE, CHUNK_OVERLAP);
+      logger.info(`📏 Q&A largo (${qaText.length} chars) dividido en ${subChunks.length} sub-chunks`);
+
+      subChunks.forEach(subChunk => {
+        chunks.push({
+          text: subChunk,
+          keywords: qaKeywords, // Reutilizar keywords del padre
+          isQA: true
+        });
+      });
+    } else {
+      chunks.push({
+        text: qaText,
+        keywords: qaKeywords,
+        isQA: true
+      });
+    }
   }
 
   logger.info(`📄 Extraídos ${chunks.length} chunks del texto`);
@@ -425,6 +460,75 @@ function getUploadedFiles() {
 }
 
 /**
+ * ✅ FIX: Obtiene solo archivos de etapas activas (o sin etapa)
+ * Usado por chat.service.js para decidir si activar RAG
+ */
+function getActiveUploadedFiles() {
+  const activeStages = stagesService.getActiveStages();
+  const activeStageIds = activeStages.map(s => s.id);
+  return knowledgeIndex.files.filter(f =>
+    !f.stageId || activeStageIds.includes(f.stageId)
+  );
+}
+
+/**
+ * ✅ HELPER: Divide texto largo en chunks con solapamiento
+ */
+function splitIntoChunks(text, maxSize, overlap) {
+  if (text.length <= maxSize) return [text];
+
+  const chunks = [];
+  let startIndex = 0;
+
+  while (startIndex < text.length) {
+    let endIndex = startIndex + maxSize;
+
+    // Si no estamos al final, intentar cortar en un espacio o punto para no cortar palabras
+    if (endIndex < text.length) {
+      // Buscar el último punto o espacio dentro del rango de seguridad (últimos 100 chars del chunk)
+      const lookBackLimit = Math.max(startIndex, endIndex - 100);
+      let breakPoint = -1;
+
+      // Intentar encontrar un punto seguido de espacio
+      const lastPeriod = text.lastIndexOf('. ', endIndex);
+      if (lastPeriod >= lookBackLimit) {
+        breakPoint = lastPeriod + 1; // Incluir el punto
+      }
+      // Si no, buscar el último espacio
+      else {
+        const lastSpace = text.lastIndexOf(' ', endIndex);
+        if (lastSpace >= lookBackLimit) {
+          breakPoint = lastSpace;
+        }
+      }
+
+      // Si encontramos un buen punto de corte, usarlo
+      if (breakPoint !== -1) {
+        endIndex = breakPoint;
+      }
+    }
+
+    const chunk = text.substring(startIndex, endIndex).trim();
+    if (chunk.length > 0) {
+      chunks.push(chunk);
+    }
+
+    // Avanzar, restando el overlap si no hemos terminado
+    if (endIndex >= text.length) {
+      break;
+    }
+
+    startIndex = endIndex - overlap;
+    // Asegurar que avanzamos
+    if (startIndex <= startIndex + overlap - maxSize) { // Evitar bucles infinitos si algo falla
+      startIndex = endIndex;
+    }
+  }
+
+  return chunks;
+}
+
+/**
  * ✅ NUEVO: Obtiene archivos filtrados por etapa
  */
 function getFilesByStage(stageId) {
@@ -432,6 +536,15 @@ function getFilesByStage(stageId) {
     return knowledgeIndex.files;
   }
   return knowledgeIndex.files.filter(f => f.stageId === stageId);
+}
+
+/**
+ * ✅ FIX: Limpia la cache de datos de archivos
+ * Llamado cuando se toggle una etapa para forzar re-lectura de disco
+ */
+function clearFileDataCache() {
+  fileDataCache.clear();
+  logger.info('🧹 Cache de datos de archivos limpiado');
 }
 
 /**
@@ -510,10 +623,12 @@ function getCachedFileData(fileId, dataPath) {
   }
 }
 
+
 /**
  * Busca en todos los archivos cargados
  *
  * ✅ OPTIMIZADO: Usa cache en memoria para evitar I/O de disco
+ * ✅ MEJORADO: Respeta activation de stages
  */
 function searchInFiles(query) {
   const results = [];
@@ -534,7 +649,17 @@ function searchInFiles(query) {
 
   logger.debug(`🔍 Buscando: "${query}" (normalizado: "${queryNormalized}", sin acentos: "${queryNoAccents}")`);
 
-  for (const file of knowledgeIndex.files) {
+  // ✅ FIX: Obtener stages activos
+  const activeStages = stagesService.getActiveStages();
+  const activeStageIds = activeStages.map(s => s.id);
+
+  // ✅ FIX: Filtrar archivos activos (sin stage o en stage activo)
+  const activeFiles = knowledgeIndex.files.filter(f =>
+    !f.stageId || activeStageIds.includes(f.stageId)
+  );
+
+  for (const file of activeFiles) {
+
     // ✅ MEJORADO: Determinar ruta del archivo de datos
     let dataPath;
 
@@ -631,7 +756,8 @@ function searchInFiles(query) {
   if (results.length === 0 && queryKeywords.length > 0) {
     logger.info(`🔄 Sin resultados exactos, intentando búsqueda laxa por palabras clave...`);
 
-    for (const file of knowledgeIndex.files) {
+    // ✅ FIX: Usar activeFiles también para la búsqueda laxa
+    for (const file of activeFiles) {
       // ✅ CORREGIDO: Usar la misma lógica que la búsqueda principal
       // para encontrar archivos en subcarpetas de etapas
       let dataPath;
@@ -810,10 +936,12 @@ async function saveFileData(fileEntry, data) {
 module.exports = {
   uploadFile,
   getUploadedFiles,
+  getActiveUploadedFiles,  // ✅ FIX: Solo archivos de etapas activas
   getFilesByStage,
   deleteFile,
   searchInFiles,
   getContextFromFiles,
+  clearFileDataCache,      // ✅ FIX: Invalidación de cache externa
   processTxtFile,  // ✅ Exportado para script de reproceso
   getFileData,     // ✅ NUEVO: Para embeddings
   saveFileData,    // ✅ NUEVO: Para embeddings

@@ -236,32 +236,65 @@ async function saveMediaFromMessage(transformedMessage) {
         logger.info(`📥 [MEDIA-STORAGE] Descargando ${mediaType} de mensaje ${messageId}...`);
 
         let buffer;
-        try {
-            const stream = await downloadMediaMessage(
-                originalMsg,
-                'buffer',
-                {},
-                {
-                    logger: {
-                        info: () => { },
-                        error: (...args) => logger.error(...args),
-                        warn: (...args) => logger.warn(...args),
-                        debug: () => { },
-                        trace: () => { },
-                        child: () => ({
+        const MAX_RETRIES = 3;
+        const DOWNLOAD_TIMEOUT_MS = 60000; // 60 segundos timeout por intento
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                // Envolver en Promise con timeout para evitar descargas colgadas
+                const downloadPromise = downloadMediaMessage(
+                    originalMsg,
+                    'buffer',
+                    {},
+                    {
+                        logger: {
                             info: () => { },
                             error: (...args) => logger.error(...args),
                             warn: (...args) => logger.warn(...args),
                             debug: () => { },
                             trace: () => { },
-                        }),
-                    },
-                    reuploadRequest: undefined,
+                            child: () => ({
+                                info: () => { },
+                                error: (...args) => logger.error(...args),
+                                warn: (...args) => logger.warn(...args),
+                                debug: () => { },
+                                trace: () => { },
+                            }),
+                        },
+                        reuploadRequest: undefined,
+                    }
+                );
+
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error(`Timeout descargando media (${DOWNLOAD_TIMEOUT_MS / 1000}s)`)), DOWNLOAD_TIMEOUT_MS)
+                );
+
+                const stream = await Promise.race([downloadPromise, timeoutPromise]);
+                buffer = Buffer.isBuffer(stream) ? stream : Buffer.from(stream);
+                lastError = null;
+                break; // Descarga exitosa, salir del loop
+            } catch (downloadError) {
+                lastError = downloadError;
+                const isRetryable = downloadError.message?.includes('terminated')
+                    || downloadError.message?.includes('ECONNRESET')
+                    || downloadError.message?.includes('Timeout')
+                    || downloadError.code === 'ECONNRESET'
+                    || downloadError.cause?.code === 'ECONNRESET';
+
+                if (isRetryable && attempt < MAX_RETRIES) {
+                    const waitMs = attempt * 2000; // 2s, 4s backoff
+                    logger.warn(`⚠️ [MEDIA-STORAGE] Intento ${attempt}/${MAX_RETRIES} falló (${downloadError.message}), reintentando en ${waitMs / 1000}s...`);
+                    await new Promise(r => setTimeout(r, waitMs));
+                } else {
+                    logger.error(`❌ [MEDIA-STORAGE] Error descargando media (intento ${attempt}/${MAX_RETRIES}): ${downloadError.message}`);
+                    break;
                 }
-            );
-            buffer = Buffer.isBuffer(stream) ? stream : Buffer.from(stream);
-        } catch (downloadError) {
-            logger.error(`❌ [MEDIA-STORAGE] Error descargando media: ${downloadError.message}`);
+            }
+        }
+
+        if (lastError || !buffer) {
+            logger.error(`❌ [MEDIA-STORAGE] No se pudo descargar media después de ${MAX_RETRIES} intentos`);
             return null;
         }
 

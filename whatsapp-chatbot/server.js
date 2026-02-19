@@ -378,7 +378,11 @@ whatsappWeb.on('message', async (message) => {
       // - horario
       // - GUARDADO DE MENSAJES
       // ✅ CORREGIDO: Pasar pushName para que se guarde el nombre del contacto
-      const response = await messageProcessor.processIncomingMessage(from, body, { pushName });
+      // ✅ CORREGIDO: Pasar pushName y whatsappMessageId (ID real)
+      const response = await messageProcessor.processIncomingMessage(from, body, {
+        pushName,
+        whatsappMessageId: message.id
+      });
 
       // Si response es null, no se debe enviar nada (ya se envió internamente)
       if (!response) {
@@ -430,7 +434,8 @@ whatsappWeb.on('message', async (message) => {
         pushName,
         messageType: type,
         originalMessage: message,
-        mediaData: mediaData  // ✅ Pasar metadata de media
+        mediaData: mediaData,  // ✅ Pasar metadata de media
+        whatsappMessageId: message.id // ✅ Pasar ID real
       });
 
       if (!response) {
@@ -757,6 +762,21 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 
 process.on('uncaughtException', (error) => {
   logger.error('Excepción no capturada:', error);
+
+  // No crashear por errores de red transitorios (ej: download de videos grandes)
+  const transientCodes = ['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'EPIPE', 'EAI_AGAIN'];
+  const errorCode = error.code || error.cause?.code || '';
+  const isTransient = transientCodes.includes(errorCode)
+    || error.message?.includes('terminated')
+    || error.message?.includes('ECONNRESET')
+    || error.message?.includes('fetch failed');
+
+  if (isTransient) {
+    logger.warn('⚠️ Error de red transitorio, el servidor continúa ejecutándose');
+    return; // No salir
+  }
+
+  // Para errores realmente fatales, sí salir
   process.exit(1);
 });
 

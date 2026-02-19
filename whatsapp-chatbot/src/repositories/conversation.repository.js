@@ -18,7 +18,7 @@ const logger = require('../utils/logger');
 const { Conversation } = require('../models/conversation.model');
 const { Message } = require('../models/message.model');
 const { docClient, isConfigured, TABLES } = require('../providers/dynamodb.provider');
-const { PutCommand, GetCommand, UpdateCommand, DeleteCommand, QueryCommand, ScanCommand } = require('@aws-sdk/lib-dynamodb');
+const { PutCommand, GetCommand, UpdateCommand, DeleteCommand, QueryCommand, ScanCommand, BatchGetCommand } = require('@aws-sdk/lib-dynamodb');
 const { v4: uuidv4 } = require('uuid');
 
 /**
@@ -158,6 +158,9 @@ class ConversationRepository {
         whatsappName: data.whatsappName || null,
         whatsappNameUpdatedAt: data.whatsappNameUpdatedAt || null,
         bot_active: data.bot_active !== undefined ? data.bot_active : true,
+        // ✅ NUEVO: Persistencia de gestión
+        customName: data.customName || null,
+        isDeleted: data.isDeleted || false,
         consentStatus: data.consentStatus || 'pending',
         consentMessageSent: data.consentMessageSent || false,
         welcomeSent: data.welcomeSent || false,
@@ -243,39 +246,87 @@ class ConversationRepository {
     // ✅ FIX: Add guard — other methods have this but findActive() was missing it
     if (!this._isAvailable()) return [];
 
-    // Destructuring con valores por defecto para evitar undefined
-    const { limit = 50, offset = 0 } = options;
+    // ✅ FIX Bug5: Aumentar límite por defecto y paginar para cargar TODAS las conversaciones
+    const { limit = 500, offset = 0 } = options;
 
     try {
       logger.info(`🔍 [DYNAMO] Iniciando findActive con limit=${limit}, offset=${offset}`);
 
-      // ✅ FIX: Scan sin filtro de status para devolver TODAS las conversaciones
-      // Antes filtraba solo status='active', excluyendo pending_advisor, advisor_handled, etc.
-      const command = new ScanCommand({
-        TableName: TABLES.CONVERSATIONS,
-        Limit: limit
-      });
+      // ✅ FIX Bug5: Paginar a través de TODOS los items de la tabla
+      let allItems = [];
+      let lastEvaluatedKey = undefined;
 
-      const response = await docClient.send(command);
+      do {
+        const command = new ScanCommand({
+          TableName: TABLES.CONVERSATIONS,
+          ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {})
+        });
 
-      logger.info(`📊 [DYNAMO] Scan devolvió ${response.Items?.length || 0} items`);
+        const response = await docClient.send(command);
+        allItems.push(...(response.Items || []));
+        lastEvaluatedKey = response.LastEvaluatedKey;
+      } while (lastEvaluatedKey);
 
-      const conversations = (response.Items || [])
+      logger.info(`📊 [DYNAMO] Scan devolvió ${allItems.length} items total`);
+
+      const conversations = allItems
         .map(item => {
           logger.debug(`📦 [DYNAMO] Item: participantId=${item.participantId}, status=${item.status}`);
           return new Conversation(item);
         })
         .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
-      logger.info(`✅ [DYNAMO] Retornando ${conversations.length} conversaciones (después de mapeo)`);
-
       const sliced = conversations.slice(offset, offset + limit);
-      logger.info(`✅ [DYNAMO] Slice(${offset}, ${offset + limit}) = ${sliced.length} conversaciones`);
+      logger.info(`✅ [DYNAMO] Retornando ${sliced.length}/${conversations.length} conversaciones`);
 
       return sliced;
     } catch (error) {
       logger.error('❌ [DYNAMO] Error listando conversaciones:', error);
       logger.error(`   Error: ${error.message}, Código: ${error.$metadata?.httpStatusCode}`);
+      return [];
+    }
+  }
+
+  /**
+   * Busca múltiples conversaciones por ID (BatchGetItem)
+   * @param {string[]} ids - Lista de participantIds
+   * @returns {Promise<Array<Conversation>>}
+   */
+  async findAllByIds(ids) {
+    if (!ids || ids.length === 0) return [];
+    if (!this._isAvailable()) return [];
+
+    try {
+      // DynamoDB BatchGetItem limit is 100
+      const uniqueIds = [...new Set(ids)].filter(Boolean);
+      if (uniqueIds.length === 0) return [];
+
+      // Process in chunks of 100 if necessary
+      const chunks = [];
+      for (let i = 0; i < uniqueIds.length; i += 100) {
+        chunks.push(uniqueIds.slice(i, i + 100));
+      }
+
+      const allItems = [];
+
+      for (const chunk of chunks) {
+        const keys = chunk.map(id => ({ participantId: id }));
+        const command = new BatchGetCommand({
+          RequestItems: {
+            [TABLES.CONVERSATIONS]: {
+              Keys: keys
+            }
+          }
+        });
+
+        const response = await docClient.send(command);
+        const items = response.Responses ? response.Responses[TABLES.CONVERSATIONS] : [];
+        allItems.push(...items);
+      }
+
+      return allItems.map(item => new Conversation(item));
+    } catch (error) {
+      logger.error('❌ [DYNAMO] Error en BatchGet conversacion:', error);
       return [];
     }
   }

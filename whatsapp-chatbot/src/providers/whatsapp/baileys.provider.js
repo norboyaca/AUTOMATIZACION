@@ -719,8 +719,11 @@ class BaileysProvider extends EventEmitter {
 
   /**
    * Envía un mensaje de texto
+   * @param {string} to - Destinatario (número o JID)
+   * @param {string|object} content - Texto o objeto con contenido
+   * @param {object} options - Opciones adicionales (ej: quoted)
    */
-  async sendMessage(to, content) {
+  async sendMessage(to, content, options = {}) {
     if (!this.isReady || !this.sock) {
       throw new Error('WhatsApp no está conectado');
     }
@@ -728,10 +731,16 @@ class BaileysProvider extends EventEmitter {
     try {
       // Formatear número si es necesario
       const chatId = this._formatNumber(to);
+      const sendOptions = {};
+
+      // ✅ SOPORTE PARA REPLY (QUOTED)
+      if (options.quoted) {
+        sendOptions.quoted = options.quoted;
+      }
 
       // Si content es un string, enviar como texto simple
       if (typeof content === 'string') {
-        const result = await this.sock.sendMessage(chatId, { text: content });
+        const result = await this.sock.sendMessage(chatId, { text: content }, sendOptions);
         logger.debug(`Mensaje enviado a ${to}`);
         return result;
       }
@@ -748,7 +757,7 @@ class BaileysProvider extends EventEmitter {
         const result = await this.sock.sendMessage(chatId, {
           text: content.text,
           buttons: formattedButtons
-        });
+        }, sendOptions);
 
         logger.debug(`Mensaje con botones enviado a ${to}`);
         return result;
@@ -756,13 +765,13 @@ class BaileysProvider extends EventEmitter {
 
       // Si es un objeto con text, enviar como texto
       if (content.text) {
-        const result = await this.sock.sendMessage(chatId, { text: content.text });
+        const result = await this.sock.sendMessage(chatId, { text: content.text }, sendOptions);
         logger.debug(`Mensaje enviado a ${to}`);
         return result;
       }
 
       // Fallback: intentar enviar directamente
-      const result = await this.sock.sendMessage(chatId, content);
+      const result = await this.sock.sendMessage(chatId, content, sendOptions);
       logger.debug(`Mensaje enviado a ${to}`);
       return result;
 

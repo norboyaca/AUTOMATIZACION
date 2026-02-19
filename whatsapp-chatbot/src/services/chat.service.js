@@ -246,11 +246,14 @@ const generateTextResponse = async (userId, message, options = {}) => {
     // 3. Buscar en base de conocimiento local (para fallback)
     const localAnswer = knowledgeBase.findAnswer(message);
 
-    // 4. NUEVO: Verificar si hay documentos subidos
-    const uploadedFiles = knowledgeUploadService.getUploadedFiles();
+    // 4. NUEVO: Verificar si hay documentos subidos EN ETAPAS ACTIVAS
+    // ✅ FIX: Usar getActiveUploadedFiles para no contar archivos de etapas inactivas
+    const uploadedFiles = knowledgeUploadService.getActiveUploadedFiles
+      ? knowledgeUploadService.getActiveUploadedFiles()
+      : knowledgeUploadService.getUploadedFiles();
     const hasUploadedDocs = uploadedFiles.length > 0;
 
-    logger.info(`📂 Verificando documentos: ${uploadedFiles.length} encontrados`);
+    logger.info(`📂 Verificando documentos activos: ${uploadedFiles.length} encontrados`);
 
     // 5. Si hay documentos subidos, usar RAG con validación estricta
     if (hasUploadedDocs) {

@@ -109,7 +109,128 @@
       "uploadDate": "2026-02-11T16:10:56.783Z",
       "stageId": "stage_1",
       "relativePath": "elegimos-juntos-2026-2029/1770826256770_PRUE.txt"
+    },
+    {
+      "id": "1771392573564",
+      "fileName": "1771392573547_capitulo2_principios_objeto.txt",
+      "originalName": "capitulo2_principios_objeto.txt",
+      "type": "txt",
+      "size": 477,
+      "chunksCount": 4,
+      "uploadDate": "2026-02-18T05:29:33.563Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392573547_capitulo2_principios_objeto.txt"
+    },
+    {
+      "id": "1771392574817",
+      "fileName": "1771392574808_capitulo1_razon_social.txt",
+      "originalName": "capitulo1_razon_social.txt",
+      "type": "txt",
+      "size": 1602,
+      "chunksCount": 6,
+      "uploadDate": "2026-02-18T05:29:34.817Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392574808_capitulo1_razon_social.txt"
+    },
+    {
+      "id": "1771392593248",
+      "fileName": "1771392593229_capitulo5_conflictos.txt",
+      "originalName": "capitulo5_conflictos.txt",
+      "type": "txt",
+      "size": 2261,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-18T05:29:53.248Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392593229_capitulo5_conflictos.txt"
+    },
+    {
+      "id": "1771392593779",
+      "fileName": "1771392593764_capitulo4_sanciones.txt",
+      "originalName": "capitulo4_sanciones.txt",
+      "type": "txt",
+      "size": 16507,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-18T05:29:53.779Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392593764_capitulo4_sanciones.txt"
+    },
+    {
+      "id": "1771392594340",
+      "fileName": "1771392594329_capitulo3_asociados.txt",
+      "originalName": "capitulo3_asociados.txt",
+      "type": "txt",
+      "size": 12420,
+      "chunksCount": 3,
+      "uploadDate": "2026-02-18T05:29:54.339Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392594329_capitulo3_asociados.txt"
+    },
+    {
+      "id": "1771392610965",
+      "fileName": "1771392610948_capitulo8_responsabilidades.txt",
+      "originalName": "capitulo8_responsabilidades.txt",
+      "type": "txt",
+      "size": 4387,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-18T05:30:10.965Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392610948_capitulo8_responsabilidades.txt"
+    },
+    {
+      "id": "1771392611486",
+      "fileName": "1771392611476_capitulo7_regimen_economico.txt",
+      "originalName": "capitulo7_regimen_economico.txt",
+      "type": "txt",
+      "size": 7282,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-18T05:30:11.486Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392611476_capitulo7_regimen_economico.txt"
+    },
+    {
+      "id": "1771392612102",
+      "fileName": "1771392612019_capitulo6_administracion.txt",
+      "originalName": "capitulo6_administracion.txt",
+      "type": "txt",
+      "size": 48271,
+      "chunksCount": 3,
+      "uploadDate": "2026-02-18T05:30:12.102Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392612019_capitulo6_administracion.txt"
+    },
+    {
+      "id": "1771392629890",
+      "fileName": "1771392629880_capitulo11_reforma_estatutos.txt",
+      "originalName": "capitulo11_reforma_estatutos.txt",
+      "type": "txt",
+      "size": 2210,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-18T05:30:29.889Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392629880_capitulo11_reforma_estatutos.txt"
+    },
+    {
+      "id": "1771392630451",
+      "fileName": "1771392630437_capitulo10_disolucion.txt",
+      "originalName": "capitulo10_disolucion.txt",
+      "type": "txt",
+      "size": 4793,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-18T05:30:30.451Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392630437_capitulo10_disolucion.txt"
+    },
+    {
+      "id": "1771392630978",
+      "fileName": "1771392630966_capitulo9_inhabilidades.txt",
+      "originalName": "capitulo9_inhabilidades.txt",
+      "type": "txt",
+      "size": 4218,
+      "chunksCount": 2,
+      "uploadDate": "2026-02-18T05:30:30.978Z",
+      "stageId": "stage_2",
+      "relativePath": "cr-ditos-para-emprendores/1771392630966_capitulo9_inhabilidades.txt"
     }
   ],
-  "lastUpdate": "2026-02-11T16:10:56.783Z"
+  "lastUpdate": "2026-02-18T05:30:30.978Z"
 }

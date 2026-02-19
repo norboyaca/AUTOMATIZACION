@@ -17,16 +17,13 @@
 
 const logger = require('../utils/logger');
 const timezone = require('../utils/timezone');
+const scheduleConfig = require('./schedule-config.service');
 
 // Hora simulada (null = usar hora real)
 let simulatedTime = null;
 
-// ===========================================
-// CONTROL DE VERIFICACIÓN DE HORARIO
-// ===========================================
-// Permite activar/desactivar la verificación de horario de atención
-// ✅ DESACTIVADO POR DEFECTO - Se puede activar manualmente vía API
-let scheduleCheckEnabled = false;
+// ✅ PERSISTENCIA: scheduleCheckEnabled ahora se lee/escribe desde schedule-config.service.js
+// (guardado en data/schedule-config.json, no en memoria volátil)
 
 /**
  * Obtiene la hora actual (real o simulada)
@@ -137,32 +134,29 @@ function getCurrentTimeDecimal() {
   return time.decimal;
 }
 
-// ===========================================
-// FUNCIONES DE CONTROL DE HORARIO
-// ===========================================
-
 /**
  * Activa o desactiva la verificación de horario
+ * ✅ PERSISTENTE: Se guarda en data/schedule-config.json
  *
  * @param {boolean} enabled - true para activar, false para desactivar
  * @returns {Object} Resultado
  */
 function setScheduleCheck(enabled) {
-  const previousState = scheduleCheckEnabled;
-  scheduleCheckEnabled = enabled;
+  const previousState = scheduleConfig.getScheduleEnabled();
+  scheduleConfig.setScheduleEnabled(enabled);
 
   if (enabled) {
-    logger.info(`✅ Verificación de horario ACTIVADA`);
-    logger.info(`   El bot verificará el horario de atención (8:00 AM - 4:30 PM)`);
+    logger.info(`✅ Verificación de horario ACTIVADA (persistida en disco)`);
+    logger.info(`   El bot verificará el horario de atención`);
     logger.info(`   Zona horaria: ${timezone.SYSTEM_TIMEZONE}`);
   } else {
-    logger.warn(`⚠️ Verificación de horario DESACTIVADA`);
+    logger.warn(`⚠️ Verificación de horario DESACTIVADA (persistida en disco)`);
     logger.warn(`   El bot responderá SIN verificar el horario`);
   }
 
   return {
     success: true,
-    scheduleCheckEnabled: scheduleCheckEnabled,
+    scheduleCheckEnabled: enabled,
     previousState: previousState,
     message: enabled
       ? 'Verificación de horario activada'
@@ -172,11 +166,12 @@ function setScheduleCheck(enabled) {
 
 /**
  * Verifica si la verificación de horario está activada
+ * ✅ Lee desde disco (persiste entre reinicios)
  *
  * @returns {boolean} true si está activada
  */
 function isScheduleCheckEnabled() {
-  return scheduleCheckEnabled;
+  return scheduleConfig.getScheduleEnabled();
 }
 
 /**
@@ -188,7 +183,7 @@ function isScheduleCheckEnabled() {
 function getScheduleCheckStatus() {
   const time = getCurrentTime();
   return {
-    enabled: scheduleCheckEnabled,
+    enabled: scheduleConfig.getScheduleEnabled(),
     simulatedTime: simulatedTime,
     isSimulationActive: isSimulationActive(),
     currentTime: time.timeString,

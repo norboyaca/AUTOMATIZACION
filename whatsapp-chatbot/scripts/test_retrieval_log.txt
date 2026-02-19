@@ -1,0 +1,41 @@
+2026-02-18 01:53:41 [[32MINFO[39M]: Configuraci├│n cargada desde settings.json
+2026-02-18 01:53:42 [[32MINFO[39M]: ­ƒôé Cargadas 3 etapas desde C:\Users\David\Desktop\NORBOY-CHAT\AUTOMATIZACION\whatsapp-chatbot\knowledge_files\stages.json
+­ƒÜÇ Iniciando prueba de recuperaci├│n...
+­ƒôª Cargando chunks...
+2026-02-18 01:53:42 [[32MINFO[39M]: ­ƒôé Cargando chunks con embeddings...
+2026-02-18 01:53:42 [[34MDEBUG[39M]: ­ƒöì Filtrando por etapas activas: 2 etapas activas found.
+2026-02-18 01:53:42 [[32MINFO[39M]: ­ƒôé Todos los 21 archivos est├ín en etapas activas (o sin etapa).
+2026-02-18 01:53:42 [[32MINFO[39M]: ­ƒôè Chunks cargados: 907
+2026-02-18 01:53:42 [[32MINFO[39M]:    Ô£à Con embeddings: 907
+2026-02-18 01:53:42 [[32MINFO[39M]:    ÔØî Sin embeddings: 0
+
+­ƒöì Buscando: "venta de base de datos de asociados"
+2026-02-18 01:53:42 [[34MDEBUG[39M]: ­ƒöì Obteniendo embedding para consulta: "venta de base de datos de asociados..."
+2026-02-18 01:53:42 [[32MINFO[39M]: ­ƒöì Proveedor detectado desde chunks almacenados: openai (1536 dims)
+2026-02-18 01:53:42 [[32MINFO[39M]: Ô£à Cliente OpenAI embeddings inicializado
+2026-02-18 01:53:42 [[34MDEBUG[39M]: ­ƒöä Generando embeddings para 1 textos...
+2026-02-18 01:53:43 [[34MDEBUG[39M]: Ô£à Embeddings generados: 1
+2026-02-18 01:53:43 [[32MINFO[39M]: ­ƒöä Query embedding generado en 735ms (proveedor: openai)
+2026-02-18 01:53:43 [[34MDEBUG[39M]: ­ƒôè Calculando similitud con 907 chunks...
+2026-02-18 01:53:43 [[32MINFO[39M]: Ô£à Encontrados 5 chunks relevantes (b├║squeda: 13ms, total: 749ms)
+2026-02-18 01:53:43 [[34MDEBUG[39M]: ­ƒôè Top 3 similitudes: 0.4612, 0.4384, 0.4381
+
+­ƒôè Encontrados 5 resultados:
+
+[1] Score: 0.4612 | File: undefined
+    Text (58 chars): **14-29 enero 2026:** Publicidad e informaci├│n a asociados...
+---------------------------------------------------
+[2] Score: 0.4384 | File: undefined
+    Text (789 chars): de la cooperativa est├í autorizado para divulgar informaci├│n sustancial
+en ejercicio de su cargo.
+e. Se proh├¡be la venta, entrega o divulgaci├│n de base...
+---------------------------------------------------
+[3] Score: 0.4381 | File: undefined
+    Text (303 chars): **Actividades:** - Ô£à Depuraci├│n de base de asociados - Ô£à Verificaci├│n de aportes, obligaciones y antig├╝edad - Ô£à Identificaci├│n de asociados h├íbiles e ...
+---------------------------------------------------
+[4] Score: 0.4256 | File: undefined
+    Text (774 chars): oda informaci├│n financiera, social, comercial transmitida en el marco de colaboraci├│n, negociaci├│n o proyecto tiene car├ícter confidencial y no se podr...
+---------------------------------------------------
+[5] Score: 0.4229 | File: undefined
+    Text (69 chars): ### ┬┐Cu├índo se inform├│ a los asociados? Del 14 al 29 de enero de 2026...
+---------------------------------------------------

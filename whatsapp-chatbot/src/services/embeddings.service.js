@@ -59,7 +59,18 @@ let loadedChunks = [];
 /**
  * Flag para saber si los chunks están cargados
  */
+
+/**
+ * Flag para saber si los chunks están cargados
+ */
 let chunksLoaded = false;
+
+/**
+ * Promesa de carga en curso (Singleton Promise)
+ * Evita race conditions si se llama a loadAllChunks multiples veces
+ */
+let loadingPromise = null;
+
 
 /**
  * ✅ OPTIMIZADO: Cache del proveedor de embeddings detectado
@@ -514,48 +525,91 @@ async function findRelevantChunks(query, limit = 15) {
  * Carga todos los chunks con embeddings desde archivos JSON
  */
 async function loadAllChunks() {
+  // 1. Si ya se está cargando, devolver la promesa en curso
+  if (loadingPromise) {
+    logger.debug('⏳ Chunks ya se están cargando, esperando proceso existente...');
+    return loadingPromise;
+  }
+
+  // 2. Si ya están cargados y no se forzó recarga, devolver cache
   if (chunksLoaded) {
     logger.debug('✅ Chunks ya están cargados en memoria');
     return loadedChunks;
   }
 
-  logger.info('📂 Cargando chunks con embeddings...');
-
-  const knowledgeUploadService = require('./knowledge-upload.service');
-  const files = knowledgeUploadService.getUploadedFiles();
-
-  loadedChunks = [];
-
-  for (const file of files) {
+  // 3. Iniciar carga (Singleton)
+  loadingPromise = (async () => {
     try {
-      const data = await knowledgeUploadService.getFileData(file);
+      logger.info('📂 Cargando chunks con embeddings...');
 
-      if (data && data.chunks) {
-        // Agregar metadatos del archivo
-        const chunksWithMeta = data.chunks.map(chunk => ({
-          ...chunk,
-          source: file.originalName,
-          sourceId: file.id,
-        }));
+      const knowledgeUploadService = require('./knowledge-upload.service');
+      const allFiles = knowledgeUploadService.getUploadedFiles();
 
-        loadedChunks.push(...chunksWithMeta);
+      // ✅ NUEVO: Filtrar archivos de etapas inactivas
+      let files = allFiles;
+      try {
+        const stagesService = require('./stages.service');
+        const activeStageIds = stagesService.getActiveStages().map(s => s.id);
+
+        logger.debug(`🔍 Filtrando por etapas activas: ${activeStageIds.length} etapas activas found.`);
+
+        files = allFiles.filter(f => !f.stageId || activeStageIds.includes(f.stageId));
+
+        if (files.length < allFiles.length) {
+          logger.info(`📂 Filtrados: ${allFiles.length} archivos totales → ${files.length} de etapas activas`);
+        } else {
+          logger.info(`📂 Todos los ${allFiles.length} archivos están en etapas activas (o sin etapa).`);
+        }
+      } catch (e) {
+        logger.warn('⚠️ No se pudo filtrar por etapas activas:', e.message);
+        files = allFiles;
       }
+
+      // Usar array temporal para evitar estado inconsistente durante carga
+      const tempChunks = [];
+
+      for (const file of files) {
+        try {
+          const data = await knowledgeUploadService.getFileData(file);
+
+          if (data && data.chunks) {
+            // Agregar metadatos del archivo
+            const chunksWithMeta = data.chunks.map(chunk => ({
+              ...chunk,
+              source: file.originalName,
+              sourceId: file.id,
+            }));
+
+            tempChunks.push(...chunksWithMeta);
+          }
+        } catch (error) {
+          logger.warn(`⚠️ Error cargando datos de ${file.originalName}: ${error.message}`);
+        }
+      }
+
+      // Filtrar solo chunks con embeddings
+      const chunksWithEmbeddings = tempChunks.filter(c => c.embedding && c.embedding.length > 0);
+      const chunksWithoutEmbeddings = tempChunks.length - chunksWithEmbeddings.length;
+
+      // ACTUALIZACIÓN ATÓMICA
+      loadedChunks = tempChunks;
+      chunksLoaded = true;
+
+      logger.info(`📊 Chunks cargados: ${loadedChunks.length}`);
+      logger.info(`   ✅ Con embeddings: ${chunksWithEmbeddings.length}`);
+      logger.info(`   ❌ Sin embeddings: ${chunksWithoutEmbeddings}`);
+
+      return loadedChunks;
     } catch (error) {
-      logger.warn(`⚠️ Error cargando datos de ${file.originalName}: ${error.message}`);
+      logger.error(`❌ Error fatal cargando chunks: ${error.message}`);
+      throw error;
+    } finally {
+      // Limpiar promesa siempre
+      loadingPromise = null;
     }
-  }
+  })();
 
-  // Filtrar solo chunks con embeddings
-  const chunksWithEmbeddings = loadedChunks.filter(c => c.embedding && c.embedding.length > 0);
-  const chunksWithoutEmbeddings = loadedChunks.length - chunksWithEmbeddings.length;
-
-  logger.info(`📊 Chunks cargados: ${loadedChunks.length}`);
-  logger.info(`   ✅ Con embeddings: ${chunksWithEmbeddings.length}`);
-  logger.info(`   ❌ Sin embeddings: ${chunksWithoutEmbeddings}`);
-
-  chunksLoaded = true;
-
-  return loadedChunks;
+  return loadingPromise;
 }
 
 /**
@@ -564,9 +618,12 @@ async function loadAllChunks() {
  */
 function reloadChunks() {
   logger.info('🔄 Recargando chunks...');
+  // Invalidar estado
   chunksLoaded = false;
   queryEmbeddingCache.clear();
-  loadedChunks = [];
+  // NO limpiar loadedChunks aquí para evitar estado inconsistente si alguien lee antes de terminar la carga.
+  // Dejar que loadAllChunks reemplace el array atómicamente.
+
   // Invalidar provider cache para re-evaluar
   cachedProvider = null;
   cachedProviderTimestamp = 0;

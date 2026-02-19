@@ -574,6 +574,51 @@ router.delete('/stages/:id', requireAuth, (req, res) => {
   }
 });
 
+// ✅ NUEVO: PATCH /api/stages/:id/toggle - Activar/desactivar etapa
+router.patch('/stages/:id/toggle', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { is_active } = req.body;
+
+    if (typeof is_active !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'is_active debe ser booleano' });
+    }
+
+    const stage = stagesService.toggleStageActive(id, is_active);
+
+    // ✅ FIX: Invalidar TODOS los caches para reflejar el cambio inmediatamente
+    try {
+      const embeddingsService = require('../services/embeddings.service');
+      const ragOptimized = require('../services/rag-optimized.service');
+      const knowledgeUploadService = require('../services/knowledge-upload.service');
+
+      // 1. Recargar chunks de embeddings (filtra por etapas activas)
+      if (embeddingsService.reloadChunks) {
+        embeddingsService.reloadChunks();
+      }
+
+      // 2. Limpiar cache de queries RAG (evita servir respuestas stale por 5 min)
+      if (ragOptimized.clearCache) {
+        ragOptimized.clearCache();
+      }
+
+      // 3. Limpiar cache de datos de archivos (evita leer datos cacheados de etapas inactivas)
+      if (knowledgeUploadService.clearFileDataCache) {
+        knowledgeUploadService.clearFileDataCache();
+      }
+
+      logger.info(`✅ Todos los caches invalidados tras toggle de etapa ${id}`);
+    } catch (e) {
+      logger.warn('No se pudieron recargar caches:', e.message);
+    }
+
+    res.json({ success: true, stage });
+  } catch (error) {
+    logger.error('Error toggleando etapa:', error);
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
 // ✅ NUEVO: Obtener archivos por etapa
 router.get('/knowledge/files/stage/:stageId', requireAuth, (req, res) => {
   try {

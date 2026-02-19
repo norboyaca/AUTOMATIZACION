@@ -53,6 +53,10 @@ class Conversation {
     this.updatedAt = data.updatedAt || new Date();
     this.lastMessageAt = data.lastMessageAt || null;
 
+    // Gestión de chats
+    this.customName = data.customName || null;
+    this.isDeleted = data.isDeleted || false;
+
     // Mensajes (para memoria en caché, no se guarda en DB así)
     this._messages = [];
   }
@@ -150,7 +154,9 @@ class Conversation {
       tags: this.tags,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
-      lastMessageAt: this.lastMessageAt
+      lastMessageAt: this.lastMessageAt,
+      customName: this.customName,
+      isDeleted: this.isDeleted
     };
   }
 

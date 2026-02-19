@@ -4,20 +4,23 @@
     "name": "Elegimos Juntos 2026-2029",
     "order": 1,
     "createdAt": 1770152137912,
-    "updatedAt": 1770152230048
+    "updatedAt": 1771431973940,
+    "is_active": false
   },
   {
     "id": "stage_2",
     "name": "Créditos Para emprendores",
     "order": 2,
     "createdAt": 1770152137912,
-    "updatedAt": 1770153543700
+    "updatedAt": 1770153543700,
+    "is_active": true
   },
   {
     "id": "stage_3",
     "name": "Etapa 3",
     "order": 3,
     "createdAt": 1770152137912,
-    "updatedAt": 1770152137912
+    "updatedAt": 1771395460191,
+    "is_active": false
   }
 ]

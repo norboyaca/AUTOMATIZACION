@@ -374,7 +374,7 @@ router.get('/with-advisor', requireAuth, (req, res) => {
 router.post('/:userId/send-message', requireAuth, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { message, advisor } = req.body;
+    const { message, advisor, replyTo } = req.body;
 
     if (!message || !message.trim()) {
       return res.status(400).json({
@@ -396,7 +396,8 @@ router.post('/:userId/send-message', requireAuth, async (req, res) => {
     const result = await advisorControlService.sendAdvisorMessage(
       userId,
       advisor,
-      message
+      message,
+      replyTo || null
     );
 
     res.json({
@@ -624,7 +625,12 @@ router.get('/:userId/messages', requireAuth, async (req, res) => {
           sender: msg.direction === 'incoming' ? 'user' : 'bot',
           message: msg.content?.text || '[Multimedia]',
           timestamp: msg.timestamp || Date.parse(msg.createdAt),
-          type: msg.metadata?.originalType || 'text'
+          type: msg.metadata?.originalType || msg.type || 'text',
+          // ✅ FIX Bug2: Restaurar metadata de media desde DynamoDB
+          mediaUrl: msg.content?.mediaUrl || null,
+          fileName: msg.content?.fileName || null,
+          mimeType: msg.content?.mimeType || null,
+          fileSize: msg.content?.fileSize || null
         }));
 
         // Usar mensajes de DynamoDB
@@ -1309,10 +1315,10 @@ router.post('/upload-media', requireAuth, single('file'), async (req, res) => {
       logger.info(`   archivo: originalname="${req.file.originalname}", mimetype="${req.file.mimetype}"`);
     }
 
-    if (!type || !['audio', 'image', 'document'].includes(type)) {
+    if (!type || !['audio', 'image', 'video', 'document'].includes(type)) {
       return res.status(400).json({
         success: false,
-        error: 'Tipo de archivo no válido. Debe ser: audio, image, o document'
+        error: 'Tipo de archivo no válido. Debe ser: audio, image, video, o document'
       });
     }
 
@@ -1512,22 +1518,64 @@ router.get('/whatsapp-chats', requireAuth, async (req, res) => {
       logger.warn(`⚠️ Error obteniendo chats de Baileys: ${e.message}`);
     }
 
-    // 2. Obtener desde memoria y MERGE (no reemplazar)
+    // 2. [CRITICAL FIX] Verificar estado en DB para los chats de Baileys
+    // Esto asegura que si un chat de Baileys fue eliminado en DB, se oculte.
+    // O si tiene customName en DB, se use.
     try {
-      const memoryConversations = conversationStateService.getAllConversations();
+      if (chatsByUserId.size > 0) {
+        const conversationRepository = require('../repositories/conversation.repository');
+        const idsToCheck = Array.from(chatsByUserId.keys());
+
+        // Batch get para eficiencia
+        const dbStatuses = await conversationRepository.findAllByIds(idsToCheck);
+
+        dbStatuses.forEach(dbConv => {
+          const data = dbConv.toObject ? dbConv.toObject() : dbConv;
+
+          // Si está eliminado en DB, quitarlo de la lista (aunque Baileys lo traiga)
+          if (data.isDeleted) {
+            chatsByUserId.delete(data.participantId);
+            return;
+          }
+
+          // Si tiene customName, actualizar el objeto de Baileys
+          const existing = chatsByUserId.get(data.participantId);
+          if (existing && data.customName) {
+            existing.customName = data.customName;
+            existing.registeredName = data.customName;
+          }
+        });
+        logger.info(`🔍 Verificados ${idsToCheck.length} chats de Baileys contra DB`);
+      }
+    } catch (e) {
+      logger.warn(`⚠️ Error verificando estados de Baileys vs DB: ${e.message}`);
+    }
+
+    // 3. Obtener desde memoria y MERGE (no reemplazar)
+    try {
+      // ✅ FIX: Usar getAllConversationsRaw para VER también los eliminados y poder quitarlos del mapa
+      const memoryConversations = conversationStateService.getAllConversationsRaw();
       if (memoryConversations.length > 0) {
         memoryConversations.forEach(conv => {
+          // ✅ FIX: Si está eliminado, remover del mapa si ya existe (ej: de Baileys)
+          if (conv.isDeleted) {
+            chatsByUserId.delete(conv.userId);
+            return;
+          }
+
           const memChat = {
             userId: conv.userId,
             phoneNumber: conv.phoneNumber,
             whatsappName: conv.whatsappName || 'Sin nombre',
-            registeredName: conv.registeredName || conv.whatsappName || 'Sin nombre',
+            customName: conv.customName || null, // ✅ NUEVO
+            registeredName: conv.customName || conv.registeredName || conv.whatsappName || 'Sin nombre',
             lastMessage: conv.lastMessage || '',
             lastInteraction: conv.lastInteraction || Date.now(),
             unreadCount: 0,
             status: conv.status || 'active',
             bot_active: conv.bot_active !== undefined ? conv.bot_active : true
           };
+
           const existing = chatsByUserId.get(conv.userId);
           if (existing) {
             // Merge: prefer memory status/lastMessage (more up-to-date) but keep Baileys name
@@ -1535,7 +1583,8 @@ router.get('/whatsapp-chats', requireAuth, async (req, res) => {
               status: conv.status || existing.status,
               lastMessage: conv.lastMessage || existing.lastMessage,
               lastInteraction: Math.max(conv.lastInteraction || 0, existing.lastInteraction || 0),
-              bot_active: conv.bot_active !== undefined ? conv.bot_active : existing.bot_active
+              bot_active: conv.bot_active !== undefined ? conv.bot_active : existing.bot_active,
+              customName: conv.customName || existing.customName // Prefer memory customName
             });
           } else {
             chatsByUserId.set(conv.userId, memChat);
@@ -1563,15 +1612,28 @@ router.get('/whatsapp-chats', requireAuth, async (req, res) => {
             userId: data.participantId,
             phoneNumber: phoneNumber,
             whatsappName: data.participantName || 'Sin nombre',
-            registeredName: data.participantName || 'Sin nombre',
+            customName: data.customName || null, // ✅ NUEVO
+            registeredName: data.customName || data.participantName || 'Sin nombre',
             lastMessage: data.lastMessage || '',
             lastInteraction: data.lastInteraction || (data.updatedAt ? new Date(data.updatedAt).getTime() : Date.now()),
             unreadCount: 0,
             status: data.status || 'active',
             bot_active: data.status !== 'advisor_handled'
           };
-          // Only add if not already present from Baileys/memory
-          if (!chatsByUserId.has(data.participantId)) {
+          // Only add if not already present AND not deleted
+          if (data.isDeleted) {
+            chatsByUserId.delete(data.participantId);
+            return;
+          }
+
+          const existing = chatsByUserId.get(data.participantId);
+          if (existing) {
+            // ✅ FIX: Enrich existing chat with DB data (customName) if missing
+            if (!existing.customName && data.customName) {
+              existing.customName = data.customName;
+              existing.registeredName = data.customName;
+            }
+          } else {
             chatsByUserId.set(data.participantId, dbChat);
           }
         });
@@ -1592,13 +1654,15 @@ router.get('/whatsapp-chats', requireAuth, async (req, res) => {
       const iaCheck = numberControlService.shouldIARespond(phoneNumber);
       const controlRecord = numberControlService.getControlledNumber(phoneNumber);
 
-      // Prioridad de nombres: manual > WhatsApp > Sin nombre
-      const displayName = controlRecord?.name || chat.whatsappName || 'Sin nombre';
+      // Prioridad de nombres: manual > customName > WhatsApp > Sin nombre
+      const displayName = controlRecord?.name || chat.customName || chat.whatsappName || 'Sin nombre';
 
       return {
         ...chat,
         registeredName: displayName,
+        registeredName: displayName,
         whatsappName: chat.whatsappName || null,
+        customName: chat.customName || null, // ✅ NUEVO
         iaControlled: controlRecord !== null,
         iaActive: iaCheck.shouldRespond,
         iaControlReason: controlRecord?.reason || null
@@ -1683,7 +1747,9 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
           mediaUrl: msg.content?.mediaUrl || null,
           fileName: msg.content?.fileName || null,
           fileSize: msg.content?.fileSize || null,
-          mimeType: msg.content?.mimeType || null
+          mimeType: msg.content?.mimeType || null,
+          // ✅ NUEVO: ReplyTo para UI
+          replyTo: msg.metadata?.replyTo || null
         }));
         source = 'dynamodb';
         logger.info(`📜 ${messages.length} mensajes cargados desde DynamoDB`);
@@ -1711,7 +1777,9 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
           mediaUrl: msg.mediaUrl || null,
           fileName: msg.fileName || null,
           fileSize: msg.fileSize || null,
-          mimeType: msg.mimeType || null
+          mimeType: msg.mimeType || null,
+          // ✅ NUEVO: ReplyTo para UI (memoria)
+          replyTo: msg.replyTo || null
         }));
         source = 'memory';
         logger.info(`📜 ${messages.length} mensajes cargados desde MEMORIA (fallback)`);
@@ -1930,6 +1998,109 @@ router.post('/:userId/send-file', requireAuth, single('file'), async (req, res) 
         logger.warn(`⚠️ Error eliminando archivo temporal: ${cleanupError.message}`);
       }
     }
+  }
+});
+
+/**
+ * PATCH /api/conversations/:userId/custom-name
+ * Actualiza el nombre personalizado de un contacto
+ */
+router.patch('/:userId/custom-name', requireAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name } = req.body;
+
+    // conversationStateService.updateCustomName ya maneja la persistencia
+    // y revive el chat si estaba borrado (isDeleted = false)
+    const conversation = conversationStateService.updateCustomName(userId, name);
+
+    res.json({
+      success: true,
+      conversation: {
+        userId: conversation.userId,
+        customName: conversation.customName,
+        whatsappName: conversation.whatsappName,
+        registeredName: conversation.customName || conversation.whatsappName || 'Sin nombre'
+      }
+    });
+  } catch (error) {
+    logger.error(`Error actualizando nombre para ${req.params.userId}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/conversations/create-chat
+ * Crea un nuevo chat manualmente
+ */
+router.post('/create-chat', requireAuth, async (req, res) => {
+  try {
+    const { phoneNumber, name } = req.body;
+
+    if (!phoneNumber) {
+      return res.status(400).json({ success: false, error: 'Número de teléfono requerido' });
+    }
+
+    // Normalizar número (eliminar espacios, guiones, +, etc)
+    const cleanPhone = phoneNumber.replace(/\D/g, '');
+    const userId = `${cleanPhone}@s.whatsapp.net`;
+
+    logger.info(`📝 Creando nuevo chat manual: ${userId} (${name || 'Sin nombre'})`);
+
+    // Crear o recuperar conversación
+    // Esto ya añade la conversación a memoria y la persiste en DynamoDB
+    const conversation = conversationStateService.getOrCreateConversation(userId, {
+      realPhoneNumber: cleanPhone
+    });
+
+    // Si se proveyó un nombre, actualizarlo
+    if (name) {
+      conversationStateService.updateCustomName(userId, name);
+    }
+
+    // Forzar que sea visible (no deleted) y fecha actual para que suba en la lista
+    conversation.isDeleted = false;
+    conversation.lastInteraction = Date.now();
+
+    // Persistimos los cambios
+    const conversationRepository = require('../repositories/conversation.repository');
+    await conversationRepository.saveRaw(conversation);
+
+    res.json({
+      success: true,
+      conversation: {
+        userId: conversation.userId,
+        phoneNumber: conversation.phoneNumber,
+        customName: conversation.customName,
+        registeredName: conversation.customName || conversation.whatsappName || conversation.phoneNumber
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error creando chat:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/conversations/:userId
+ * Elimina una conversación (Soft Delete)
+ */
+router.delete('/:userId', requireAuth, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    logger.info(`🗑️ Soft-deleting chat: ${userId}`);
+
+    const conversation = conversationStateService.softDeleteConversation(userId);
+
+    if (!conversation) {
+      return res.status(404).json({ success: false, error: 'Conversación no encontrada' });
+    }
+
+    res.json({ success: true, message: 'Chat eliminado correctamente' });
+  } catch (error) {
+    logger.error(`Error eliminando chat ${req.params.userId}:`, error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

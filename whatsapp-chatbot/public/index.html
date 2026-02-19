@@ -5,6 +5,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NORBOY - Dashboard Chatbot WhatsApp</title>
+  <!-- Pre-render auth check: prevents login flash if already authenticated -->
+  <script>
+    (function () {
+      if (localStorage.getItem('authToken')) {
+        var s = document.createElement('style');
+        s.id = 'pre-auth-style';
+        s.textContent = '.login-overlay{display:none!important}#dashboard-wrapper{display:flex!important}';
+        document.head.appendChild(s);
+      }
+    })();
+  </script>
   <style>
     /* ========================================
        PARTE 1: RESET Y VARIABLES
@@ -3013,7 +3024,7 @@
           <span class="nav-item-icon">🏠</span>
           <span class="nav-item-text">Inicio</span>
         </a>
-        <a href="/chat.html" class="nav-item">
+        <a href="#" class="nav-item" onclick="changeView('conversations'); return false;">
           <span class="nav-item-icon">💬</span>
           <span class="nav-item-text">Conversaciones</span>
           <span id="pending-advisor-badge" class="pending-badge" style="display: none;">0</span>
@@ -4713,7 +4724,15 @@
       document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
       });
-      event.target.closest('.nav-item').classList.add('active');
+      // Mark the correct nav item as active (handle both click events and programmatic calls)
+      if (typeof event !== 'undefined' && event && event.target) {
+        var navEl = event.target.closest('.nav-item');
+        if (navEl) navEl.classList.add('active');
+      } else {
+        // Programmatic call: find nav item by view name
+        var navItem = document.querySelector('.nav-item[onclick*="changeView(\'' + view + '\')"]');
+        if (navItem) navItem.classList.add('active');
+      }
 
       // Actualizar breadcrumb y título
       const viewNames = {
@@ -4728,36 +4747,68 @@
       document.getElementById('current-view-name').textContent = viewNames[view] || 'Inicio';
       document.getElementById('breadcrumb-active').textContent = viewNames[view] || 'Inicio';
 
-      // Ocultar todas las vistas especiales primero
-      hideConversationsView();
-      hideNumberControlView();
-      hideHolidaysView(); // ✅ NUEVO: Ocultar vista de días festivos
-      hideDocumentsView(); // ✅ NUEVO: Ocultar vista de documentos
+      // ============================================
+      // RESET CENTRAL: Restaurar TODOS los elementos a su estado por defecto
+      // Esto evita conflictos entre las vistas
+      // ============================================
+
+      // 1. Restaurar header del dashboard
+      const dashHeader = document.querySelector('.dashboard-header');
+      if (dashHeader) dashHeader.style.display = '';
+
+      // 2. Restaurar dashboard-content (breadcrumb + content-card)
+      const dashContent = document.querySelector('.dashboard-content');
+      if (dashContent) {
+        dashContent.style.display = '';
+        void dashContent.offsetHeight; // Forzar repintado
+      }
+
+      // 3. Restaurar content-card
+      const contentCard = document.querySelector('.content-card');
+      if (contentCard) contentCard.style.display = '';
+
+      // 4. Restaurar .container (contenido original del chatbot)
+      const container = document.querySelector('.container');
+      if (container) container.style.display = '';
+
+      // 5. Restaurar main-content
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) {
+        mainContent.style.display = '';
+        mainContent.style.flexDirection = '';
+      }
+
+      // 6. Ocultar TODAS las vistas especiales
+      var iframeContainer = document.getElementById('conversations-iframe-container');
+      if (iframeContainer) iframeContainer.style.display = 'none';
+
+      var ncView = document.getElementById('number-control-view');
+      if (ncView) ncView.style.display = 'none';
+
+      var hView = document.getElementById('holidays-view');
+      if (hView) hView.style.display = 'none';
+
+      var dView = document.getElementById('documents-view');
+      if (dView) dView.style.display = 'none';
+
+      // ============================================
+      // Mostrar la vista solicitada
+      // ============================================
 
       // Mostrar/ocultar botón de subir según la vista
       const uploadBtn = document.getElementById('header-upload-btn');
-      if (view === 'documents') {
-        uploadBtn.style.display = 'flex';
-        // ✅ NUEVO: Mostrar vista completa de documentos en lugar de modal
-        showDocumentsView();
-      } else {
-        uploadBtn.style.display = 'none';
-      }
+      uploadBtn.style.display = (view === 'documents') ? 'flex' : 'none';
 
-      // Mostrar vista de conversaciones si corresponde
       if (view === 'conversations') {
         showConversationsView();
-      }
-
-      // Mostrar vista de control de números si corresponde
-      if (view === 'number-control') {
+      } else if (view === 'documents') {
+        showDocumentsView();
+      } else if (view === 'number-control') {
         showNumberControlView();
-      }
-
-      // Mostrar vista de días festivos si corresponde
-      if (view === 'holidays') {
+      } else if (view === 'holidays') {
         showHolidaysView();
       }
+      // 'home' y 'settings' usan el contenido original (.container) que ya fue restaurado
     }
 
     // Sincronizar estado del header con el estado del chatbot
@@ -5931,18 +5982,32 @@
       const btnEnable = document.getElementById('btn-enable-schedule');
       const btnDisable = document.getElementById('btn-disable-schedule');
 
+      if (!statusSpan || !btnEnable || !btnDisable) return;
+
       if (enabled) {
         statusSpan.innerHTML = '<span style="color: #2e7d32;">✅ ACTIVO (Verificando horario)</span>';
-        btnEnable.style.opacity = '0.5';
+        // Deshabilitar botón Activar (ya está activo)
+        btnEnable.disabled = true;
+        btnEnable.style.opacity = '0.4';
         btnEnable.style.cursor = 'not-allowed';
+        btnEnable.style.pointerEvents = 'none';
+        // Habilitar botón Desactivar
+        btnDisable.disabled = false;
         btnDisable.style.opacity = '1';
         btnDisable.style.cursor = 'pointer';
+        btnDisable.style.pointerEvents = 'auto';
       } else {
         statusSpan.innerHTML = '<span style="color: #c62828;">❌ INACTIVO (Sin verificar)</span>';
+        // Habilitar botón Activar
+        btnEnable.disabled = false;
         btnEnable.style.opacity = '1';
         btnEnable.style.cursor = 'pointer';
-        btnDisable.style.opacity = '0.5';
+        btnEnable.style.pointerEvents = 'auto';
+        // Deshabilitar botón Desactivar (ya está inactivo)
+        btnDisable.disabled = true;
+        btnDisable.style.opacity = '0.4';
         btnDisable.style.cursor = 'not-allowed';
+        btnDisable.style.pointerEvents = 'none';
       }
     }
 
@@ -6136,18 +6201,32 @@
       const btnEnable = document.getElementById('btn-enable-holiday');
       const btnDisable = document.getElementById('btn-disable-holiday');
 
+      if (!statusSpan || !btnEnable || !btnDisable) return;
+
       if (enabled) {
         statusSpan.innerHTML = '<span style="color: #e65100;">✅ ACTIVO (Verificando festivos)</span>';
-        btnEnable.style.opacity = '0.5';
+        // Deshabilitar botón Activar (ya está activo)
+        btnEnable.disabled = true;
+        btnEnable.style.opacity = '0.4';
         btnEnable.style.cursor = 'not-allowed';
+        btnEnable.style.pointerEvents = 'none';
+        // Habilitar botón Desactivar
+        btnDisable.disabled = false;
         btnDisable.style.opacity = '1';
         btnDisable.style.cursor = 'pointer';
+        btnDisable.style.pointerEvents = 'auto';
       } else {
         statusSpan.innerHTML = '<span style="color: #757575;">❌ INACTIVO (Sin verificar)</span>';
+        // Habilitar botón Activar
+        btnEnable.disabled = false;
         btnEnable.style.opacity = '1';
         btnEnable.style.cursor = 'pointer';
-        btnDisable.style.opacity = '0.5';
+        btnEnable.style.pointerEvents = 'auto';
+        // Deshabilitar botón Desactivar (ya está inactivo)
+        btnDisable.disabled = true;
+        btnDisable.style.opacity = '0.4';
         btnDisable.style.cursor = 'not-allowed';
+        btnDisable.style.pointerEvents = 'none';
       }
     }
 
@@ -6190,8 +6269,9 @@
         const response = await authenticatedFetch('/api/conversations/stats');
         const data = await response.json();
 
-        // Cargar estado del control de horario
+        // Cargar estado del control de horario Y festivos
         loadScheduleCheckStatus();
+        loadHolidayCheckStatus();
 
         if (data.success) {
           // Estadísticas existentes
@@ -6203,9 +6283,42 @@
           // NUEVAS estadísticas de escalación
           document.getElementById('stat-pending').textContent = data.stats.escalation?.pendingAdvisor || 0;
           document.getElementById('stat-with-advisor').textContent = data.stats.escalation?.advisorHandled || 0;
+
+          // ✅ Iniciar polling en tiempo real (si no está ya iniciado)
+          startSchedulePolling();
         }
       } catch (error) {
         console.error('Error cargando estadísticas:', error);
+      }
+    }
+
+    // ==========================================
+    // POLLING EN TIEMPO REAL — Horario y Festivos
+    // ==========================================
+    // Actualiza el estado de los botones cada 10 segundos
+    // sin necesidad de recargar la página
+    let _schedulePollingInterval = null;
+
+    function startSchedulePolling() {
+      // Evitar duplicados
+      if (_schedulePollingInterval) return;
+      _schedulePollingInterval = setInterval(async () => {
+        // Solo actualizar si los elementos existen en el DOM
+        if (document.getElementById('schedule-status')) {
+          await loadScheduleCheckStatus();
+        }
+        if (document.getElementById('holiday-status')) {
+          await loadHolidayCheckStatus();
+        }
+      }, 10000); // cada 10 segundos
+      console.log('🔄 Polling de horario/festivos iniciado (cada 10s)');
+    }
+
+    function stopSchedulePolling() {
+      if (_schedulePollingInterval) {
+        clearInterval(_schedulePollingInterval);
+        _schedulePollingInterval = null;
+        console.log('⏹️ Polling de horario/festivos detenido');
       }
     }
 
@@ -6247,13 +6360,73 @@
       loadScheduleConfig();
     }
 
+    // ✅ FIX: Mostrar vista de conversaciones en iframe (mantiene sidebar del dashboard)
+    function showConversationsView() {
+      // Ocultar TODO el contenido del dashboard (breadcrumb + content-card + container)
+      const dashContent = document.querySelector('.dashboard-content');
+      if (dashContent) dashContent.style.display = 'none';
+
+      // Ocultar header del dashboard (chat.html tiene su propia header)
+      const dashHeader = document.querySelector('.dashboard-header');
+      if (dashHeader) dashHeader.style.display = 'none';
+
+      // Hacer que main-content use flex para que el iframe llene todo
+      const mainContent = document.querySelector('.main-content');
+      mainContent.style.display = 'flex';
+      mainContent.style.flexDirection = 'column';
+
+      // Crear o mostrar el contenedor de conversaciones con iframe
+      let convView = document.getElementById('conversations-iframe-container');
+      if (!convView) {
+        // Detectar tema actual para fondo
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const bgColor = isDark ? '#0b141a' : '#f0f2f5';
+
+        convView = document.createElement('div');
+        convView.id = 'conversations-iframe-container';
+        convView.style.cssText = 'flex:1;display:flex;width:100%;height:100vh;overflow:hidden;background:' + bgColor + ';';
+
+        const iframe = document.createElement('iframe');
+        iframe.id = 'conversations-iframe';
+        iframe.src = '/chat.html?embed=1';
+        iframe.style.cssText = 'width:100%;height:100%;border:none;';
+        convView.appendChild(iframe);
+
+        mainContent.appendChild(convView);
+      } else {
+        convView.style.display = 'flex';
+      }
+    }
+
     // Ocultar vista de conversaciones
     function hideConversationsView() {
-      // Mostrar contenido original
-      document.querySelector('.container').style.display = 'block';
+      // Mostrar contenido original del dashboard
+      const dashContent = document.querySelector('.dashboard-content');
+      if (dashContent) {
+        dashContent.style.display = '';
+        // Forzar repintado del navegador para evitar pantalla en negro
+        void dashContent.offsetHeight;
+      }
 
-      // Ocultar vista de conversaciones
-      document.getElementById('conversations-view').style.display = 'none';
+      // Mostrar header del dashboard
+      const dashHeader = document.querySelector('.dashboard-header');
+      if (dashHeader) {
+        dashHeader.style.display = '';
+        void dashHeader.offsetHeight;
+      }
+
+      // Restaurar main-content
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) {
+        mainContent.style.display = '';
+        mainContent.style.flexDirection = '';
+      }
+
+      // Ocultar iframe de conversaciones
+      const convView = document.getElementById('conversations-iframe-container');
+      if (convView) {
+        convView.style.display = 'none';
+      }
     }
 
     /* ========================================
@@ -6303,6 +6476,8 @@
       loadHolidaysData();
       loadHolidayCheckStatus();
       loadScheduleStatusForHolidays();
+      // ✅ Iniciar polling en tiempo real al abrir la vista
+      startSchedulePolling();
     }
 
     // Ocultar vista de días festivos
@@ -6314,6 +6489,8 @@
       // Restaurar content-card
       const contentCard = document.querySelector('.content-card');
       if (contentCard) contentCard.style.display = '';
+      // ✅ Detener polling al salir de la vista
+      stopSchedulePolling();
     }
 
     // Cargar estado del horario para la vista de festivos
@@ -6744,6 +6921,7 @@
       tabsHeader.innerHTML = allStages.map(stage => {
         const isActive = stage.id === currentStageId;
         const activeClass = isActive ? 'active' : '';
+        const stageEnabled = stage.is_active !== false;
 
         return `
           <div class="stage-tab ${activeClass}" data-stage-id="${stage.id}" onclick="selectStage('${stage.id}')" style="
@@ -6761,9 +6939,36 @@
             border: 2px solid ${isActive ? 'var(--primary-green)' : '#e0e0e0'};
             border-bottom: none;
             position: relative;
+            opacity: ${stageEnabled ? '1' : '0.5'};
           " onmouseover="this.style.background='${isActive ? 'var(--primary-green)' : '#e0e0e0'}'"
              onmouseout="this.style.background='${isActive ? 'var(--primary-green)' : '#f5f5f5'}'">
             <span>${stage.name}</span>
+            <label onclick="event.stopPropagation()" style="
+              position: relative;
+              display: inline-block;
+              width: 30px;
+              height: 16px;
+              flex-shrink: 0;
+              margin-left: 4px;
+            " title="${stageEnabled ? 'Etapa activa - Click para desactivar' : 'Etapa inactiva - Click para activar'}">
+              <input type="checkbox" ${stageEnabled ? 'checked' : ''} onchange="toggleStageActive('${stage.id}', this.checked)" style="opacity:0;width:0;height:0;">
+              <span style="
+                position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+                background: ${stageEnabled ? '#43a047' : '#ef5350'};
+                border-radius: 16px;
+                transition: background 0.3s;
+              "></span>
+              <span style="
+                position: absolute; content: '';
+                height: 12px; width: 12px;
+                left: ${stageEnabled ? '16px' : '2px'};
+                bottom: 2px;
+                background: white;
+                border-radius: 50%;
+                transition: left 0.3s;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+              "></span>
+            </label>
             <button onclick="event.stopPropagation(); openEditStageModal('${stage.id}', '${stage.name.replace(/'/g, "\\'")}')" style="
               background: none;
               border: none;
@@ -6787,6 +6992,30 @@
           </div>
         `;
       }).join('');
+    }
+
+    // ✅ NUEVO: Activar/desactivar etapa
+    async function toggleStageActive(stageId, isActive) {
+      try {
+        const res = await authenticatedFetch(`/api/stages/${stageId}/toggle`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: isActive })
+        });
+        const data = await res.json();
+        if (data.success) {
+          // Actualizar etapa en memoria
+          const stage = allStages.find(s => s.id === stageId);
+          if (stage) stage.is_active = isActive;
+          renderStagesTabs();
+          showToast(`${isActive ? '🟢 Etapa activada' : '🔴 Etapa desactivada'} - ${data.stage?.name || 'Etapa'}`);
+        } else {
+          showToast('Error: ' + (data.error || 'Error desconocido'), 'error');
+        }
+      } catch (error) {
+        console.error('Error toggling stage:', error);
+        showToast('Error al cambiar estado de etapa', 'error');
+      }
     }
 
     // Seleccionar una etapa
@@ -8416,6 +8645,19 @@
         updatePendingBadge();
         // ✅ NUEVO: Cargar configuración de proveedores de IA
         loadAIProviderSettings();
+
+        // ✅ FIX: Check for pendingView from chat.html navigation
+        const pendingView = localStorage.getItem('pendingView');
+        if (pendingView) {
+          localStorage.removeItem('pendingView');
+          // Wait for DOM to be ready, then navigate to the pending view
+          setTimeout(() => {
+            const navItem = document.querySelector('.nav-item[onclick*="changeView(\'' + pendingView + '\')"]');
+            if (navItem) {
+              navItem.click();
+            }
+          }, 200);
+        }
       } else {
         // No token, show login
         document.getElementById('login-overlay').classList.remove('hidden');
@@ -9063,6 +9305,10 @@
               <span class="attach-menu-icon">🎵</span>
               <span>Audio</span>
             </div>
+            <div class="attach-menu-item" data-action="video">
+              <span class="attach-menu-icon">🎬</span>
+              <span>Video</span>
+            </div>
             <div class="attach-menu-item" data-action="camera">
               <span class="attach-menu-icon">📷</span>
               <span>Cámara</span>
@@ -9076,6 +9322,7 @@
             <input type="file" id="file-document-input"
               accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain">
             <input type="file" id="file-audio-input" accept="audio/mpeg,audio/ogg,audio/wav,audio/mp4,audio/webm">
+            <input type="file" id="file-video-input" accept="video/mp4,video/webm,video/3gpp,video/quicktime">
             <input type="file" id="file-camera-input" accept="image/*" capture="environment">
           </div>
 

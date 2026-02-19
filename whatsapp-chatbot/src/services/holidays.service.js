@@ -14,13 +14,10 @@
 const logger = require('../utils/logger');
 const holidayRepository = require('../repositories/holiday.repository');
 const { Holiday } = require('../models/holiday.model');
+const scheduleConfig = require('./schedule-config.service');
 
-// ===========================================
-// CONTROL DE VERIFICACIÓN DE FESTIVOS
-// ===========================================
-// Permite activar/desactivar la verificación de días festivos
-// ✅ ACTIVADO POR DEFECTO - Se puede desactivar vía API
-let holidayCheckEnabled = true;
+// ✅ PERSISTENCIA: holidayCheckEnabled ahora se lee/escribe desde schedule-config.service.js
+// (guardado en data/schedule-config.json, no en memoria volátil)
 
 /**
  * Servicio de Holidays
@@ -46,20 +43,20 @@ class HolidaysService {
    * @returns {Object} Resultado
    */
   static setHolidayCheck(enabled) {
-    const previousState = holidayCheckEnabled;
-    holidayCheckEnabled = enabled;
+    const previousState = scheduleConfig.getHolidayEnabled();
+    scheduleConfig.setHolidayEnabled(enabled);
 
     if (enabled) {
-      logger.info(`✅ Verificación de días festivos ACTIVADA`);
+      logger.info(`✅ Verificación de días festivos ACTIVADA (persistida en disco)`);
       logger.info(`   El bot verificará si hoy es festivo antes de responder`);
     } else {
-      logger.warn(`⚠️ Verificación de días festivos DESACTIVADA`);
+      logger.warn(`⚠️ Verificación de días festivos DESACTIVADA (persistida en disco)`);
       logger.warn(`   El bot responderá SIN verificar si es festivo`);
     }
 
     return {
       success: true,
-      holidayCheckEnabled: holidayCheckEnabled,
+      holidayCheckEnabled: enabled,
       previousState: previousState,
       message: enabled
         ? 'Verificación de días festivos activada'
@@ -69,10 +66,11 @@ class HolidaysService {
 
   /**
    * Verifica si la verificación de festivos está activada
+   * ✅ Lee desde disco (persiste entre reinicios)
    * @returns {boolean} true si está activada
    */
   static isHolidayCheckEnabled() {
-    return holidayCheckEnabled;
+    return scheduleConfig.getHolidayEnabled();
   }
 
   /**
@@ -81,7 +79,7 @@ class HolidaysService {
    */
   static getHolidayCheckStatus() {
     return {
-      enabled: holidayCheckEnabled
+      enabled: scheduleConfig.getHolidayEnabled()
     };
   }
 
@@ -278,7 +276,7 @@ class HolidaysService {
   async isTodayHoliday() {
     try {
       // Verificar si la verificación de festivos está desactivada
-      if (!holidayCheckEnabled) {
+      if (!scheduleConfig.getHolidayEnabled()) {
         logger.debug(`📅 Verificación de días festivos DESACTIVADA. No se verifica festivo.`);
         return false;
       }

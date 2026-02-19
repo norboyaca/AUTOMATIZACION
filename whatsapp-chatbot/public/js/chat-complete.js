@@ -367,7 +367,7 @@
           timestamp: Date.now()
         });
 
-        showAlert(`✅ ${type === 'image' ? 'Imagen' : type === 'document' ? 'Documento' : 'Audio'} enviado`, 'success');
+        showAlert(`✅ ${type === 'image' ? 'Imagen' : type === 'video' ? 'Video' : type === 'document' ? 'Documento' : 'Audio'} enviado`, 'success');
         scrollToBottom();
       } else {
         throw new Error(sendResult.error || 'Error al enviar archivo');
@@ -721,7 +721,7 @@
 
     // ✅ FIX: Asegurar que los inputs de archivo estén ocultos
     // Esto evita que aparezcan botones "Choose File" fantasma
-    ['file-image-input', 'file-document-input', 'file-audio-input', 'file-camera-input']
+    ['file-image-input', 'file-document-input', 'file-audio-input', 'file-video-input', 'file-camera-input']
       .forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
@@ -876,6 +876,18 @@
       `;
     } else if (msg.type === 'document') {
       messageContent = `<div class="message-text">📄 ${escapeHtml(msg.message || 'Documento')}</div>`;
+    } else if (msg.type === 'video' && mediaUrl) {
+      messageContent = `
+        <div class="message-video">
+          <video controls src="${mediaUrl}" style="max-width:280px;border-radius:6px" preload="metadata">Video</video>
+          <a class="media-download-btn" href="${mediaUrl}" download title="Descargar video">
+            ⬇️ Descargar
+          </a>
+        </div>
+        ${msg.message && msg.message !== '[Video recibido]' ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}
+      `;
+    } else if (msg.type === 'video') {
+      messageContent = `<div class="message-text">🎬 ${escapeHtml(msg.message || 'Video')}</div>`;
     } else {
       messageContent = `<div class="message-text">${escapeHtml(msg.message || '')}</div>`;
     }
@@ -1162,6 +1174,9 @@
           case 'audio':
             inputId = 'file-audio-input';
             break;
+          case 'video':
+            inputId = 'file-video-input';
+            break;
           case 'camera':
             inputId = 'file-camera-input';
             break;
@@ -1185,11 +1200,13 @@
     const fileImageInput = document.getElementById('file-image-input');
     const fileDocumentInput = document.getElementById('file-document-input');
     const fileAudioInput = document.getElementById('file-audio-input');
+    const fileVideoInput = document.getElementById('file-video-input');
     const fileCameraInput = document.getElementById('file-camera-input');
 
     if (fileImageInput) fileImageInput.addEventListener('change', (e) => handleFileUpload(e.target, 'image'));
     if (fileDocumentInput) fileDocumentInput.addEventListener('change', (e) => handleFileUpload(e.target, 'document'));
     if (fileAudioInput) fileAudioInput.addEventListener('change', (e) => handleFileUpload(e.target, 'audio'));
+    if (fileVideoInput) fileVideoInput.addEventListener('change', (e) => handleFileUpload(e.target, 'video'));
     if (fileCameraInput) fileCameraInput.addEventListener('change', (e) => handleFileUpload(e.target, 'image'));
 
     // Cerrar modal al hacer click fuera

@@ -36,7 +36,10 @@ const DEFAULT_CONFIG = {
     sunday: {
         enabled: false
     },
-    timezone: 'America/Bogota'
+    timezone: 'America/Bogota',
+    // ✅ PERSISTENCIA: Estados de activación guardados en disco (no en memoria)
+    scheduleCheckEnabled: false,  // false = el bot responde sin verificar horario
+    holidayCheckEnabled: true     // true = el bot verifica días festivos
 };
 
 // Configuración en memoria
@@ -165,6 +168,57 @@ function updateConfig(newConfig) {
     };
 }
 
+// ===========================================
+// FUNCIONES PARA PERSISTIR ESTADOS DE ACTIVACIÓN
+// ===========================================
+
+/**
+ * Obtiene el estado persistido de la verificación de horario.
+ * @returns {boolean}
+ */
+function getScheduleEnabled() {
+    // ✅ Siempre releer del disco para reflejar cambios manuales al JSON
+    loadConfig();
+    return currentConfig.scheduleCheckEnabled === true;
+}
+
+/**
+ * Persiste el estado de activación del horario en disco.
+ * @param {boolean} enabled
+ * @returns {{ success: boolean }}
+ */
+function setScheduleEnabled(enabled) {
+    if (!currentConfig) loadConfig();
+    currentConfig.scheduleCheckEnabled = enabled;
+    const saved = saveConfigToFile();
+    logger.info(`📅 Verificación de horario ${enabled ? 'ACTIVADA' : 'DESACTIVADA'} y guardada en disco`);
+    return { success: saved };
+}
+
+/**
+ * Obtiene el estado persistido de la verificación de festivos.
+ * @returns {boolean}
+ */
+function getHolidayEnabled() {
+    // ✅ Siempre releer del disco para reflejar cambios manuales al JSON
+    loadConfig();
+    // Si el campo no existe en el archivo aún, usar el default (true)
+    return currentConfig.holidayCheckEnabled !== false;
+}
+
+/**
+ * Persiste el estado de activación de festivos en disco.
+ * @param {boolean} enabled
+ * @returns {{ success: boolean }}
+ */
+function setHolidayEnabled(enabled) {
+    if (!currentConfig) loadConfig();
+    currentConfig.holidayCheckEnabled = enabled;
+    const saved = saveConfigToFile();
+    logger.info(`📅 Verificación de festivos ${enabled ? 'ACTIVADA' : 'DESACTIVADA'} y guardada en disco`);
+    return { success: saved };
+}
+
 /**
  * Obtiene la configuración en formato legible para el usuario.
  * Usado para generar mensajes de "fuera de horario".
@@ -197,5 +251,9 @@ loadConfig();
 module.exports = {
     getConfig,
     updateConfig,
-    getFormattedSchedule
+    getFormattedSchedule,
+    getScheduleEnabled,
+    setScheduleEnabled,
+    getHolidayEnabled,
+    setHolidayEnabled
 };

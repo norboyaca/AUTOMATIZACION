@@ -63,9 +63,11 @@ async function loadConversationsFromDB() {
 
         // Nombres
         whatsappName: convData.participantName || null,
+        customName: convData.customName || null, // ✅ NUEVO: Nombre personalizado
 
         // Estado
         status: convData.status || 'active',
+        isDeleted: convData.isDeleted || false, // ✅ NUEVO: Soft delete
         bot_active: convData.status !== 'advisor_handled', // Si está siendo atendido por asesor, bot inactivo
 
         // Flujo activo (para máquinas de estado)
@@ -82,6 +84,7 @@ async function loadConversationsFromDB() {
         consentStatus: convData.consentStatus || 'pending',
         consentMessageSent: convData.consentMessageSent || false,
         datosAceptados: convData.datosAceptados || false,
+        welcomeSent: convData.welcomeSent === true, // ✅ FIX Bug4: Restaurar desde DynamoDB
 
         // Contadores
         interactionCount: 0,
@@ -114,7 +117,11 @@ async function loadConversationsFromDB() {
         // Contexto y metadatos
         context: convData.context || { systemPrompt: null, variables: {} },
         metadata: convData.metadata || {},
-        tags: convData.tags || []
+        tags: convData.tags || [],
+
+        // ✅ Campos de gestión (CRITICAL: restaurar desde DB)
+        customName: convData.customName || null,
+        isDeleted: convData.isDeleted || false
       };
 
       conversationsCache.set(cacheKey, memoryConversation);
@@ -123,6 +130,23 @@ async function loadConversationsFromDB() {
     }
 
     logger.info(`✅ ${loadedCount} conversaciones cargadas desde DynamoDB a memoria`);
+
+    // ✅ FIX Bug3: Restaurar estado de consentimiento en chat.service.js
+    try {
+      const chatService = require('./chat.service');
+      let consentRestored = 0;
+      for (const [userId, conv] of conversationsCache) {
+        if (conv.datosAceptados || conv.consentStatus === 'accepted' || conv.consentStatus === 'noted') {
+          chatService.setConsentResponse(userId, true);
+          consentRestored++;
+        }
+      }
+      if (consentRestored > 0) {
+        logger.info(`✅ ${consentRestored} estados de consentimiento restaurados en chat.service`);
+      }
+    } catch (e) {
+      logger.warn(`⚠️ No se pudo restaurar consent en chat.service:`, e.message);
+    }
   } catch (error) {
     logger.error('❌ Error cargando conversaciones desde DynamoDB:', error);
     logger.error(`   Stack: ${error.stack}`);
@@ -234,6 +258,9 @@ function getOrCreateConversation(userId, options = {}) {
       lastEscalationMessageAt: null,
       manuallyReactivated: false,
       whatsappName: (whatsappName && whatsappName.trim()) ? whatsappName.trim() : null,
+      // ✅ NUEVO: Campos de gestión
+      customName: null,
+      isDeleted: false,
       whatsappNameUpdatedAt: whatsappName ? Date.now() : null,
       createdAt: new Date(),
       updatedAt: new Date()
@@ -387,6 +414,9 @@ function resetConversation(userId) {
     lastEscalationMessageAt: null,
     manuallyReactivated: false,
     whatsappName: oldConversation.whatsappName || null,
+    // ✅ NUEVO: Preservar nombre personalizado
+    customName: oldConversation.customName || null,
+    isDeleted: false, // Al reiniciar, 'revivimos' el chat si estaba borrado
     whatsappNameUpdatedAt: oldConversation.whatsappNameUpdatedAt || null,
     updatedAt: new Date()
   };
@@ -435,16 +465,17 @@ function markConsentSent(userId) {
 function updateLastMessage(userId, message) {
   const conversation = getOrCreateConversation(userId);
 
-  // Guardar en caché local de mensajes (para contexto inmediato)
-  if (!conversation.messages) conversation.messages = [];
-  conversation.messages.push(message);
-
-  // Limitar caché local a últimos 50 mensajes para no explotar memoria
-  if (conversation.messages.length > 50) {
-    conversation.messages = conversation.messages.slice(-50);
+  // ✅ FIX: Si llega un nuevo mensaje, el chat debe volver a aparecer (deshacer borrado)
+  if (conversation.isDeleted) {
+    conversation.isDeleted = false;
   }
 
-  conversation.lastMessage = message.content?.text || '[Multimedia]';
+  // ✅ FIX Bug1: Solo actualizar el texto de vista previa del último mensaje.
+  // NO hacer push al array de mensajes aquí — saveMessage() ya lo maneja.
+  // Antes se hacía push aquí Y en saveMessage(), causando mensajes duplicados.
+  conversation.lastMessage = (typeof message === 'string')
+    ? message
+    : (message.content?.text || message.message || '[Multimedia]');
   conversation.lastInteraction = Date.now();
 
   persistConversation(conversation);
@@ -463,12 +494,27 @@ function incrementInteractionCount(userId) {
  * Obtiene todas las conversaciones (del caché)
  */
 function getAllConversations() {
-  return Array.from(conversationsCache.values()).map(conv => ({
-    ...conv,
-    remainingTime: getRemainingTime(conv),
-    remainingTimeFormatted: getRemainingTimeFormatted(conv),
-    timeSinceLastInteraction: Date.now() - conv.lastInteraction
-  }));
+  return Array.from(conversationsCache.values())
+    .filter(c => !c.isDeleted) // ✅ NUEVO: Filtrar eliminados
+    .map(conv => ({
+      ...conv,
+      remainingTime: getRemainingTime(conv),
+      remainingTimeFormatted: getRemainingTimeFormatted(conv),
+      timeSinceLastInteraction: Date.now() - conv.lastInteraction
+    }));
+}
+
+/**
+ * Obtiene TODAS las conversaciones incluyendo eliminadas (para uso interno)
+ */
+function getAllConversationsRaw() {
+  return Array.from(conversationsCache.values())
+    .map(conv => ({
+      ...conv,
+      remainingTime: getRemainingTime(conv),
+      remainingTimeFormatted: getRemainingTimeFormatted(conv),
+      timeSinceLastInteraction: Date.now() - conv.lastInteraction
+    }));
 }
 
 /**
@@ -613,7 +659,32 @@ function updateWhatsappName(userId, whatsappName, force = false) {
     conversation.whatsappName = whatsappName.trim();
     conversation.whatsappNameUpdatedAt = Date.now();
     persistConversation(conversation);
+    persistConversation(conversation);
   }
+  return conversation;
+}
+
+/**
+ * Actualiza el nombre personalizado de un contacto
+ */
+function updateCustomName(userId, name) {
+  const conversation = getOrCreateConversation(userId);
+  conversation.customName = name && name.trim() ? name.trim() : null;
+  // Al editar nombre, aseguramos que el chat no esté "borrado"
+  conversation.isDeleted = false;
+  persistConversation(conversation);
+  return conversation;
+}
+
+/**
+ * Elimina una conversación (Soft Delete)
+ */
+function softDeleteConversation(userId) {
+  const conversation = getConversation(userId);
+  if (!conversation) return null;
+
+  conversation.isDeleted = true;
+  persistConversation(conversation);
   return conversation;
 }
 
@@ -658,5 +729,8 @@ module.exports = {
   getMessagesByDateRange,
   cleanOldMessages,
   // ✅ Exportar para que Baileys y otros módulos puedan recargar
-  loadConversationsFromDB
+  loadConversationsFromDB,
+  updateCustomName,
+  softDeleteConversation,
+  getAllConversationsRaw
 };

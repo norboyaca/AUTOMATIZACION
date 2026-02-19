@@ -121,6 +121,9 @@ const getExtensionFromMime = (mimeType) => {
     'audio/webm': '.webm',  // ✅ Agregado para audio del navegador
     'audio/wav': '.wav',
     'video/mp4': '.mp4',
+    'video/webm': '.webm',
+    'video/3gpp': '.3gp',
+    'video/quicktime': '.mov',
     'application/pdf': '.pdf',
     'application/msword': '.doc',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
@@ -180,6 +183,7 @@ const formatBytes = (bytes) => {
 const ALLOWED_UPLOAD_TYPES = {
   audio: ['audio/mpeg', 'audio/ogg', 'audio/mp4', 'audio/wav', 'audio/webm'],  // ✅ Agregado webm
   image: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+  video: ['video/mp4', 'video/webm', 'video/3gpp', 'video/quicktime'],  // ✅ Agregado video
   document: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']  // ✅ Agregado PDF y Word
 };
 
@@ -220,15 +224,38 @@ const saveUploadedFile = async (file, type) => {
     // Guardar archivo
     const filepath = path.join(uploadDir, filename);
 
+    // Obtener buffer para guardado y posible subida a S3
+    let fileBuffer = null;
     if (file.buffer) {
       // Archivo desde memoria (multer memoryStorage)
-      await fs.writeFile(filepath, file.buffer);
+      fileBuffer = file.buffer;
+      await fs.writeFile(filepath, fileBuffer);
     } else if (file.path) {
       // Archivo temporal (multer diskStorage)
       await fs.copyFile(file.path, filepath);
+      // Leer buffer para S3
+      fileBuffer = await fs.readFile(filepath);
     }
 
     logger.info(`Archivo guardado: ${filepath} (${type})`);
+
+    // ✅ FIX: Subir a S3 en segundo plano (fire & forget)
+    let s3Url = null;
+    if (config.s3 && config.s3.enabled && fileBuffer) {
+      try {
+        const s3Service = require('./s3.service');
+        const s3Key = s3Service.generateS3Key(mimeType, filename, 'dashboard_uploads');
+        s3Service.uploadFile(s3Key, fileBuffer, mimeType)
+          .then(result => {
+            if (result) {
+              logger.info(`☁️ [S3] Archivo de dashboard sincronizado: ${result.s3Key}`);
+            }
+          })
+          .catch(err => logger.error(`❌ [S3] Error sincronizando archivo de dashboard: ${err.message}`));
+      } catch (s3Error) {
+        logger.warn(`⚠️ [S3] No se pudo iniciar sync: ${s3Error.message}`);
+      }
+    }
 
     return {
       filename,
@@ -291,8 +318,11 @@ const getMimeTypeFromFilename = (filename) => {
     '.mp3': 'audio/mpeg',
     '.ogg': 'audio/ogg',
     '.wav': 'audio/wav',
-    '.webm': 'audio/webm',  // ✅ Agregado para audio del navegador
+    '.webm': 'audio/webm',
     '.m4a': 'audio/mp4',
+    '.mp4': 'video/mp4',
+    '.3gp': 'video/3gpp',
+    '.mov': 'video/quicktime',
     '.pdf': 'application/pdf',
     '.doc': 'application/msword',
     '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'

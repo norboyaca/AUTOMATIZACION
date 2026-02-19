@@ -31,6 +31,9 @@
     let isEmojiPickerOpen = false;
     let isAttachMenuOpen = false;
 
+    // ✅ NUEVO: Reply-to state
+    let pendingReplyTo = null;
+
     // ==========================================
     // AUTH
     // ==========================================
@@ -407,7 +410,8 @@
         });
 
         scrollEl.innerHTML = filtered.map(conv => {
-            const name = conv.whatsappName || conv.registeredName || 'Sin nombre';
+            // ✅ Fix: Prioritize customName
+            const name = conv.customName || conv.whatsappName || conv.registeredName || 'Sin nombre';
             const phone = formatPhoneDisplay(conv.phoneNumber);
             const initials = getInitials(name !== 'Sin nombre' ? name : normalizePhoneNumber(conv.phoneNumber));
             const lastMsg = conv.lastMessage
@@ -439,6 +443,15 @@
             <div class="conv-info-bottom">
               <span class="conv-last-msg">${escapeHtml(lastMsg)}</span>
               ${status.text ? `<span class="conv-status-badge ${status.cls}">${status.text}</span>` : ''}
+              
+              <div class="conv-actions">
+                <button class="conv-action-btn edit" title="Editar Nombre" onclick="event.stopPropagation(); ChatPage.editContactName('${conv.userId}')">
+                  ✏️
+                </button>
+                <button class="conv-action-btn delete" title="Eliminar Chat" onclick="event.stopPropagation(); ChatPage.deleteChat('${conv.userId}')">
+                  🗑️
+                </button>
+              </div>
             </div>
           </div>
         </div>`;
@@ -455,7 +468,8 @@
 
         // Find conversation data
         currentConvData = conversations.find(c => c.userId === userId) || null;
-        const name = currentConvData?.whatsappName || currentConvData?.registeredName || 'Sin nombre';
+        // ✅ Fix: Prioritize customName
+        const name = currentConvData?.customName || currentConvData?.whatsappName || currentConvData?.registeredName || 'Sin nombre';
         const phone = formatPhoneDisplay(currentConvData?.phoneNumber || userId);
         const initials = getInitials(name !== 'Sin nombre' ? name : normalizePhoneNumber(currentConvData?.phoneNumber || userId));
 
@@ -750,6 +764,9 @@
             const streamUrl = mediaUrl.replace('/download/', '/stream/');
             messageContent = `<div class="message-image"><img src="${streamUrl}" alt="Imagen" onclick="window.open('${streamUrl}','_blank')" style="max-width:280px;border-radius:6px;cursor:pointer"></div>
       ${msg.message && msg.message !== msg.fileName ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}`;
+        } else if (msg.type === 'video') {
+            messageContent = `<div class="message-video"><video controls src="${mediaUrl}" style="max-width:280px;border-radius:6px" preload="metadata">Video</video></div>
+      ${msg.message && msg.message !== msg.fileName ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}`;
         } else if (msg.type === 'document') {
             messageContent = `<div class="message-document">
         <span class="message-document-icon">📄</span>
@@ -768,17 +785,33 @@
         </svg>
       </span>` : '';
 
+        // ✅ NUEVO: Render referencia si el mensaje tiene replyTo
+        let replyHTML = '';
+        if (msg.replyTo && msg.replyTo.message) {
+            const replySenderLabel = msg.replyTo.senderName || (msg.replyTo.sender === 'admin' ? 'Asesor' : msg.replyTo.sender === 'bot' ? '🤖 Bot' : 'Usuario');
+            replyHTML = `
+        <div class="quoted-message" onclick="ChatPage.scrollToMessage('${msg.replyTo.id || ''}')">
+          <div class="quoted-sender">${escapeHtml(replySenderLabel)}</div>
+          <div class="quoted-text">${escapeHtml((msg.replyTo.message || '').substring(0, 120))}${(msg.replyTo.message || '').length > 120 ? '...' : ''}</div>
+        </div>`;
+        }
+
+        // ✅ NUEVO: Botón de responder
+        const replyBtnHTML = `<button class="msg-reply-btn" title="Responder" onclick="ChatPage.setReplyTo('${msgId || ''}', '${senderClass}', '${escapeHtml(senderName).replace(/'/g, '\\&#39;')}', this)">↩</button>`;
+
         const el = document.createElement('div');
         el.className = `chat-message ${senderClass}`;
         if (msgId) el.setAttribute('data-message-id', msgId);
         el.innerHTML = `
       <div class="message-sender">${escapeHtml(senderName)}</div>
       <div class="message-bubble">
+        ${replyHTML}
         ${messageContent}
         <div class="message-meta">
           <span class="message-time">${timeStr}</span>
           ${checksHTML}
         </div>
+        ${replyBtnHTML}
       </div>`;
 
         messagesDiv.appendChild(el);
@@ -808,21 +841,29 @@
         input.value = '';
         input.style.height = 'auto';
 
+        // ✅ NUEVO: Capturar replyTo antes de limpiarlo
+        const replyTo = pendingReplyTo ? { ...pendingReplyTo } : null;
+        cancelReply(); // Limpiar preview
+
         // Optimistic append
         appendMessage({
             id: 'local_' + Date.now(),
             sender: 'admin',
             senderName: advisor.name,
             message,
+            replyTo,
             timestamp: Date.now()
         });
         scrollToBottom();
 
         try {
+            const body = { message, advisor };
+            if (replyTo) body.replyTo = replyTo;
+
             const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/send-message`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message, advisor })
+                body: JSON.stringify(body)
             });
             const data = await res.json();
             if (!data.success) showToast('Error enviando mensaje: ' + (data.error || ''), 'error');
@@ -924,7 +965,7 @@
                     timestamp: Date.now()
                 });
                 scrollToBottom();
-                showToast(`✅ ${type === 'image' ? 'Imagen' : type === 'document' ? 'Documento' : 'Audio'} enviado`);
+                showToast(`✅ ${type === 'image' ? 'Imagen' : type === 'video' ? 'Video' : type === 'document' ? 'Documento' : 'Audio'} enviado`);
             } else {
                 throw new Error(sendData.error || 'Send failed');
             }
@@ -1138,6 +1179,10 @@
                     existingConv.whatsappName = data.whatsappName;
                     existingConv.registeredName = data.whatsappName;
                 }
+                // ✅ FIX: Update customName if provided
+                if (data.customName !== undefined) {
+                    existingConv.customName = data.customName;
+                }
             } else {
                 // New conversation — add it to the array
                 conversations.unshift({
@@ -1145,6 +1190,7 @@
                     phoneNumber: data.phoneNumber || normalizePhoneNumber(userId),
                     whatsappName: data.whatsappName || msg.senderName || 'Sin nombre',
                     registeredName: data.whatsappName || msg.senderName || 'Sin nombre',
+                    customName: data.customName || null, // ✅ FIX: Include customName
                     lastMessage: msg.message || msg.text || '',
                     lastMessageTime: msg.timestamp || Date.now(),
                     lastInteraction: msg.timestamp || Date.now(),
@@ -1302,6 +1348,12 @@
         const sendBtn = document.getElementById('chat-send-btn');
         if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
+        // ✅ Bind New Chat Button
+        const btnNewChat = document.getElementById('btn-new-chat');
+        if (btnNewChat) {
+            btnNewChat.addEventListener('click', createNewChat);
+        }
+
         // Input: Enter to send, auto-resize
         const input = document.getElementById('chat-message-input');
         if (input) {
@@ -1334,7 +1386,7 @@
         document.querySelectorAll('.attach-menu-item').forEach(item => {
             item.addEventListener('click', function () {
                 const action = this.dataset.action;
-                const inputMap = { image: 'file-image-input', document: 'file-document-input', audio: 'file-audio-input' };
+                const inputMap = { image: 'file-image-input', document: 'file-document-input', audio: 'file-audio-input', video: 'file-video-input' };
                 const inputId = inputMap[action];
                 if (inputId) document.getElementById(inputId)?.click();
                 if (isAttachMenuOpen) toggleAttachMenu();
@@ -1345,9 +1397,11 @@
         const fileImage = document.getElementById('file-image-input');
         const fileDoc = document.getElementById('file-document-input');
         const fileAudio = document.getElementById('file-audio-input');
+        const fileVideo = document.getElementById('file-video-input');
         if (fileImage) fileImage.addEventListener('change', (e) => handleFileUpload(e.target, 'image'));
         if (fileDoc) fileDoc.addEventListener('change', (e) => handleFileUpload(e.target, 'document'));
         if (fileAudio) fileAudio.addEventListener('change', (e) => handleFileUpload(e.target, 'audio'));
+        if (fileVideo) fileVideo.addEventListener('change', (e) => handleFileUpload(e.target, 'video'));
 
         // Audio button
         const audioBtn = document.getElementById('chat-audio-btn');
@@ -1409,6 +1463,203 @@
     // ==========================================
     // EXPORT
     // ==========================================
+    // ✅ NUEVO: Reply-to functions
+    function setReplyTo(msgId, senderClass, senderName, btnEl) {
+        // Get the message text from the DOM
+        const msgEl = btnEl.closest('.chat-message');
+        const textEl = msgEl?.querySelector('.message-text');
+        const msgText = textEl ? textEl.textContent : '';
+
+        pendingReplyTo = {
+            id: msgId,
+            message: msgText,
+            sender: senderClass,
+            senderName: senderName
+        };
+
+        // Show reply preview bar
+        let preview = document.getElementById('reply-preview');
+        if (!preview) {
+            preview = document.createElement('div');
+            preview.id = 'reply-preview';
+            preview.className = 'reply-preview';
+            const footer = document.querySelector('.chat-footer');
+            if (footer) footer.parentNode.insertBefore(preview, footer);
+        }
+        const label = senderName || (senderClass === 'admin' ? 'Asesor' : senderClass === 'bot' ? '🤖 Bot' : 'Usuario');
+        preview.innerHTML = `
+            <div class="reply-preview-content">
+                <div class="reply-preview-sender">${escapeHtml(label)}</div>
+                <div class="reply-preview-text">${escapeHtml(msgText.substring(0, 100))}${msgText.length > 100 ? '...' : ''}</div>
+            </div>
+            <button class="reply-preview-close" onclick="ChatPage.cancelReply()">✕</button>
+        `;
+        preview.style.display = 'flex';
+        document.getElementById('chat-message-input')?.focus();
+    }
+
+    function cancelReply() {
+        pendingReplyTo = null;
+        const preview = document.getElementById('reply-preview');
+        if (preview) preview.style.display = 'none';
+    }
+
+    function scrollToMessage(msgId) {
+        if (!msgId) return;
+        const el = document.querySelector(`[data-message-id="${msgId}"]`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('highlight-message');
+            setTimeout(() => el.classList.remove('highlight-message'), 2000);
+        }
+    }
+
+    // ==========================================
+    // NEW FEATURES: CHAT MANAGEMENT
+    // ==========================================
+
+    function createNewChat() {
+        document.getElementById('form-new-chat').reset();
+        openModal('modal-new-chat');
+    }
+
+    async function submitNewChat() {
+        const phoneInput = document.getElementById('new-chat-phone');
+        const nameInput = document.getElementById('new-chat-name');
+
+        const phoneNumber = phoneInput.value.trim();
+        const name = nameInput.value.trim();
+
+        if (!phoneNumber) {
+            showToast('Por favor ingresa un número de teléfono', 'error');
+            return;
+        }
+
+        try {
+            const res = await authenticatedFetch('/api/conversations/create-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phoneNumber, name })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                closeModal('modal-new-chat');
+                showToast('✅ Chat creado correctamente');
+                // Reload list to show new chat
+                loadConversationList();
+                // Select the new chat
+                setTimeout(() => selectConversation(data.conversation.userId), 500);
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (e) {
+            showToast('Error al crear chat: ' + e.message, 'error');
+        }
+    }
+
+    function editContactName(userId) {
+        const conv = conversations.find(c => c.userId === userId);
+        if (!conv) return;
+
+        document.getElementById('edit-name-userid').value = userId;
+        document.getElementById('edit-name-input').value = conv.customName || conv.whatsappName || '';
+        openModal('modal-edit-name');
+    }
+
+    async function submitEditName() {
+        const userId = document.getElementById('edit-name-userid').value;
+        const name = document.getElementById('edit-name-input').value.trim();
+
+        if (!userId) return;
+
+        try {
+            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(userId)}/custom-name`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                closeModal('modal-edit-name');
+                showToast('✅ Nombre actualizado');
+
+                // Update local state and UI
+                const conv = conversations.find(c => c.userId === userId);
+                if (conv) {
+                    conv.customName = data.conversation.customName;
+                    conv.registeredName = data.conversation.registeredName;
+                    // Re-render list
+                    renderConversationList();
+                    // If active, update header
+                    if (currentChatUserId === userId) {
+                        document.getElementById('chat-header-name').textContent = conv.registeredName;
+                    }
+                }
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (e) {
+            showToast('Error al actualizar nombre: ' + e.message, 'error');
+        }
+    }
+
+    function deleteChat(userId) {
+        document.getElementById('delete-chat-userid').value = userId;
+        openModal('modal-confirm-delete');
+    }
+
+    async function submitDeleteChat() {
+        const userId = document.getElementById('delete-chat-userid').value;
+        if (!userId) return;
+
+        try {
+            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(userId)}`, {
+                method: 'DELETE'
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                closeModal('modal-confirm-delete');
+                showToast('🗑️ Chat eliminado');
+
+                // If active, clear chat panel
+                if (currentChatUserId === userId) {
+                    currentChatUserId = null;
+                    document.getElementById('chat-active').style.display = 'none';
+                    document.getElementById('chat-empty').style.display = 'flex';
+                }
+
+                // ✅ FIX: Remover inmediatamente de la lista local (sin esperar server)
+                conversations = conversations.filter(c => c.userId !== userId);
+                renderConversationList(conversations);
+            } else {
+                showToast('Error: ' + data.error, 'error');
+            }
+        } catch (e) {
+            showToast('Error al eliminar chat: ' + e.message, 'error');
+        }
+    }
+
+    // Modal helpers
+    function openModal(id) {
+        document.getElementById(id).classList.add('active');
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('active');
+    }
+
+    // Bind Global Functions for HTML onclick
+    window.submitNewChat = submitNewChat;
+    window.submitEditName = submitEditName;
+    window.submitDeleteChat = submitDeleteChat;
+    window.closeModal = closeModal;
+    window.openModal = openModal;
+
+
+
     window.ChatPage = {
         selectConversation,
         takeConversation,
@@ -1421,6 +1672,13 @@
         setFilter,
         stopAudioRecording,
         cancelAudioRecording,
+        setReplyTo,
+        cancelReply,
+        setReplyTo,
+        cancelReply,
+        scrollToMessage,
+        editContactName, // ✅ NUEVO
+        deleteChat,      // ✅ NUEVO
         loadMore: () => loadConversationList(conversationsOffset + CONVERSATIONS_LIMIT)
     };
 

@@ -19,6 +19,7 @@ const escalationService = require('./escalation.service');
 const chatService = require('./chat.service');
 const whatsappProvider = require('../providers/whatsapp');
 const timeSimulation = require('./time-simulation.service');
+const timezone = require('../utils/timezone'); // ✅ Para getDayOfWeek() con zona horaria correcta
 const numberControlService = require('./number-control.service');
 const spamControlService = require('./spam-control.service');
 const flowManager = require('../flows'); // ✅ NUEVO: Gestor de flujos
@@ -107,6 +108,62 @@ async function processIncomingMessage(userId, message, options = {}) {
         userMessageSaved = true;
       }
 
+      return null;
+    }
+
+    // ===========================================
+    // PUNTO DE CONTROL 4: HORARIO DE ATENCIÓN
+    // ⚠️ IMPORTANTE: Va ANTES del saludo para que incluso el primer
+    // mensaje reciba el mensaje de "fuera de horario" correctamente.
+    // ===========================================
+    if (await isOutOfHours()) {
+      logger.info(`🌙 Fuera de horario para ${userId}`);
+
+      // Solo enviar mensaje de fuera de horario si NO se ha enviado antes
+      if (conversation.escalationMessageSent === true) {
+        logger.info(`   Mensaje de fuera de horario ya enviado. Solo guardando mensaje.`);
+        if (!userMessageSaved) {
+          await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
+          userMessageSaved = true;
+        }
+        return null;
+      }
+
+      const outOfHoursMsg = await getOutOfHoursMessage();
+
+      // Actualizar estado
+      conversation.status = 'out_of_hours';
+      conversation.bot_active = false;
+      conversation.needs_human = true;
+      conversation.escalationMessageSent = true;
+      conversation.waitingForHuman = true;
+      conversation.lastEscalationMessageAt = Date.now();
+
+      // Enviar mensaje de fuera de horario
+      await whatsappProvider.sendMessage(userId, outOfHoursMsg);
+
+      // Guardar mensajes
+      if (!userMessageSaved) {
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
+        userMessageSaved = true;
+      }
+      await saveMessage(userId, outOfHoursMsg, 'bot', 'out_of_hours');
+
+      // Emitir evento de escalación al dashboard
+      if (io) {
+        io.emit('escalation-detected', {
+          userId: userId,
+          phoneNumber: conversation.phoneNumber,
+          reason: 'out_of_hours',
+          priority: 'low',
+          message: message,
+          type: 'out_of_hours',
+          timestamp: Date.now()
+        });
+        logger.info(`📢 Evento 'escalation-detected' emitido (fuera de horario) para ${userId}`);
+      }
+
+      logger.info(`✅ Mensaje fuera de horario enviado a ${userId}`);
       return null;
     }
 
@@ -604,7 +661,7 @@ Mientras tanto, en qué podemos ayudarle?`;
 
       // Guardar mensaje del usuario (pendiente para después) - solo si no se guardó antes
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
         userMessageSaved = true;
       }
 
@@ -660,7 +717,7 @@ Por favor, digita:
 
       // ✅ NUEVO: Guardar mensaje del usuario PRIMERO (para que aparezca en el dashboard)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user', 'consent_response', mediaData);
+        await saveMessage(userId, message, 'user', 'consent_response', mediaData, options.whatsappMessageId);
         userMessageSaved = true;
       }
 
@@ -728,66 +785,12 @@ Por favor, digita:
 
       // Solo guardar el mensaje del usuario (si no se guardó antes)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
         userMessageSaved = true;
       }
       return null;
     }
 
-    // ===========================================
-    // PUNTO DE CONTROL 4: HORARIO DE ATENCIÓN
-    // ===========================================
-    if (await isOutOfHours()) {
-      logger.info(`🌙 Fuera de horario para ${userId}`);
-
-      // Solo enviar mensaje de fuera de horario si NO se ha enviado antes
-      if (conversation.escalationMessageSent === true) {
-        logger.info(`   Mensaje de fuera de horario ya enviado. Solo guardando mensaje.`);
-        if (!userMessageSaved) {
-          await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
-          userMessageSaved = true;
-        }
-        return null;
-      }
-
-      const outOfHoursMsg = await getOutOfHoursMessage();
-
-      // Actualizar estado
-      conversation.status = 'out_of_hours';
-      conversation.bot_active = false;
-      conversation.needs_human = true;
-      conversation.escalationMessageSent = true;
-      conversation.waitingForHuman = true;
-      conversation.lastEscalationMessageAt = Date.now();
-
-      // Enviar mensaje de fuera de horario
-      await whatsappProvider.sendMessage(userId, outOfHoursMsg);
-
-      // Guardar mensajes (solo si no se guardó antes)
-      if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
-        userMessageSaved = true;
-      }
-      await saveMessage(userId, outOfHoursMsg, 'bot', 'out_of_hours');
-
-      // ✅ NUEVO: Emitir evento de escalación al dashboard
-      if (io) {
-        io.emit('escalation-detected', {
-          userId: userId,
-          phoneNumber: conversation.phoneNumber,
-          reason: 'out_of_hours',
-          priority: 'low',
-          message: message,
-          type: 'out_of_hours',
-          timestamp: Date.now()
-        });
-        logger.info(`📢 Evento 'escalation-detected' emitido (fuera de horario) para ${userId}`);
-      }
-
-      logger.info(`✅ Mensaje fuera de horario enviado a ${userId}`);
-
-      return null;
-    }
 
     // ===========================================
     // PUNTO DE CONTROL 3: EVALUAR ESCALACIÓN (ANTES DE IA)
@@ -808,7 +811,7 @@ Por favor, digita:
       if (conversation.escalationMessageSent === true) {
         logger.info(`   Mensaje de escalación ya enviado. Solo guardando mensaje.`);
         if (!userMessageSaved) {
-          await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
+          await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
           userMessageSaved = true;
         }
         return null;
@@ -832,7 +835,7 @@ Por favor, digita:
 
       // Guardar mensajes (solo si no se guardó antes)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
         userMessageSaved = true;
       }
       await saveMessage(userId, escalationMsg, 'bot', 'escalation');
@@ -917,7 +920,7 @@ Por favor, digita:
 
       // Guardar mensajes (solo si no se guardó antes)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
         userMessageSaved = true;
       }
 
@@ -968,7 +971,7 @@ Por favor, digita:
       if (conversation.escalationMessageSent === true) {
         logger.info(`   Mensaje de escalación ya enviado. Solo guardando mensaje.`);
         if (!userMessageSaved) {
-          await saveMessage(userId, message, 'user');
+          await saveMessage(userId, message, 'user', undefined, undefined, options.whatsappMessageId);
           userMessageSaved = true;
         }
         return null;
@@ -996,7 +999,7 @@ Por favor, digita:
 
       // Guardar mensajes (solo si no se guardó antes)
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
         userMessageSaved = true;
       }
       await saveMessage(userId, fallbackMsg, 'bot', 'escalation_fallback');
@@ -1027,7 +1030,7 @@ Por favor, digita:
 
     // Guardar mensajes (solo si no se guardó antes)
     if (!userMessageSaved) {
-      await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
+      await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
       userMessageSaved = true;
     }
 
@@ -1058,7 +1061,7 @@ Por favor, digita:
 
       await whatsappProvider.sendMessage(userId, fallbackMsg);
       if (!userMessageSaved) {
-        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData);
+        await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
       }
       await saveMessage(userId, fallbackMsg, 'bot');
 
@@ -1105,8 +1108,10 @@ async function isOutOfHours() {
   const currentTimeDecimal = time.decimal;
   const cfg = scheduleConfig.getConfig();
 
-  const now = new Date();
-  const day = now.getDay(); // 0=Dom, 6=Sáb
+  // ✅ CORREGIDO: Usar timezone.getDayOfWeek() en lugar de new Date().getDay()
+  // para que el día de la semana use siempre la zona horaria configurada (America/Bogota)
+  // y no la hora del servidor (AWS/UTC u otra)
+  const day = timezone.getDayOfWeek(); // 0=Dom, 6=Sáb — en zona horaria de Colombia
 
   // Domingo
   if (day === 0 && !cfg.sunday.enabled) {
@@ -1181,7 +1186,7 @@ async function getOutOfHoursMessage() {
  * @param {string} messageType - 'text' | 'consent' | 'system' | 'escalation' (opcional)
  * @param {Object} mediaData - Metadata de media (opcional): { mediaUrl, fileName, mimeType, fileSize }
  */
-async function saveMessage(userId, message, sender, messageType = 'text', mediaData = null) {
+async function saveMessage(userId, message, sender, messageType = 'text', mediaData = null, whatsappMessageId = null) {
   try {
     // Obtener conversación
     const conversation = conversationStateService.getConversation(userId);
@@ -1209,7 +1214,7 @@ async function saveMessage(userId, message, sender, messageType = 'text', mediaD
 
     // Crear objeto de mensaje
     const messageRecord = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: whatsappMessageId || `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       conversationId: userId,
       participantId: userId, // Para DynamoDB
       sender: sender,
@@ -1317,6 +1322,7 @@ async function saveMessage(userId, message, sender, messageType = 'text', mediaD
         userId: userId,
         phoneNumber: conversation.phoneNumber,
         whatsappName: conversation.whatsappName || '',
+        customName: conversation.customName || null, // ✅ FIX: Enviar nombre personalizado
         message: messageRecord,
         timestamp: Date.now()
       });

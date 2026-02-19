@@ -7,7 +7,29 @@
   <title>NORBOY Chat - Conversaciones</title>
   <meta name="description"
     content="Panel de chat en tiempo real para gestión de conversaciones WhatsApp - NORBOY Chatbot">
+  <!-- Pre-render auth check: prevents login flash if already authenticated -->
+  <script>
+    (function () {
+      if (localStorage.getItem('authToken')) {
+        var s = document.createElement('style');
+        s.id = 'pre-auth-style';
+        s.textContent = '.login-overlay{display:none!important}';
+        document.head.appendChild(s);
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="css/chat-page.css">
+  <!-- Embed mode: hide sidebar when loaded inside iframe from index.html -->
+  <script>
+    (function () {
+      if (window.location.search.indexOf('embed=1') !== -1 || window.self !== window.top) {
+        var s = document.createElement('style');
+        s.id = 'embed-style';
+        s.textContent = '.chat-sidebar{display:none!important}.chat-page-wrapper{display:flex!important}.chat-top-header{display:none!important}';
+        document.head.appendChild(s);
+      }
+    })();
+  </script>
 </head>
 
 <body>
@@ -164,10 +186,12 @@
         <!-- LEFT: Conversation List -->
         <div class="conv-list-panel">
           <div class="conv-list-header">
-            <div class="conv-search-container">
-              <span class="conv-search-icon">🔍</span>
-              <input type="text" class="conv-search-input" id="conv-search-input"
-                placeholder="Buscar por nombre o teléfono...">
+            <div class="conv-search-container" style="display:flex;align-items:center;gap:8px">
+              <button class="new-chat-btn" id="btn-new-chat" title="Nuevo Chat">➕</button>
+              <div style="position:relative;flex:1">
+                <span class="conv-search-icon">🔍</span>
+                <input type="text" class="conv-search-input" id="conv-search-input" placeholder="Buscar...">
+              </div>
             </div>
             <div class="conv-filter-row">
               <button class="conv-filter-btn active" data-filter="all">Todos</button>
@@ -285,6 +309,10 @@
                   <div class="item-icon">🎵</div>
                   <span>Audio</span>
                 </div>
+                <div class="attach-menu-item" data-action="video">
+                  <div class="item-icon">🎬</div>
+                  <span>Video</span>
+                </div>
               </div>
 
               <!-- Hidden file inputs -->
@@ -293,6 +321,7 @@
                 <input type="file" id="file-image-input" accept="image/*">
                 <input type="file" id="file-document-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv">
                 <input type="file" id="file-audio-input" accept="audio/*">
+                <input type="file" id="file-video-input" accept="video/*">
               </div>
             </div>
 
@@ -305,6 +334,76 @@
     </div><!-- /chat-main-area -->
 
   </div><!-- /chat-page-wrapper -->
+
+  <!-- ========================================
+       MODALS
+       ======================================== -->
+
+  <!-- New Chat Modal -->
+  <div class="modal-overlay" id="modal-new-chat">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Nuevo Chat</div>
+      </div>
+      <div class="modal-body">
+        <form id="form-new-chat">
+          <div class="form-group">
+            <label class="form-label" for="new-chat-phone">Número de Teléfono (con código país)</label>
+            <input type="tel" id="new-chat-phone" class="form-input" placeholder="Ej: 521234567890" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="new-chat-name">Nombre (Opcional)</label>
+            <input type="text" id="new-chat-name" class="form-input" placeholder="Nombre del contacto">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-new-chat')">Cancelar</button>
+        <button class="btn btn-primary" onclick="submitNewChat()">Crear Chat</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Name Modal -->
+  <div class="modal-overlay" id="modal-edit-name">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Editar Nombre</div>
+      </div>
+      <div class="modal-body">
+        <form id="form-edit-name">
+          <input type="hidden" id="edit-name-userid">
+          <div class="form-group">
+            <label class="form-label" for="edit-name-input">Nombre Personalizado</label>
+            <input type="text" id="edit-name-input" class="form-input" placeholder="Nombre del contacto" required>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-edit-name')">Cancelar</button>
+        <button class="btn btn-primary" onclick="submitEditName()">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div class="modal-overlay" id="modal-confirm-delete">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">Eliminar Chat</div>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--wa-text-secondary);margin-bottom:10px">¿Estás seguro de que deseas eliminar este chat?</p>
+        <p style="font-size:12px;color:var(--wa-text-secondary)">No se perderán mensajes, pero se ocultará de la lista
+          hasta que haya nueva actividad.</p>
+        <input type="hidden" id="delete-chat-userid">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-confirm-delete')">Cancelar</button>
+        <button class="btn btn-danger" onclick="submitDeleteChat()">Eliminar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Socket.IO -->
   <script src="/socket.io/socket.io.js"></script>

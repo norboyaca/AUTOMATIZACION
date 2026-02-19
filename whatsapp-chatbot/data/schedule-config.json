@@ -20,5 +20,7 @@
   "sunday": {
     "enabled": false
   },
-  "timezone": "America/Bogota"
+  "timezone": "America/Bogota",
+  "scheduleCheckEnabled": false,
+  "holidayCheckEnabled": true
 }

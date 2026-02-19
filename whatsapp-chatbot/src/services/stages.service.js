@@ -10,6 +10,7 @@
  *   id: "stage_1234567890",
  *   name: "Etapa 1",
  *   order: 1,
+ *   is_active: true,
  *   createdAt: 1706544000000,
  *   updatedAt: 1706547600000
  * }
@@ -41,6 +42,20 @@ function loadStages() {
     if (fs.existsSync(STAGES_FILE)) {
       const data = fs.readFileSync(STAGES_FILE, 'utf8');
       stages = JSON.parse(data);
+
+      // ✅ MIGRACIÓN: Agregar is_active a etapas que no lo tengan
+      let migrated = false;
+      stages.forEach(stage => {
+        if (typeof stage.is_active === 'undefined') {
+          stage.is_active = true;
+          migrated = true;
+        }
+      });
+      if (migrated) {
+        saveStages();
+        logger.info('✅ Etapas migradas: campo is_active agregado');
+      }
+
       logger.info(`📂 Cargadas ${stages.length} etapas desde ${STAGES_FILE}`);
 
       // ✅ NUEVO: Crear carpetas para las etapas cargadas
@@ -58,6 +73,7 @@ function loadStages() {
           id: 'stage_1',
           name: 'Etapa 1',
           order: 1,
+          is_active: true,
           createdAt: Date.now(),
           updatedAt: Date.now()
         },
@@ -65,6 +81,7 @@ function loadStages() {
           id: 'stage_2',
           name: 'Etapa 2',
           order: 2,
+          is_active: true,
           createdAt: Date.now(),
           updatedAt: Date.now()
         },
@@ -72,6 +89,7 @@ function loadStages() {
           id: 'stage_3',
           name: 'Etapa 3',
           order: 3,
+          is_active: true,
           createdAt: Date.now(),
           updatedAt: Date.now()
         }
@@ -138,6 +156,7 @@ function createStage(name) {
     id: `stage_${Date.now()}`,
     name: name || `Nueva Etapa`,
     order: maxOrder + 1,
+    is_active: true,
     createdAt: Date.now(),
     updatedAt: Date.now()
   };
@@ -284,6 +303,37 @@ function deleteStage(stageId) {
 }
 
 /**
+ * ✅ NUEVO: Obtiene solo las etapas activas
+ */
+function getActiveStages() {
+  return stages.filter(s => s.is_active !== false);
+}
+
+/**
+ * ✅ NUEVO: Activa o desactiva una etapa
+ * 
+ * @param {string} stageId - ID de la etapa
+ * @param {boolean} isActive - true para activar, false para desactivar
+ * @returns {Object} La etapa actualizada
+ */
+function toggleStageActive(stageId, isActive) {
+  const stage = getStageById(stageId);
+
+  if (!stage) {
+    throw new Error('Etapa no encontrada');
+  }
+
+  stage.is_active = isActive;
+  stage.updatedAt = Date.now();
+
+  saveStages();
+
+  logger.info(`${isActive ? '🟢' : '🔴'} Etapa "${stage.name}" ${isActive ? 'ACTIVADA' : 'DESACTIVADA'}`);
+
+  return stage;
+}
+
+/**
  * Inicializa el servicio
  */
 function initialize() {
@@ -347,11 +397,13 @@ initialize();
 
 module.exports = {
   getAllStages,
+  getActiveStages,
   getStageById,
   getStageByOrder,
   createStage,
   updateStageName,
   deleteStage,
+  toggleStageActive,
   saveStages,
   getStageFolder,
   getStageFolderRelative

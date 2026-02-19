@@ -1,0 +1,18 @@
+import json
+
+def raizCuadrada(event, context):
+    numero_str = event.get("queryStringParameters", {}).get("numero")
+
+    try:
+        numero = float(numero_str)
+        respuesta = {
+            "numero": numero,
+            "raiz": numero * numero
+        }
+    except (TypeError, ValueError):
+        respuesta = {"error": "Parámetro inválido, se requiere un número"}
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps(respuesta)
+    }
