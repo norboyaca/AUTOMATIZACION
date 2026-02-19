@@ -7,7 +7,7 @@
  * Guarda la preferencia en localStorage
  */
 
-(function() {
+(function () {
   'use strict';
 
   // Nombre de la clave en localStorage
@@ -109,6 +109,12 @@
 
     // Disparar evento personalizado para otros scripts
     window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme: newTheme } }));
+
+    // ✅ Enviar mensaje al iframe de conversaciones si existe
+    const iframe = document.getElementById('conversations-iframe');
+    if (iframe && iframe.contentWindow) {
+      iframe.contentWindow.postMessage({ type: 'set-theme', theme: newTheme }, '*');
+    }
   }
 
   /**
@@ -124,7 +130,7 @@
 
     // Exponer función globalmente
     window.toggleDarkMode = toggleTheme;
-    window.getCurrentTheme = function() { return getSavedTheme(); };
+    window.getCurrentTheme = function () { return getSavedTheme(); };
 
     console.log('🌓 Dark mode initialized. Current theme:', savedTheme);
   }
@@ -190,7 +196,7 @@
   }
 
   // Re-inicializar cuando cambie el estado del documento (para SPAs)
-  document.addEventListener('visibilitychange', function() {
+  document.addEventListener('visibilitychange', function () {
     if (!document.hidden && !document.querySelector('.dark-mode-toggle')) {
       createToggleButton();
     }

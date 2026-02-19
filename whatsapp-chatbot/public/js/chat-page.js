@@ -273,6 +273,27 @@
             });
             btn.textContent = localStorage.getItem('theme') === 'dark' ? '☀️' : '🌙';
         }
+
+        // ✅ Escuchar cambios de tema desde la ventana padre (Dashboard)
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'set-theme') {
+                const theme = event.data.theme;
+                console.log('🔄 Sincronizando tema desde dashboard:', theme);
+
+                // Aplicar tema
+                if (theme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                } else {
+                    document.documentElement.removeAttribute('data-theme');
+                }
+
+                // Guardar preferencia localmente también
+                localStorage.setItem('theme', theme);
+
+                // Actualizar botón si es visible
+                if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+            }
+        });
     }
 
     // ==========================================
