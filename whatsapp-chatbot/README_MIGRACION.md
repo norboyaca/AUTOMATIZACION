@@ -1,6 +1,6 @@
 # Migración a Baileys - Instrucciones de Uso
 
-## ✅ Cambios Realizados
+## ✅ Cambios Realizadoss
 
 El bot ha sido migrado exitosamente de `whatsapp-web.js` (requiere Chrome/Puppeteer) a `@whiskeysockets/baileys` (WebSocket directo).
 
