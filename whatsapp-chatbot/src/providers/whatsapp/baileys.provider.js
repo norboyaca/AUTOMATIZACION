@@ -36,6 +36,8 @@ class BaileysProvider extends EventEmitter {
     this.authPath = path.join(process.cwd(), 'baileys_auth');
     // ✅ NUEVO: Almacenamiento local de chats (para el dashboard)
     this.localChats = new Map(); // id -> chat data
+    // ✅ NUEVO: Mapa LID → teléfono para evitar chats duplicados
+    this.lidToPhone = new Map(); // lid@lid -> number@s.whatsapp.net
   }
 
   /**
@@ -87,7 +89,7 @@ class BaileysProvider extends EventEmitter {
         browser: ['Chrome (Linux)', '', ''],
         syncFullHistory: true,  // ✅ CAMBIADO: true para obtener historial
         markOnlineOnConnect: true,
-        emitOwnEvents: false
+        emitOwnEvents: true
       });
 
       // Guardar credenciales cuando se actualicen
@@ -234,6 +236,46 @@ class BaileysProvider extends EventEmitter {
           if (chatName && !existingConv.whatsappName) {
             existingConv.whatsappName = chatName;
             existingConv.whatsappNameUpdatedAt = Date.now();
+          }
+        }
+      });
+
+      // ✅ NUEVO: Escuchar contacts.upsert para construir mapa LID ↔ teléfono
+      this.sock.ev.on('contacts.upsert', (contacts) => {
+        for (const contact of contacts) {
+          const id = contact.id;
+          if (!id) continue;
+
+          // Si el contact tiene lid Y id es teléfono → mapear
+          if (id.endsWith('@s.whatsapp.net') && contact.lid) {
+            this.lidToPhone.set(contact.lid, id);
+            logger.debug(`🔗 [LID MAP] contacts.upsert: ${contact.lid} → ${id}`);
+          }
+          // Si el id es LID y tiene phoneNumber → mapear al revés
+          if (id.endsWith('@lid') && contact.phoneNumber) {
+            const phoneJid = contact.phoneNumber.replace(/\+/g, '') + '@s.whatsapp.net';
+            this.lidToPhone.set(id, phoneJid);
+            logger.debug(`🔗 [LID MAP] contacts.upsert: ${id} → ${phoneJid}`);
+          }
+        }
+        if (this.lidToPhone.size > 0) {
+          logger.info(`🔗 [LID MAP] Total mapeos LID→teléfono: ${this.lidToPhone.size}`);
+        }
+      });
+
+      // ✅ NUEVO: Escuchar contacts.update para actualizar mapa LID ↔ teléfono
+      this.sock.ev.on('contacts.update', (updates) => {
+        for (const update of updates) {
+          const id = update.id;
+          if (!id) continue;
+          if (id.endsWith('@s.whatsapp.net') && update.lid) {
+            this.lidToPhone.set(update.lid, id);
+            logger.debug(`🔗 [LID MAP] contacts.update: ${update.lid} → ${id}`);
+          }
+          if (id.endsWith('@lid') && update.phoneNumber) {
+            const phoneJid = update.phoneNumber.replace(/\+/g, '') + '@s.whatsapp.net';
+            this.lidToPhone.set(id, phoneJid);
+            logger.debug(`🔗 [LID MAP] contacts.update: ${id} → ${phoneJid}`);
           }
         }
       });
@@ -564,6 +606,44 @@ class BaileysProvider extends EventEmitter {
   }
 
   /**
+   * Resuelve un LID (@lid) al JID de teléfono (@s.whatsapp.net) correspondiente.
+   * Esto evita que el mismo contacto aparezca como dos chats diferentes.
+   *
+   * Orden de resolución:
+   * 1. remoteJidAlt del mensaje (Baileys v7+)
+   * 2. Mapa interno lidToPhone (construido de contacts.upsert/update)
+   * 3. Sin resolver (mantiene LID como fallback)
+   *
+   * @param {string} jid - El JID a resolver
+   * @param {Object} msg - El mensaje original de Baileys (para acceder a remoteJidAlt)
+   * @returns {string} JID resuelto (teléfono si fue posible, LID si no)
+   */
+  _resolveLid(jid, msg = null) {
+    if (!jid || !jid.endsWith('@lid')) return jid;
+
+    // 1. remoteJidAlt del mensaje (más confiable)
+    const alt = msg?.key?.remoteJidAlt;
+    if (alt && alt.endsWith('@s.whatsapp.net')) {
+      if (!this.lidToPhone.has(jid)) {
+        logger.info(`🔄 [LID→PN] Resuelto vía remoteJidAlt: ${jid} → ${alt}`);
+      }
+      this.lidToPhone.set(jid, alt);
+      return alt;
+    }
+
+    // 2. Mapa interno
+    if (this.lidToPhone.has(jid)) {
+      const resolved = this.lidToPhone.get(jid);
+      logger.debug(`🔄 [LID→PN] Resuelto vía mapa: ${jid} → ${resolved}`);
+      return resolved;
+    }
+
+    // 3. Sin resolver — mantener LID como identificador
+    logger.debug(`⚠️ [LID] No se pudo resolver ${jid} a número de teléfono`);
+    return jid;
+  }
+
+  /**
    * Maneja mensajes entrantes
    */
   async _handleMessages(m) {
@@ -585,9 +665,10 @@ class BaileysProvider extends EventEmitter {
         return;
       }
 
-      // Ignorar mensajes propios
+      // Mensajes propios (fromMe=true): capturar los enviados manualmente desde el celular
+      // IMPORTANTE: No se activa lógica de bot, solo se guarda para el historial del dashboard
       if (msg.key.fromMe) {
-        logger.debug('📤 Mensaje propio ignorado');
+        await this._handleOutgoingMessage(msg);
         return;
       }
 
@@ -634,6 +715,64 @@ class BaileysProvider extends EventEmitter {
   }
 
   /**
+   * Captura mensajes enviados desde el celular físico (fromMe=true).
+   * Solo extrae el texto y emite un evento 'outgoing-message' separado.
+   * NO activa la lógica del bot, NO genera respuestas automáticas.
+   */
+  async _handleOutgoingMessage(msg) {
+    try {
+      let remoteJid = msg.key?.remoteJid;
+
+      // Solo chats individuales (excluir grupos y broadcasts)
+      if (!remoteJid) return;
+      if (!remoteJid.endsWith('@s.whatsapp.net') && !remoteJid.endsWith('@lid')) return;
+      if (remoteJid === 'status@broadcast') return;
+
+      // ✅ Resolver LID a número de teléfono para evitar chats duplicados
+      remoteJid = this._resolveLid(remoteJid, msg);
+
+      // Extraer texto del mensaje (puede estar vacío para multimedia)
+      const body = msg.message?.conversation ||
+        msg.message?.extendedTextMessage?.text || '';
+
+      // Detectar tipo de multimedia
+      const isImage = !!msg.message?.imageMessage;
+      const isVideo = !!msg.message?.videoMessage;
+      const isAudio = !!msg.message?.audioMessage || !!msg.message?.pttMessage;
+      const isDocument = !!msg.message?.documentMessage;
+      const isMultimedia = isImage || isVideo || isAudio || isDocument;
+
+      // Solo descartar si no hay texto NI multimedia
+      if ((!body || body.trim() === '') && !isMultimedia) return;
+
+      // Para multimedia sin texto, generar etiqueta descriptiva
+      let displayBody = body;
+      let mediaType = 'text';
+      if (!displayBody || displayBody.trim() === '') {
+        if (isImage) { displayBody = '[Imagen enviada]'; mediaType = 'image'; }
+        else if (isVideo) { displayBody = '[Video enviado]'; mediaType = 'video'; }
+        else if (isAudio) { displayBody = '[Audio enviado]'; mediaType = 'audio'; }
+        else if (isDocument) { displayBody = '[Documento enviado]'; mediaType = 'document'; }
+      }
+
+      const messageId = msg.key.id;
+
+      logger.info(`📤 [OUTGOING] Mensaje desde celular capturado → ${remoteJid}: "${displayBody.substring(0, 60)}" (tipo: ${mediaType})`);
+
+      // Emitir evento separado — server.js lo escucha para guardar sin activar bot
+      this.emit('outgoing-message', {
+        to: remoteJid,
+        body: displayBody,
+        id: messageId,
+        timestamp: msg.messageTimestamp || Date.now(),
+        mediaType: mediaType
+      });
+    } catch (err) {
+      logger.error('❌ Error capturando mensaje saliente desde celular:', err.message);
+    }
+  }
+
+  /**
    * Transforma mensaje de Baileys al formato esperado
    * (compatible con web.provider.js)
    */
@@ -646,6 +785,9 @@ class BaileysProvider extends EventEmitter {
 
     // Extraer remoteJid - este es el campo crítico
     let from = msg.key.remoteJid;
+
+    // ✅ Resolver LID a número de teléfono para evitar chats duplicados
+    from = this._resolveLid(from, msg);
 
     logger.info(`📨 [TRANSFORM] remoteJid="${from}", fromMe=${msg.key.fromMe}`);
 

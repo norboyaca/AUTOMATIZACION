@@ -166,20 +166,11 @@
         input.value = '';
         input.style.height = 'auto';
 
-        // Crear objeto de mensaje para mostrar inmediatamente
-        const messageObj = {
-          id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          sender: 'admin',
-          senderName: advisorData.name,
-          message: message,
-          timestamp: new Date().toISOString()
-        };
-
-        // Agregar mensaje al chat
-        appendMessageToChat(messageObj);
-
-        // Scroll al final
-        scrollToBottom();
+        // ✅ FIX Bug#1: NO renderizar aquí de forma optimista.
+        // El servidor emite el evento 'new-message' vía Socket.IO casi
+        // de inmediato (mismo servidor), que se encarga de agregar el
+        // mensaje al chat. Renderizar aquí también causaba duplicados
+        // porque el temp-ID local nunca coincidía con el ID real de Baileys.
 
         console.log('✅ Mensaje enviado correctamente');
         showAlert('Mensaje enviado', 'success');

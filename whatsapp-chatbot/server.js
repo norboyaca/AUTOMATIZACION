@@ -485,6 +485,25 @@ whatsappWeb.on('message', async (message) => {
 });
 
 // ===========================================
+// CAPTURAR MENSAJES ENVIADOS DESDE EL CELULAR
+// ===========================================
+// Cuando el asesor responde directamente desde el celular físico (no desde el dashboard),
+// Baileys emite 'outgoing-message'. Lo guardamos como 'advisor' para mantener el historial
+// completo de la conversación sin activar ninguna lógica de bot.
+whatsappWeb.on('outgoing-message', async (outgoing) => {
+  try {
+    const { to, body, id } = outgoing;
+    logger.info(`📤 [SERVER] Guardando mensaje enviado desde celular → ${to}: "${body.substring(0, 50)}"`);
+
+    await messageProcessor.saveOutgoingMessage(to, body, id);
+
+    logger.info(`✅ [SERVER] Mensaje desde celular guardado correctamente`);
+  } catch (err) {
+    logger.error(`❌ [SERVER] Error guardando mensaje desde celular: ${err.message}`);
+  }
+});
+
+// ===========================================
 // ENDPOINTS DE SESIÓN (Cerrar/Limpiar)
 // ===========================================
 

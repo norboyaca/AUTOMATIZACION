@@ -1384,5 +1384,17 @@ module.exports = {
   getOutOfHoursMessage,
   getMessages,
   getStats,
-  setSocketIO  // ✅ NUEVO: Para inicializar Socket.IO
+  setSocketIO,  // ✅ Para inicializar Socket.IO
+  // ✅ Guardar mensaje saliente enviado manualmente desde el celular físico o WhatsApp Web.
+  // sender='advisor' es consistente con las respuestas manuales del dashboard.
+  // getOrCreateConversation garantiza que la conversación existe en memoria
+  // aunque el servidor haya reiniciado o el asesor haya iniciado el chat él mismo.
+  saveOutgoingMessage: async (userId, text, messageId) => {
+    // Asegurar que la conversación exista en cache antes de guardar el mensaje.
+    // saveMessage() usa getConversation() (solo lectura) y falla silenciosamente si no existe.
+    conversationStateService.getOrCreateConversation(userId);
+    return saveMessage(userId, text, 'advisor', 'text', null, messageId);
+  }
 };
+
+
