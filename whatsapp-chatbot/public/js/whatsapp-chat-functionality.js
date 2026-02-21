@@ -10,7 +10,7 @@
  * Fecha: 2026-02-08
  */
 
-(function() {
+(function () {
   'use strict';
 
   // ===========================================
@@ -22,6 +22,7 @@
   let isRecording = false;
   let recordingTimer = null;
   let recordingStartTime = null;
+  let pendingMediaFile = null; // Archivo pendiente para preview antes de enviar
 
   // ===========================================
   // SCROLL AUTOMÁTICO AL ÚLTIMO MENSAJE
@@ -73,13 +74,13 @@
     const messagesDiv = document.getElementById('chat-messages');
     if (!messagesDiv) return;
 
-    const senderClass = message.sender === 'admin' ? 'admin' :
-                       message.sender === 'bot' ? 'bot' : 'user';
+    const senderClass = (message.sender === 'admin' || message.sender === 'advisor') ? 'admin' :
+      message.sender === 'bot' ? 'bot' : 'user';
     const senderName = message.senderName || (senderClass === 'admin' ? 'Asesor' :
-                         senderClass === 'bot' ? '🤖 Bot' : 'Usuario');
+      senderClass === 'bot' ? '🤖 Bot' : 'Usuario');
 
     const messageId = message.id || message.messageId ||
-                      `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // Generar checks para mensajes enviados
     const checksHTML = senderClass !== 'user' ? `
@@ -108,6 +109,13 @@
       messageContent = `
         <div class="message-image">
           <img src="${message.mediaUrl || ''}" alt="Imagen" onclick="window.open('${message.mediaUrl || ''}', '_blank')">
+        </div>
+        ${message.text && message.text !== message.fileName ? `<div class="message-text">${escapeHtml(message.text)}</div>` : ''}
+      `;
+    } else if (message.type === 'video') {
+      messageContent = `
+        <div class="message-video">
+          <video controls src="${message.mediaUrl || ''}" style="max-width:100%;border-radius:6px;"></video>
         </div>
         ${message.text && message.text !== message.fileName ? `<div class="message-text">${escapeHtml(message.text)}</div>` : ''}
       `;
@@ -165,16 +173,16 @@
 
     messages.forEach(msg => {
       const messageId = msg.id || msg.messageId ||
-                       `loaded_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        `loaded_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       // Evitar duplicados
       if (renderedMessageIds.has(messageId)) return;
       renderedMessageIds.add(messageId);
 
-      const senderClass = msg.sender === 'admin' ? 'admin' :
-                         msg.sender === 'bot' ? 'bot' : 'user';
+      const senderClass = (msg.sender === 'admin' || msg.sender === 'advisor') ? 'admin' :
+        msg.sender === 'bot' ? 'bot' : 'user';
       const senderName = msg.senderName || (senderClass === 'admin' ? 'Asesor' :
-                           senderClass === 'bot' ? '🤖 Bot' : 'Usuario');
+        senderClass === 'bot' ? '🤖 Bot' : 'Usuario');
 
       const checksHTML = senderClass !== 'user' ? `
         <span class="message-checks">
@@ -195,6 +203,13 @@
         messageContent = `
           <div class="message-image">
             <img src="${msg.mediaUrl || ''}" alt="Imagen" onclick="window.open('${msg.mediaUrl || ''}', '_blank')">
+          </div>
+          ${msg.message ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}
+        `;
+      } else if (msg.type === 'video') {
+        messageContent = `
+          <div class="message-video">
+            <video controls src="${msg.mediaUrl || ''}" style="max-width:100%;border-radius:6px;"></video>
           </div>
           ${msg.message ? `<div class="message-text">${escapeHtml(msg.message)}</div>` : ''}
         `;
@@ -563,12 +578,43 @@
 
   /**
    * Maneja la subida de archivos
+   * Si es imagen o video, muestra preview. Si es documento, envía directo.
    */
   async function handleFileUpload(input, type) {
     const file = input.files[0];
     if (!file || !currentChatUserId) return;
 
+    // Para imágenes y videos, mostrar preview antes de enviar
+    if (type === 'image' || type === 'video') {
+      showMediaPreview(file, type);
+      input.value = '';
+      return;
+    }
+
+    // Para documentos, enviar directamente
+    await sendFileToServer(file, type);
+    input.value = '';
+  }
+
+  /**
+   * Envía un archivo al servidor (flujo real de upload)
+   */
+  async function sendFileToServer(file, type) {
+    if (!currentChatUserId) return;
+
     try {
+      // UI optimista: mostrar preview inmediatamente
+      const localUrl = URL.createObjectURL(file);
+      appendMessageToChat({
+        sender: 'admin',
+        type: type,
+        text: `[Enviando ${type === 'image' ? 'imagen' : type === 'video' ? 'video' : 'documento'}...]`,
+        mediaUrl: (type === 'image' || type === 'video') ? localUrl : '',
+        fileName: file.name,
+        timestamp: new Date().toISOString(),
+        read: false
+      });
+
       const formData = new FormData();
       formData.append('file', file);
       formData.append('type', type);
@@ -587,7 +633,7 @@
         throw new Error(data.error || 'Error al subir archivo');
       }
 
-      // Recargar mensajes
+      // Recargar mensajes para obtener URL final del servidor
       await loadChatMessages(currentChatUserId);
 
       // Cerrar menú de adjuntar
@@ -598,9 +644,115 @@
       console.error('Error subiendo archivo:', error);
       alert('Error al subir archivo. Por favor intenta nuevamente.');
     }
+  }
 
-    // Limpiar input
-    input.value = '';
+  // ===========================================
+  // PREVIEW DE MEDIA ANTES DE ENVIAR
+  // ===========================================
+  /**
+   * Muestra preview de imagen/video antes de enviar
+   */
+  function showMediaPreview(file, type) {
+    pendingMediaFile = { file, type };
+
+    // Remover preview anterior si existe
+    const existing = document.getElementById('media-preview-panel');
+    if (existing) existing.remove();
+
+    const localUrl = URL.createObjectURL(file);
+
+    const previewPanel = document.createElement('div');
+    previewPanel.id = 'media-preview-panel';
+    previewPanel.style.cssText = `
+      position: absolute; bottom: 60px; left: 0; right: 0;
+      background: var(--bg-secondary, #1e1e2e); border-top: 1px solid var(--border-color, #333);
+      padding: 12px; display: flex; align-items: center; gap: 12px; z-index: 100;
+    `;
+
+    let previewContent = '';
+    if (type === 'image') {
+      previewContent = `<img src="${localUrl}" alt="Preview" style="max-height:120px;max-width:200px;border-radius:8px;object-fit:cover;">`;
+    } else if (type === 'video') {
+      previewContent = `<video src="${localUrl}" style="max-height:120px;max-width:200px;border-radius:8px;" muted></video>`;
+    }
+
+    previewPanel.innerHTML = `
+      ${previewContent}
+      <div style="flex:1;overflow:hidden;">
+        <div style="font-size:13px;color:var(--text-primary,#eee);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(file.name)}</div>
+        <div style="font-size:11px;color:var(--text-secondary,#999);margin-top:2px;">${(file.size / 1024 / 1024).toFixed(2)} MB</div>
+      </div>
+      <button id="media-preview-cancel" style="background:none;border:none;color:#ff5555;font-size:20px;cursor:pointer;padding:8px;" title="Cancelar">✕</button>
+      <button id="media-preview-send" style="background:#25d366;border:none;color:#fff;border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;" title="Enviar">➤</button>
+    `;
+
+    // Insertar antes del input area
+    const inputContainer = document.querySelector('.chat-input-container');
+    if (inputContainer && inputContainer.parentNode) {
+      inputContainer.parentNode.insertBefore(previewPanel, inputContainer);
+    }
+
+    // Event listeners
+    document.getElementById('media-preview-cancel').addEventListener('click', cancelMediaPreview);
+    document.getElementById('media-preview-send').addEventListener('click', confirmMediaPreview);
+  }
+
+  /**
+   * Cancela el preview y no envía nada
+   */
+  function cancelMediaPreview() {
+    pendingMediaFile = null;
+    const panel = document.getElementById('media-preview-panel');
+    if (panel) panel.remove();
+  }
+
+  /**
+   * Confirma el envío del archivo previewed
+   */
+  async function confirmMediaPreview() {
+    if (!pendingMediaFile) return;
+
+    const { file, type } = pendingMediaFile;
+    pendingMediaFile = null;
+
+    // Remover panel
+    const panel = document.getElementById('media-preview-panel');
+    if (panel) panel.remove();
+
+    // Enviar archivo
+    await sendFileToServer(file, type);
+  }
+
+  // ===========================================
+  // CLIPBOARD PASTE (Ctrl+V)
+  // ===========================================
+  /**
+   * Maneja el pegado de imágenes desde el portapapeles
+   */
+  function handlePasteMedia(event) {
+    // Solo procesar si el chat está abierto
+    if (!currentChatUserId) return;
+
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        event.preventDefault();
+
+        const blob = item.getAsFile();
+        if (!blob) return;
+
+        // Crear un File a partir del Blob con nombre generado
+        const ext = item.type.split('/')[1] || 'png';
+        const fileName = `clipboard_${Date.now()}.${ext}`;
+        const file = new File([blob], fileName, { type: item.type });
+
+        // Mostrar preview antes de enviar
+        showMediaPreview(file, 'image');
+        return;
+      }
+    }
   }
 
   // ===========================================
@@ -784,6 +936,9 @@
       sendBtn.addEventListener('click', sendChatMessage);
     }
 
+    // ✅ NUEVO: Clipboard paste para imágenes (Ctrl+V)
+    document.addEventListener('paste', handlePasteMedia);
+
     // Cerrar modal al hacer click fuera
     const modal = document.getElementById('chat-modal');
     if (modal) {
@@ -837,7 +992,11 @@
     autoResizeTextarea,
     openChat,
     closeChatModal,
-    loadChatMessages
+    loadChatMessages,
+    showMediaPreview,
+    cancelMediaPreview,
+    confirmMediaPreview,
+    handlePasteMedia
   };
 
   // Inicializar cuando el DOM esté listo

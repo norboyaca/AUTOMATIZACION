@@ -34,6 +34,10 @@
     // ✅ NUEVO: Reply-to state
     let pendingReplyTo = null;
 
+    // ✅ NUEVO: Media preview state
+    let pendingMediaFile = null;
+    let pendingMediaType = null;
+
     // ==========================================
     // AUTH
     // ==========================================
@@ -768,7 +772,7 @@
         if (msgId && renderedMessageIds.has(msgId)) return;
         if (msgId) renderedMessageIds.add(msgId);
 
-        const senderClass = msg.sender === 'admin' ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
+        const senderClass = (msg.sender === 'admin' || msg.sender === 'advisor') ? 'admin' : (msg.sender === 'bot' ? 'bot' : 'user');
         const senderName = msg.senderName || (senderClass === 'admin' ? 'Asesor' : senderClass === 'bot' ? '🤖 Bot' : 'Usuario');
 
         const timeStr = msg.timestamp
@@ -809,7 +813,7 @@
         // ✅ NUEVO: Render referencia si el mensaje tiene replyTo
         let replyHTML = '';
         if (msg.replyTo && msg.replyTo.message) {
-            const replySenderLabel = msg.replyTo.senderName || (msg.replyTo.sender === 'admin' ? 'Asesor' : msg.replyTo.sender === 'bot' ? '🤖 Bot' : 'Usuario');
+            const replySenderLabel = msg.replyTo.senderName || ((msg.replyTo.sender === 'admin' || msg.replyTo.sender === 'advisor') ? 'Asesor' : msg.replyTo.sender === 'bot' ? '🤖 Bot' : 'Usuario');
             replyHTML = `
         <div class="quoted-message" onclick="ChatPage.scrollToMessage('${msg.replyTo.id || ''}')">
           <div class="quoted-sender">${escapeHtml(replySenderLabel)}</div>
@@ -934,8 +938,155 @@
 
     async function handleFileUpload(input, type) {
         if (!input.files || input.files.length === 0 || !currentChatUserId) return;
-
         const file = input.files[0];
+
+        // Para imágenes y videos, mostrar preview antes de enviar
+        if (type === 'image' || type === 'video') {
+            showMediaPreview(file, type);
+            input.value = '';
+            return;
+        }
+
+        // Para documentos y audio, enviar directamente
+        await sendFileToServer(file, type);
+        input.value = '';
+    }
+
+    /**
+     * Muestra panel de preview para imagen/video antes de enviar
+     */
+    function showMediaPreview(file, type) {
+        // Remover preview anterior si existe
+        cancelMediaPreview();
+        console.log('📸 [PREVIEW] showMediaPreview inmersivo para:', file.name, type);
+
+        pendingMediaFile = file;
+        pendingMediaType = type;
+
+        const localUrl = URL.createObjectURL(file);
+        const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+
+        // Crear el overlay de preview
+        const previewOverlay = document.createElement('div');
+        previewOverlay.id = 'media-preview-overlay';
+        previewOverlay.style.cssText = `
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(11, 20, 26, 0.98);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            animation: fadeIn 0.2s ease-out;
+        `;
+
+        // Contenido del medio
+        let mediaHTML = '';
+        if (type === 'image') {
+            mediaHTML = `<img src="${localUrl}" style="max-width: 90%; max-height: 70%; object-fit: contain; margin: auto; border-radius: 8px; box-shadow: 0 4px 30px rgba(0,0,0,0.5);">`;
+        } else if (type === 'video') {
+            mediaHTML = `<video src="${localUrl}" controls style="max-width: 90%; max-height: 70%; margin: auto; border-radius: 8px; box-shadow: 0 4px 30px rgba(0,0,0,0.5);"></video>`;
+        }
+
+        previewOverlay.innerHTML = `
+            <div style="position: absolute; top: 20px; left: 20px; z-index: 10001;">
+                <button id="media-preview-close" style="background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; padding: 10px;" title="Cerrar">✕</button>
+            </div>
+            
+            <div style="flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 20px;">
+                ${mediaHTML}
+            </div>
+
+            <div style="background: rgba(11, 20, 26, 0.9); padding: 20px 30px; display: flex; flex-direction: column; gap: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div style="display: flex; align-items: center; background: #2a3942; border-radius: 8px; padding: 5px 15px; gap: 10px;">
+                    <span style="font-size: 20px; color: #8696a0;">😊</span>
+                    <input type="text" id="media-preview-caption" placeholder="Escribe un mensaje" style="flex: 1; background: transparent; border: none; color: #e9edef; font-size: 15px; padding: 10px 0; outline: none;">
+                </div>
+                
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="width: 45px; height: 45px; border: 2px solid #25d366; border-radius: 4px; overflow: hidden;">
+                            ${type === 'image' ? `<img src="${localUrl}" style="width:100%;height:100%;object-fit:cover;">` : `<video src="${localUrl}" style="width:100%;height:100%;object-fit:cover;"></video>`}
+                        </div>
+                        <div style="color: #e9edef;">
+                            <div style="font-size: 14px; font-weight: 500;">${file.name.replace(/</g, '&lt;')}</div>
+                            <div style="font-size: 12px; color: #8696a0;">${sizeMB} MB</div>
+                        </div>
+                    </div>
+                    
+                    <button id="media-preview-send-fab" style="background: #25d366; border: none; color: #fff; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: transform 0.2s;">
+                        <span style="transform: translateX(2px);">➤</span>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Insertar el overlay en el contenedor principal de chat (.chat-panel es el contenedor en chat.html)
+        const chatContainer = document.querySelector('.chat-panel');
+        if (chatContainer) {
+            chatContainer.style.position = 'relative';
+            chatContainer.appendChild(previewOverlay);
+
+            // Enfocar el input de subtítulo después de un breve delay
+            setTimeout(() => {
+                document.getElementById('media-preview-caption')?.focus();
+            }, 300);
+        } else {
+            console.error('❌ [PREVIEW] No se encontró .chat-panel para insertar el overlay');
+            // Fallback al body si falla algo crítico, aunque no es lo ideal
+            document.body.appendChild(previewOverlay);
+        }
+
+        // Conectar eventos
+        document.getElementById('media-preview-close')?.addEventListener('click', cancelMediaPreview);
+        document.getElementById('media-preview-send-fab')?.addEventListener('click', () => {
+            const caption = document.getElementById('media-preview-caption')?.value || '';
+            cancelMediaPreview();
+            sendFileToServer(file, type, caption);
+        });
+
+        document.getElementById('media-preview-caption')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const caption = document.getElementById('media-preview-caption')?.value || '';
+                cancelMediaPreview();
+                sendFileToServer(file, type, caption);
+            }
+        });
+
+        // Inyectar estilos si no existen
+        if (!document.getElementById('media-preview-styles-v2')) {
+            const style = document.createElement('style');
+            style.id = 'media-preview-styles-v2';
+            style.textContent = `
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                #media-preview-send-fab:hover { transform: scale(1.05); background: #00a884; }
+                #media-preview-send-fab:active { transform: scale(0.95); }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    /**
+     * Cancela el preview y limpia
+     */
+    function cancelMediaPreview() {
+        console.log('📸 [PREVIEW] Cancelando preview');
+        const overlay = document.getElementById('media-preview-overlay');
+        if (overlay) {
+            const img = overlay.querySelector('img');
+            const vid = overlay.querySelector('video');
+            if (img) URL.revokeObjectURL(img.src);
+            if (vid) URL.revokeObjectURL(vid.src);
+            overlay.remove();
+        }
+        pendingMediaFile = null;
+        pendingMediaType = null;
+    }
+
+    /**
+     * Sube un archivo al servidor y lo envía al chat
+     */
+    async function sendFileToServer(file, type, caption = '') {
+        if (!currentChatUserId) return;
         const advisor = getCurrentAdvisor();
         const sendBtn = document.getElementById('chat-send-btn');
         if (sendBtn) { sendBtn.disabled = true; sendBtn.innerHTML = '⏳'; }
@@ -945,6 +1096,7 @@
             const formData = new FormData();
             formData.append('file', file);
             formData.append('type', type);
+            if (caption) formData.append('caption', caption);
 
             const uploadRes = await authenticatedFetch('/api/conversations/upload-media', {
                 method: 'POST',
@@ -967,7 +1119,7 @@
             const sendRes = await authenticatedFetch(`/api/conversations/${encodeURIComponent(currentChatUserId)}/send-media`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ media: mediaData, caption: '', advisor })
+                body: JSON.stringify({ media: mediaData, caption: caption || '', advisor })
             });
 
             const sendData = await sendRes.json();
@@ -998,7 +1150,6 @@
                 sendBtn.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
             }
             if (isAttachMenuOpen) toggleAttachMenu();
-            input.value = '';
         }
     }
 
@@ -1369,6 +1520,14 @@
         const sendBtn = document.getElementById('chat-send-btn');
         if (sendBtn) sendBtn.addEventListener('click', sendMessage);
 
+        // Inyectar CSS para drag-and-drop si no existe
+        if (!document.getElementById('drag-over-style')) {
+            const style = document.createElement('style');
+            style.id = 'drag-over-style';
+            style.textContent = `.drag-over { outline: 2px dashed #25d366 !important; outline-offset: -4px; background: rgba(37,211,102,0.08) !important; }`;
+            document.head.appendChild(style);
+        }
+
         // ✅ Bind New Chat Button
         const btnNewChat = document.getElementById('btn-new-chat');
         if (btnNewChat) {
@@ -1454,6 +1613,31 @@
                 toggleAttachMenu();
             }
         });
+
+        // ✅ NUEVO: Clipboard paste para imágenes (Ctrl+V)
+        document.addEventListener('paste', handlePasteMedia);
+
+        // ✅ NUEVO: Drag-and-drop para archivos
+        const chatMessages = document.getElementById('chat-messages');
+        const chatPanel = document.querySelector('.chat-panel');
+        const dropArea = chatPanel || chatMessages;
+        if (dropArea) {
+            ['dragenter', 'dragover'].forEach(evt => {
+                dropArea.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropArea.classList.add('drag-over');
+                });
+            });
+            ['dragleave', 'drop'].forEach(evt => {
+                dropArea.addEventListener(evt, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropArea.classList.remove('drag-over');
+                });
+            });
+            dropArea.addEventListener('drop', handleDropMedia);
+        }
     }
 
     // ==========================================
@@ -1681,6 +1865,63 @@
 
 
 
+    // ==========================================
+    // CLIPBOARD PASTE & DRAG-DROP
+    // ==========================================
+
+    /**
+     * Maneja pegado de imágenes desde el portapapeles (Ctrl+V)
+     */
+    function handlePasteMedia(event) {
+        if (!currentChatUserId) return;
+
+        const items = event.clipboardData?.items;
+        if (!items) return;
+
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                event.preventDefault();
+                const blob = item.getAsFile();
+                if (!blob) return;
+
+                const ext = item.type.split('/')[1] || 'png';
+                const fileName = `clipboard_${Date.now()}.${ext}`;
+                const file = new File([blob], fileName, { type: item.type });
+
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                const fakeInput = { files: dt.files, value: '' };
+
+                handleFileUpload(fakeInput, 'image');
+                return;
+            }
+        }
+    }
+
+    /**
+     * Maneja archivos arrastrados (drag-and-drop)
+     */
+    function handleDropMedia(event) {
+        if (!currentChatUserId) return;
+
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return;
+
+        const file = files[0];
+        const mime = file.type || '';
+
+        let type = 'document';
+        if (mime.startsWith('image/')) type = 'image';
+        else if (mime.startsWith('video/')) type = 'video';
+        else if (mime.startsWith('audio/')) type = 'audio';
+
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        const fakeInput = { files: dt.files, value: '' };
+
+        handleFileUpload(fakeInput, type);
+    }
+
     window.ChatPage = {
         selectConversation,
         takeConversation,
@@ -1700,6 +1941,8 @@
         scrollToMessage,
         editContactName, // ✅ NUEVO
         deleteChat,      // ✅ NUEVO
+        handlePasteMedia,
+        handleDropMedia,
         loadMore: () => loadConversationList(conversationsOffset + CONVERSATIONS_LIMIT)
     };
 

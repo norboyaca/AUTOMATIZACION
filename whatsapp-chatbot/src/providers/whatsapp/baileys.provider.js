@@ -1065,6 +1065,38 @@ class BaileysProvider extends EventEmitter {
   }
 
   /**
+   * ✅ NUEVO: Envía un video
+   * Soporta: mp4, 3gp
+   */
+  async sendVideo(to, videoPath, caption = '') {
+    if (!this.isReady || !this.sock) {
+      throw new Error('WhatsApp no está conectado');
+    }
+
+    try {
+      const chatId = this._formatNumber(to);
+
+      // Leer video como buffer
+      const videoBuffer = fs.readFileSync(videoPath);
+
+      // Enviar video
+      const result = await this.sock.sendMessage(
+        chatId,
+        {
+          video: videoBuffer,
+          caption: caption
+        }
+      );
+
+      logger.debug(`Video enviado a ${to}`);
+      return result;
+    } catch (error) {
+      logger.error('Error enviando video:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Obtiene el mimetype basado en la extensión
    */
   _getMimeType(ext) {

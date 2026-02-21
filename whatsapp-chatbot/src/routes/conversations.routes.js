@@ -1933,6 +1933,9 @@ router.post('/:userId/send-file', requireAuth, single('file'), async (req, res) 
       case 'image':
         await whatsappProvider.sendImage(userId, filePath, '');
         break;
+      case 'video':
+        await whatsappProvider.sendVideo(userId, filePath, '');
+        break;
       case 'audio':
         await whatsappProvider.sendAudio(userId, filePath);
         break;
@@ -1961,7 +1964,7 @@ router.post('/:userId/send-file', requireAuth, single('file'), async (req, res) 
         id: mediaInfo ? mediaInfo.messageId : `file_${Date.now()}`,
         sender: 'admin',
         type: fileType,
-        message: `[${fileType === 'image' ? 'Imagen' : fileType === 'audio' ? 'Audio' : 'Documento'} enviado: ${originalName}]`,
+        message: `[${fileType === 'image' ? 'Imagen' : fileType === 'video' ? 'Video' : fileType === 'audio' ? 'Audio' : 'Documento'} enviado: ${originalName}]`,
         fileName: originalName,
         timestamp: Date.now(),
         // ✅ Metadata para visualización/descarga

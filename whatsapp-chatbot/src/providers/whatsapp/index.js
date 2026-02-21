@@ -87,6 +87,14 @@ module.exports = {
   sendDocument: (to, documentUrl, filename) => getProvider().sendDocument(to, documentUrl, filename),
 
   /**
+   * ✅ NUEVO: Envía un video
+   * @param {string} to - Número de destino
+   * @param {string} videoPath - Ruta del video
+   * @param {string} caption - Texto opcional
+   */
+  sendVideo: (to, videoPath, caption) => getProvider().sendVideo(to, videoPath, caption),
+
+  /**
    * ✅ NUEVO: Envía un audio
    * @param {string} to - Número de destino
    * @param {string} audioUrl - URL del audio
@@ -109,6 +117,8 @@ module.exports = {
         return await provider.sendAudio(to, fsPath);
       case 'image':
         return await provider.sendImage(to, fsPath, mediaData.caption || '');
+      case 'video':
+        return await provider.sendVideo(to, fsPath, mediaData.caption || '');
       case 'document':
         return await provider.sendDocument(to, fsPath, mediaData.filename, mediaData.caption || '');
       default:
