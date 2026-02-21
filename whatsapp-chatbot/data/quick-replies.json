@@ -1,0 +1,34 @@
+[
+  {
+    "id": "681ee059-5ebd-4443-99b5-5db2964788aa",
+    "title": "saludos",
+    "content": "Hola como vas bro",
+    "active": true,
+    "created_at": "2026-02-21T05:22:07.969Z",
+    "updated_at": "2026-02-21T05:22:07.969Z"
+  },
+  {
+    "id": "88abd117-a72a-4fc0-99d6-2e40d7c65566",
+    "title": "Comprobante",
+    "content": "Buenos días, ¿Cómo está, sumercé? Hemos remitido el comprobante a tesorería y cuando el pago sea verificado y aplicado, le llegará por correo electrónico el comprobante con el saldo a capital. \n\nGracias por su compromiso con NORBOY 💚¡Quedamos atentos!",
+    "active": true,
+    "created_at": "2026-02-21T05:35:03.571Z",
+    "updated_at": "2026-02-21T05:35:03.571Z"
+  },
+  {
+    "id": "c9613594-4954-4913-b6ab-16d04e619f2c",
+    "title": "we",
+    "content": "uisdasdasd",
+    "active": true,
+    "created_at": "2026-02-21T05:37:52.398Z",
+    "updated_at": "2026-02-21T05:37:52.399Z"
+  },
+  {
+    "id": "4f717929-c060-4ebe-ae7b-dee6c2b41c82",
+    "title": "re",
+    "content": "acecaev",
+    "active": true,
+    "created_at": "2026-02-21T05:48:37.324Z",
+    "updated_at": "2026-02-21T05:48:37.324Z"
+  }
+]

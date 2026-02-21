@@ -58,6 +58,9 @@
         }
         return response;
     }
+    window.authenticatedFetch = authenticatedFetch;
+
+
 
     function getCurrentAdvisor() {
         try {

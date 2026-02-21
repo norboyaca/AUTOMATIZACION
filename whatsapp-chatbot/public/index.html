@@ -8,6 +8,7 @@
   <script src="js/pre-auth.js"></script>
   <!-- Dashboard CSS (split into 5 modules for maintainability) -->
   <link rel="stylesheet" href="css/dashboard-base.css">
+  <link rel="stylesheet" href="css/quick-replies.css">
   <link rel="stylesheet" href="css/dashboard-layout.css">
   <link rel="stylesheet" href="css/dashboard-components.css">
   <link rel="stylesheet" href="css/dashboard-views.css">
@@ -114,6 +115,10 @@
         <a href="#" class="nav-item" onclick="changeView('holidays'); return false;">
           <span class="nav-item-icon">📅</span>
           <span class="nav-item-text">Días Festivos</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-quick-replies" onclick="changeView('quick-replies'); return false;">
+          <span class="nav-item-icon">⚡</span>
+          <span class="nav-item-text">Respuestas Rápidas</span>
         </a>
         <a href="#" class="nav-item" onclick="changeView('settings'); return false;">
           <span class="nav-item-icon">⚙️</span>
@@ -1154,15 +1159,126 @@
           </div>
         </div>
       </main>
+
+      <!-- ========================================
+           ⚡ VISTA: RESPUESTAS RÁPIDAS (CRUD)
+           ======================================== -->
+      <div id="quick-replies-view" style="display: none;">
+
+        <!-- Header -->
+        <div class="qr-view-header">
+          <div>
+            <h2>⚡ Respuestas Rápidas</h2>
+            <p>Escribe <strong>/</strong> en el chat para insertar una respuesta rápida</p>
+          </div>
+          <button class="upload-btn" onclick="openQRModal()" style="padding: 10px 20px;">
+            ➕ Nueva Respuesta
+          </button>
+        </div>
+
+        <!-- Info banner -->
+        <div class="qr-info-banner">
+          💡 Escribe <code>/</code> seguido del título para filtrar. Al seleccionar, el texto se inserta en el input del
+          chat sin enviarlo. El asesor puede editarlo antes de enviar.
+        </div>
+
+        <!-- Contador -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <span style="color: #777; font-size: 13px;" id="qr-count">0 respuestas</span>
+        </div>
+
+        <!-- Loading -->
+        <div id="qr-loading" style="display:none;">
+          <div class="loading-spinner"></div>
+          <p style="text-align:center; color:#aaa; margin-top:10px;">Cargando respuestas...</p>
+        </div>
+
+        <!-- Tabla -->
+        <div id="qr-table-wrapper" class="qr-table-wrapper" style="display:none;">
+          <table class="qr-table">
+            <thead>
+              <tr>
+                <th style="width: 18%;">Título</th>
+                <th style="width: 40%;">Contenido (preview)</th>
+                <th style="width: 10%; text-align:center;">Activa</th>
+                <th style="width: 14%;">Actualizado</th>
+                <th style="width: 18%;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="qr-table-body">
+              <!-- Se llena dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty state -->
+        <div id="qr-empty" class="qr-empty-state" style="display:none;">
+          <div class="qr-empty-icon">⚡</div>
+          <h3>No hay respuestas rápidas</h3>
+          <p>Crea tu primera respuesta para usarla con <code>/</code> en el chat</p>
+          <button class="upload-btn" onclick="openQRModal()">➕ Crear primera respuesta</button>
+        </div>
+
+      </div>
+      <!-- Fin quick-replies-view -->
       <!-- Fin del dashboard-content -->
 
     </div>
     <!-- Fin del main-content -->
 
     <!-- ========================================
+         ⚡ QUICK REPLIES — MODAL CREAR / EDITAR
+         ======================================== -->
+    <div class="modal-overlay" id="qr-modal">
+      <div class="modal-container" style="max-width: 540px;">
+        <div class="modal-header">
+          <h3 class="modal-title" id="qr-modal-title">➕ Nueva Respuesta Rápida</h3>
+          <button class="modal-close" onclick="closeQRModal()">&times;</button>
+        </div>
+
+        <div style="padding: 20px;">
+          <div class="qr-form-group">
+            <label for="qr-form-title">Título (usado para filtrar con /)</label>
+            <input type="text" id="qr-form-title" class="qr-form-input" placeholder="Ej: Horario, Precio, Saludo..."
+              maxlength="80" onkeydown="if(event.key==='Enter') document.getElementById('qr-form-content').focus()">
+          </div>
+
+          <div class="qr-form-group">
+            <label for="qr-form-content">Contenido (texto que se insertará en el chat)</label>
+            <textarea id="qr-form-content" class="qr-form-input" rows="4"
+              placeholder="Ej: ¡Hola! Nuestro horario es de 8am a 6pm, de lunes a sábado. ¿En qué más puedo ayudarte?"></textarea>
+          </div>
+
+          <div class="qr-form-active">
+            <label class="qr-toggle" style="margin:0;">
+              <input type="checkbox" id="qr-form-active" checked>
+              <span class="qr-toggle-slider"></span>
+            </label>
+            <label for="qr-form-active" style="cursor:pointer; font-size:13px; color:#444;">
+              Respuesta activa (visible en el dropdown del chat)
+            </label>
+          </div>
+
+          <div class="qr-form-error" id="qr-form-error"></div>
+
+          <div class="qr-form-actions">
+            <button id="qr-form-save-btn" class="upload-btn" onclick="saveQRForm()">✅ Guardar</button>
+            <button class="modal-close-btn" onclick="closeQRModal()" style="
+              background: none; border: 2px solid #e0e0e0; color: #666;
+              padding: 10px 20px; border-radius: 8px; cursor: pointer;
+              font-size: 14px; font-weight: 500;">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================
          DOCUMENTS UPLOAD MODAL
          ======================================== -->
     <div class="modal-overlay" id="upload-modal">
+
       <div class="modal-container">
         <div class="modal-header">
           <h3 class="modal-title">📤 Subir Documentos</h3>
@@ -1244,6 +1360,7 @@
   <script src="js/dashboard-documents.js"></script>
   <script src="js/dashboard-views.js"></script>
   <script src="js/dashboard-chat.js"></script>
+  <script src="js/quick-replies.js"></script>
 
   <!-- ========================================
      CHAT COMPLETE - JAVASCRIPT FUNCIONAL

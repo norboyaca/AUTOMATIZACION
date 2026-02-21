@@ -729,4 +729,153 @@ router.post('/settings/schedule', requireAuth, (req, res) => {
   }
 });
 
+// ===========================================
+// ✅ NUEVO: ENDPOINTS DE RESPUESTAS RÁPIDAS
+// ===========================================
+
+const fs = require('fs');
+const path = require('path');
+const quickRepliesFile = path.join(process.cwd(), 'data', 'quick-replies.json');
+
+
+
+/** Helper: leer el archivo JSON de quick-replies */
+function readQuickReplies() {
+  try {
+    if (!fs.existsSync(quickRepliesFile)) return [];
+    return JSON.parse(fs.readFileSync(quickRepliesFile, 'utf8')) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/** Helper: guardar quick-replies en disco */
+function writeQuickReplies(data) {
+  fs.writeFileSync(quickRepliesFile, JSON.stringify(data, null, 2), 'utf8');
+}
+
+/**
+ * GET /api/quick-replies
+ * Devuelve SOLO las respuestas rápidas activas (para el dropdown del chat)
+ */
+router.get('/quick-replies', requireAuth, (req, res) => {
+  try {
+    const all = readQuickReplies();
+    const active = all.filter(r => r.active !== false);
+    res.json({ success: true, quickReplies: active });
+  } catch (error) {
+    logger.error('Error obteniendo quick-replies:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/quick-replies/all
+ * Devuelve TODAS las respuestas (para la vista CRUD del dashboard)
+ */
+router.get('/quick-replies/all', requireAuth, (req, res) => {
+  try {
+    const all = readQuickReplies();
+    res.json({ success: true, quickReplies: all });
+  } catch (error) {
+    logger.error('Error obteniendo todas las quick-replies:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/quick-replies
+ * Crea una nueva respuesta rápida
+ * Body: { title, content, active }
+ */
+router.post('/quick-replies', requireAuth, (req, res) => {
+  try {
+    const { title, content, active } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, error: 'El título es requerido' });
+    }
+    if (!content || !content.trim()) {
+      return res.status(400).json({ success: false, error: 'El contenido es requerido' });
+    }
+
+    const all = readQuickReplies();
+    const newReply = {
+      id: require('crypto').randomUUID(),
+      title: title.trim(),
+      content: content.trim(),
+      active: active !== false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    all.push(newReply);
+    writeQuickReplies(all);
+
+    logger.info(`✅ Quick reply creada: "${newReply.title}"`);
+    res.json({ success: true, quickReply: newReply });
+  } catch (error) {
+    logger.error('Error creando quick-reply:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * PUT /api/quick-replies/:id
+ * Actualiza una respuesta rápida existente
+ * Body: { title, content, active }
+ */
+router.put('/quick-replies/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, content, active } = req.body;
+
+    const all = readQuickReplies();
+    const idx = all.findIndex(r => r.id === id);
+
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: 'Respuesta rápida no encontrada' });
+    }
+
+    if (title !== undefined) all[idx].title = title.trim();
+    if (content !== undefined) all[idx].content = content.trim();
+    if (active !== undefined) all[idx].active = Boolean(active);
+    all[idx].updated_at = new Date().toISOString();
+
+    writeQuickReplies(all);
+
+    logger.info(`✅ Quick reply actualizada: "${all[idx].title}"`);
+    res.json({ success: true, quickReply: all[idx] });
+  } catch (error) {
+    logger.error('Error actualizando quick-reply:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/quick-replies/:id
+ * Elimina una respuesta rápida
+ */
+router.delete('/quick-replies/:id', requireAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const all = readQuickReplies();
+    const idx = all.findIndex(r => r.id === id);
+
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: 'Respuesta rápida no encontrada' });
+    }
+
+    const removed = all.splice(idx, 1)[0];
+    writeQuickReplies(all);
+
+    logger.info(`🗑️ Quick reply eliminada: "${removed.title}"`);
+    res.json({ success: true, message: 'Respuesta rápida eliminada' });
+  } catch (error) {
+    logger.error('Error eliminando quick-reply:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;
+
