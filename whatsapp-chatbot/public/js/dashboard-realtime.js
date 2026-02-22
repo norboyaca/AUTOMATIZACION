@@ -124,15 +124,18 @@ function initializeRealtimeListeners() {
             </div>
           `;
 
-      // Agregar mensaje
       if (messagesDiv) {
         messagesDiv.innerHTML += messageHtml;
 
         // ✅ NUEVO: Marcar mensaje como renderizado
         renderedMessageIds.add(tempMessageId);
 
-        // Scroll al final automáticamente
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        // ✅ LAZY LOAD: Only auto-scroll to bottom if user was already near the bottom.
+        // This prevents interrupting the user while they browse message history.
+        const isNearBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop - messagesDiv.clientHeight < 120;
+        if (isNearBottom) {
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
       }
 
       console.log(`✅ Mensaje agregado al chat para ${userId} (ID: ${tempMessageId})`);

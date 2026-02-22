@@ -20,6 +20,10 @@
     let activeFilter = 'all';
     let searchQuery = '';
 
+    // ✅ LAZY LOAD: Pagination state for message history
+    let messageCursor = null;     // Timestamp of the oldest visible message (used as cursor)
+    let hasMoreMessages = false;  // True if there are earlier messages to load
+
     // Audio recording state
     let audioRecorder = null;
     let audioChunks = [];
@@ -493,6 +497,9 @@
         currentChatUserId = userId;
         window.currentChatUserId = userId;
         renderedMessageIds = new Set();
+        // ✅ LAZY LOAD: Reset pagination state when switching conversations
+        messageCursor = null;
+        hasMoreMessages = false;
 
         // Find conversation data
         currentConvData = conversations.find(c => c.userId === userId) || null;
@@ -531,9 +538,9 @@
         <div>Cargando mensajes...</div>
       </div>`;
 
-        // Load messages
+        // Load messages (first page: latest 20)
         try {
-            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(userId)}/whatsapp-messages?limit=50`);
+            const res = await authenticatedFetch(`/api/conversations/${encodeURIComponent(userId)}/whatsapp-messages?limit=20`);
             const data = await res.json();
 
             if (data.success && data.messages && data.messages.length > 0) {
@@ -548,6 +555,12 @@
                     }
                     appendMessage(msg);
                 });
+
+                // ✅ LAZY LOAD: Store cursor from server response
+                messageCursor = data.nextCursor || null;
+                hasMoreMessages = data.hasMore || false;
+                updateLoadMoreButton();
+
                 scrollToBottom(false);
             } else {
                 messagesEl.innerHTML = '<div class="chat-loading-messages">No hay mensajes aún. ¡Inicia la conversación!</div>';
@@ -852,6 +865,110 @@
             el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
         } else {
             el.scrollTop = el.scrollHeight;
+        }
+    }
+
+    // ==========================================
+    // ✅ LAZY LOAD: Load older messages
+    // ==========================================
+
+    /**
+     * Shows or hides the "Cargar más" button based on hasMoreMessages flag.
+     * Creates the button on first call; updates/removes it on subsequent calls.
+     */
+    function updateLoadMoreButton() {
+        const messagesEl = document.getElementById('chat-messages');
+        if (!messagesEl) return;
+
+        let btn = document.getElementById('load-more-messages-btn');
+
+        if (hasMoreMessages) {
+            if (!btn) {
+                // Create button and insert at the very top of the messages container
+                btn = document.createElement('button');
+                btn.id = 'load-more-messages-btn';
+                btn.className = 'load-more-messages-btn';
+                btn.textContent = 'Cargar más';
+                btn.addEventListener('click', loadOlderMessages);
+                messagesEl.insertBefore(btn, messagesEl.firstChild);
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Cargar más';
+                // Ensure it stays at the top (in case new content was prepended)
+                if (btn !== messagesEl.firstChild) {
+                    messagesEl.insertBefore(btn, messagesEl.firstChild);
+                }
+            }
+        } else if (btn) {
+            btn.remove();
+        }
+    }
+
+    /**
+     * Fetches the previous page of messages and prepends them to the chat,
+     * preserving the user's visual scroll position so there is no jump.
+     */
+    async function loadOlderMessages() {
+        if (!hasMoreMessages || !messageCursor || !currentChatUserId) return;
+
+        const btn = document.getElementById('load-more-messages-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Cargando...'; }
+
+        const messagesEl = document.getElementById('chat-messages');
+        // Capture current scroll height BEFORE adding new elements (to restore position after)
+        const prevScrollHeight = messagesEl.scrollHeight;
+
+        try {
+            const res = await authenticatedFetch(
+                `/api/conversations/${encodeURIComponent(currentChatUserId)}/whatsapp-messages?limit=20&cursor=${messageCursor}`
+            );
+            const data = await res.json();
+
+            if (data.success && data.messages && data.messages.length > 0) {
+                // Build a DocumentFragment with the older messages
+                const fragment = document.createDocumentFragment();
+                let prevDate = '';
+
+                data.messages.forEach(msg => {
+                    const msgDate = msg.timestamp
+                        ? new Date(msg.timestamp).toLocaleDateString()
+                        : '';
+                    if (msgDate && msgDate !== prevDate) {
+                        const sep = document.createElement('div');
+                        sep.className = 'chat-date-separator';
+                        sep.innerHTML = `<span>${msgDate}</span>`;
+                        fragment.appendChild(sep);
+                        prevDate = msgDate;
+                    }
+
+                    // Reuse appendMessage but render into the fragment manually
+                    // by temporarily appending to messagesEl, then moving to fragment
+                    const beforeCount = messagesEl.childNodes.length;
+                    appendMessage(msg);
+                    // appendMessage uses appendChild — grab the last added node
+                    if (messagesEl.childNodes.length > beforeCount) {
+                        fragment.appendChild(messagesEl.lastChild);
+                    }
+                });
+
+                // Prepend fragment (insert before the first existing message / load-more btn)
+                const firstChild = messagesEl.firstChild;
+                messagesEl.insertBefore(fragment, firstChild);
+
+                // ✅ Restore scroll position: user stays at the same visual spot
+                messagesEl.scrollTop = messagesEl.scrollHeight - prevScrollHeight;
+
+                // Update cursor state
+                messageCursor = data.nextCursor || null;
+                hasMoreMessages = data.hasMore || false;
+            } else {
+                hasMoreMessages = false;
+                messageCursor = null;
+            }
+        } catch (e) {
+            console.error('[LAZY LOAD] Error cargando mensajes históricos:', e);
+        } finally {
+            updateLoadMoreButton();
         }
     }
 

@@ -424,22 +424,29 @@ class ConversationRepository {
   async getHistory(participantId, options = { limit: 20 }) {
     if (!this._isAvailable()) return [];
     try {
+      // Build key condition — add timestamp cursor if provided
+      const hasBeforeCursor = options.beforeTimestamp && typeof options.beforeTimestamp === 'number';
+
       const command = new QueryCommand({
         TableName: TABLES.MESSAGES,
         IndexName: 'participantId-timestamp-index',
-        KeyConditionExpression: 'participantId = :participantId',
-        ExpressionAttributeValues: {
-          ':participantId': participantId
-        },
-        ScanIndexForward: false, // Orden descendente (más recientes primero)
+        KeyConditionExpression: hasBeforeCursor
+          ? 'participantId = :participantId AND #ts < :before'
+          : 'participantId = :participantId',
+        ...(hasBeforeCursor ? { ExpressionAttributeNames: { '#ts': 'timestamp' } } : {}),
+        ExpressionAttributeValues: hasBeforeCursor
+          ? { ':participantId': participantId, ':before': options.beforeTimestamp }
+          : { ':participantId': participantId },
+        ScanIndexForward: false, // Descending order (newest first)
         Limit: options.limit
       });
 
       const response = await docClient.send(command);
 
+      // Items arrive newest-first; reverse to get chronological order
       const messages = (response.Items || [])
         .map(item => new Message(item))
-        .reverse(); // Invertir para orden cronológico
+        .reverse();
 
       return messages;
     } catch (error) {

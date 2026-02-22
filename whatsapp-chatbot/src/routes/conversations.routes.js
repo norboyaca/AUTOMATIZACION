@@ -1711,7 +1711,10 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
   try {
     const { userId } = req.params;
     const { limit, cursor } = req.query;
-    const limitNum = limit ? parseInt(limit, 10) : 200;
+    // Default to 20 — lazy load fetches in pages
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+    // Convert cursor string to number (cursor = timestamp of oldest visible message)
+    const beforeTimestamp = cursor ? parseInt(cursor, 10) : undefined;
 
     // ✅ CRITICAL FIX: Normalize userId to match DynamoDB format
     // If userId doesn't have @s.whatsapp.net, add it
@@ -1731,9 +1734,17 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
     try {
       logger.info(`📜 Cargando últimos ${limitNum} mensajes desde DynamoDB...`);
       const conversationRepository = require('../repositories/conversation.repository');
-      const dbMessages = await conversationRepository.getHistory(normalizedUserId, { limit: limitNum });
+      const dbMessages = await conversationRepository.getHistory(normalizedUserId, {
+        limit: limitNum,
+        beforeTimestamp
+      });
 
       if (dbMessages && dbMessages.length > 0) {
+        // When using cursor, DynamoDB returns newest-first within the window;
+        // getHistory already reverses to chronological, so oldest is at index 0
+        // nextCursor = timestamp of the oldest message in this batch
+        const oldestMsg = dbMessages[0];
+        const nextCursorValue = oldestMsg ? (oldestMsg.timestamp || null) : null;
         messages = dbMessages.map(msg => ({
           id: msg.id || msg.messageId,
           sender: msg.metadata?.sender || (msg.direction === 'incoming' ? 'user' : 'bot'),
@@ -1752,7 +1763,7 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
           replyTo: msg.metadata?.replyTo || null
         }));
         source = 'dynamodb';
-        logger.info(`📜 ${messages.length} mensajes cargados desde DynamoDB`);
+        logger.info(`📜 ${messages.length} mensajes cargados desde DynamoDB (cursor: ${beforeTimestamp || 'inicio'}, hasMore: ${dbMessages.length === limitNum})`);
       } else {
         logger.info(`📜 0 mensajes en DynamoDB, intentando memoria...`);
       }
@@ -1788,14 +1799,23 @@ router.get('/:userId/whatsapp-messages', requireAuth, async (req, res) => {
       }
     }
 
-    // Ordenar por timestamp (más antiguos primero para chat)
+    // Sort ascending (oldest first) for chat display
     messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+    // Calculate pagination metadata
+    // hasMore: true if DynamoDB returned a full page (there may be earlier messages)
+    // For the memory fallback, pagination is not available — always hasMore: false
+    const resultHasMore = source === 'dynamodb' && messages.length === limitNum;
+    // nextCursor: timestamp of the oldest message in this batch (for the next request)
+    const resultNextCursor = resultHasMore && messages.length > 0
+      ? messages[0].timestamp
+      : null;
 
     res.json({
       success: true,
       messages: messages,
-      hasMore: false,
-      nextCursor: null,
+      hasMore: resultHasMore,
+      nextCursor: resultNextCursor,
       total: messages.length,
       returned: messages.length,
       source: source
