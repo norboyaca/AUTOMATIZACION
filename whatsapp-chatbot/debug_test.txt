@@ -1,0 +1,13 @@
+­ƒÆë [MOCK] Interceptando require de S3
+2026-02-22 00:48:15 [[32MINFO[39M]: ­ƒôé [MEDIA-STORAGE] ├ìndice cargado: 35 archivos
+
+­ƒÜÇ INICIANDO PRUEBA INTENSIVA DE RECONSTRUCCI├ôN DE MEDIA
+
+--- PASO 1: Verificar ausencia local ---
+­ƒÆë [MOCK] Interceptando require de repository
+­ƒöì [MOCK REPO] Buscando ID: MSG_RECONSTRUCTION_TEST_001
+2026-02-22 00:48:15 [[32MINFO[39M]: ­ƒöì [MEDIA-STORAGE] Reconstruyendo info de media desde DB para: MSG_RECONSTRUCTION_TEST_001
+ÔÜá´©Å Nota: Ya exist├¡a en el ├¡ndice (limpiando para el test)
+
+--- PASO 2: Solicitar buffer (disparar reconstrucci├│n) ---
+ÔØî ERROR: No se pudo recuperar el buffer (result├│ en null).

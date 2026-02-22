@@ -1,0 +1,16 @@
+[
+  [
+    "MSG_RECONSTRUCTION_TEST_001",
+    {
+      "mediaUrl": "/api/media/download/MSG_RECONSTRUCTION_TEST_001",
+      "fileName": "test-reconstruction.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 50000,
+      "filePath": "C:\\Users\\David\\Desktop\\NORBOY-CHAT\\AUTOMATIZACION\\whatsapp-chatbot\\test-uploads\\573001234567@s.whatsapp.net\\573001234567@s.whatsapp.net_MSG_RECONSTRUCTION_TEST_001.jpg",
+      "mediaType": "image",
+      "chatId": "573001234567@s.whatsapp.net",
+      "savedAt": 1771739339503,
+      "s3Key": "images/573001234567/test-reconstruction.jpg"
+    }
+  ]
+]

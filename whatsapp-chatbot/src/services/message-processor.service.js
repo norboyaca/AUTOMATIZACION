@@ -1224,12 +1224,13 @@ async function saveMessage(userId, message, sender, messageType = 'text', mediaD
       direction: sender === 'user' ? 'incoming' : 'outgoing'
     };
 
-    // ✅ NUEVO: Agregar metadata de media si existe
+    // Add media metadata to the message record if it exists
     if (mediaData) {
       messageRecord.mediaUrl = mediaData.mediaUrl || null;
       messageRecord.fileName = mediaData.fileName || null;
       messageRecord.mimeType = mediaData.mimeType || null;
       messageRecord.fileSize = mediaData.fileSize || null;
+      messageRecord.s3Key = mediaData.s3Key || null;  // Permanent S3 key for cross-session access
       messageRecord.type = mediaData.mediaType || messageActualType;
     }
 
@@ -1284,7 +1285,8 @@ async function saveMessage(userId, message, sender, messageType = 'text', mediaD
                 mediaUrl: mediaData.mediaUrl,
                 fileName: mediaData.fileName,
                 mimeType: mediaData.mimeType,
-                fileSize: mediaData.fileSize
+                fileSize: mediaData.fileSize,
+                s3Key: mediaData.s3Key || null  // Permanent S3 key for cross-session media retrieval
               } : {})
             },
             from: sender === 'user' ? userId : undefined,
@@ -1389,11 +1391,12 @@ module.exports = {
   // sender='advisor' es consistente con las respuestas manuales del dashboard.
   // getOrCreateConversation garantiza que la conversación existe en memoria
   // aunque el servidor haya reiniciado o el asesor haya iniciado el chat él mismo.
-  saveOutgoingMessage: async (userId, text, messageId) => {
-    // Asegurar que la conversación exista en cache antes de guardar el mensaje.
-    // saveMessage() usa getConversation() (solo lectura) y falla silenciosamente si no existe.
+  saveOutgoingMessage: async (userId, text, messageId, mediaData = null) => {
+    // Ensure the conversation exists in cache before saving the message.
+    // saveMessage() uses getConversation() (read-only) and fails silently if it doesn't exist.
     conversationStateService.getOrCreateConversation(userId);
-    return saveMessage(userId, text, 'advisor', 'text', null, messageId);
+    const msgType = (mediaData && mediaData.mediaType) ? mediaData.mediaType : 'text';
+    return saveMessage(userId, text, 'advisor', msgType, mediaData, messageId);
   }
 };
 

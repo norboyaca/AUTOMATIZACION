@@ -1,0 +1,31 @@
+
+­ƒÜÇ INICIANDO PRUEBA INTENSIVA DE RECONSTRUCCI├ôN DE MEDIA
+
+--- PASO 1: Verificar ausencia local ---
+­ƒöì [MOCK REPO] Buscando ID: MSG_RECONSTRUCTION_TEST_001
+2026-02-22 00:48:59 [[32MINFO[39M]: ­ƒöì [MEDIA-STORAGE] Reconstruyendo info de media desde DB para: MSG_RECONSTRUCTION_TEST_001
+Ôä╣´©Å MediaInfo reconstruido: {
+  "mediaUrl": "/api/media/download/MSG_RECONSTRUCTION_TEST_001",
+  "fileName": "test-reconstruction.jpg",
+  "mimeType": "image/jpeg",
+  "fileSize": 50000,
+  "filePath": "C:\\Users\\David\\Desktop\\NORBOY-CHAT\\AUTOMATIZACION\\whatsapp-chatbot\\test-uploads\\573001234567@s.whatsapp.net\\573001234567@s.whatsapp.net_MSG_RECONSTRUCTION_TEST_001.jpg",
+  "mediaType": "image",
+  "chatId": "573001234567@s.whatsapp.net",
+  "savedAt": 1771739339503,
+  "s3Key": "images/573001234567/test-reconstruction.jpg"
+}
+
+--- PASO 2: Solicitar buffer (disparar reconstrucci├│n) ---
+2026-02-22 00:48:59 [[32MINFO[39M]: Ôÿü´©Å [MEDIA-STORAGE] Recuperando MSG_RECONSTRUCTION_TEST_001 desde S3...
+Ôÿü´©Å [MOCK S3] Descargando: images/573001234567/test-reconstruction.jpg
+­ƒôª Buffer recibido (longitud: 33)
+­ƒôä Contenido: "CONTENIDO_MAGICO_RECUPERADO_DE_S3"
+Ô£à ├ëXITO: El buffer fue recuperado e integrado correctamente!
+
+--- PASO 3: Verificar que el ├¡ndice fue actualizado ---
+Ô£à ├ëXITO: El ├¡ndice local ahora contiene el s3Key: images/573001234567/test-reconstruction.jpg
+
+Ô£¿ PRUEBA FINALIZADA CON ├ëXITO AL 100% Ô£¿
+
+2026-02-22 00:49:00 [[34MDEBUG[39M]: ­ƒÆ¥ [MEDIA-STORAGE] ├ìndice guardado: 1 archivos

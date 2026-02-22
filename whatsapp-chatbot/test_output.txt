@@ -1,0 +1,115 @@
+npm verbose cli C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js
+npm info using npm@10.9.2
+npm info using node@v22.14.0
+npm verbose title npm test tests/unit/media-persistence.test.js
+npm verbose argv "test" "tests/unit/media-persistence.test.js" "--loglevel" "verbose"
+npm verbose logfile logs-max:10 dir:C:\Users\David\AppData\Local\npm-cache\_logs\2026-02-22T05_45_30_473Z-
+npm verbose logfile C:\Users\David\AppData\Local\npm-cache\_logs\2026-02-22T05_45_30_473Z-debug-0.log
+
+> whatsapp-chatbot@1.0.0 test
+> jest tests/unit/media-persistence.test.js
+
+FAIL tests/unit/media-persistence.test.js
+  Media Persistence
+    media-storage.service - s3Key eager assignment
+      ÔêÜ saveMediaFromMessage debe incluir s3Key en el resultado (13 ms)
+      ├ù getMediaInfo debe retornar s3Key para media guardada (3 ms)
+    media-storage.service - rebuildIndexFromDB
+      ├ù debe reconstruir entradas del ├¡ndice desde DynamoDB (3 ms)
+      ├ù no debe sobreescribir entradas existentes con s3Key (2 ms)
+      ├ù debe retornar 0 si DynamoDB no tiene mensajes con media (2 ms)
+      ├ù debe manejar errores de DynamoDB gracefully (2 ms)
+    message-processor.service - saveMessage con s3Key
+      ÔêÜ mediaData con s3Key debe propagarse al Message de DynamoDB (5 ms)
+      ÔêÜ mediaData sin s3Key debe guardar null
+      ÔêÜ sin mediaData no debe incluir campos de media (1 ms)
+    messageRecord construction
+      ÔêÜ debe incluir s3Key cuando hay mediaData (1 ms)
+      ÔêÜ messageRecord sin media NO debe tener s3Key (1 ms)
+    DynamoDB s3Key update after S3 upload
+      ÔêÜ UpdateCommand debe recibir los par├ímetros correctos (2 ms)
+
+  ÔùÅ Media Persistence ÔÇ║ media-storage.service - s3Key eager assignment ÔÇ║ getMediaInfo debe retornar s3Key para media guardada
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "images/12345/test.jpg"
+    Received: undefined
+
+      150 |             expect(info).not.toBeNull();
+      151 |             if (info) {
+    > 152 |                 expect(info.s3Key).toBe('images/12345/test.jpg');
+          |                                    ^
+      153 |             }
+      154 |         });
+      155 |     });
+
+      at Object.toBe (tests/unit/media-persistence.test.js:152:36)
+
+  ÔùÅ Media Persistence ÔÇ║ media-storage.service - rebuildIndexFromDB ÔÇ║ debe reconstruir entradas del ├¡ndice desde DynamoDB
+
+    TypeError: mediaStorageService.rebuildIndexFromDB is not a function
+
+      193 |             });
+      194 |
+    > 195 |             const rebuilt = await mediaStorageService.rebuildIndexFromDB();
+          |                                                       ^
+      196 |
+      197 |             expect(rebuilt).toBe(2);
+      198 |
+
+      at Object.rebuildIndexFromDB (tests/unit/media-persistence.test.js:195:55)
+
+  ÔùÅ Media Persistence ÔÇ║ media-storage.service - rebuildIndexFromDB ÔÇ║ no debe sobreescribir entradas existentes con s3Key
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "images/12345/test.jpg"
+    Received: undefined
+
+      226 |             // Verificar que tiene s3Key
+      227 |             const beforeInfo = mediaStorageService.getMediaInfo('msg_existing');
+    > 228 |             expect(beforeInfo.s3Key).toBe('images/12345/test.jpg');
+          |                                      ^
+      229 |
+      230 |             // Simular rebuild que intenta sobreescribir con datos de DynamoDB
+      231 |             mockSend.mockResolvedValueOnce({
+
+      at Object.toBe (tests/unit/media-persistence.test.js:228:38)
+
+  ÔùÅ Media Persistence ÔÇ║ media-storage.service - rebuildIndexFromDB ÔÇ║ debe retornar 0 si DynamoDB no tiene mensajes con media
+
+    TypeError: mediaStorageService.rebuildIndexFromDB is not a function
+
+      258 |             });
+      259 |
+    > 260 |             const rebuilt = await mediaStorageService.rebuildIndexFromDB();
+          |                                                       ^
+      261 |             expect(rebuilt).toBe(0);
+      262 |         });
+      263 |
+
+      at Object.rebuildIndexFromDB (tests/unit/media-persistence.test.js:260:55)
+
+  ÔùÅ Media Persistence ÔÇ║ media-storage.service - rebuildIndexFromDB ÔÇ║ debe manejar errores de DynamoDB gracefully
+
+    TypeError: mediaStorageService.rebuildIndexFromDB is not a function
+
+      265 |             mockSend.mockRejectedValueOnce(new Error('DynamoDB Connection Error'));
+      266 |
+    > 267 |             const rebuilt = await mediaStorageService.rebuildIndexFromDB();
+          |                                                       ^
+      268 |             expect(rebuilt).toBe(0); // No crashea, retorna 0
+      269 |         });
+      270 |     });
+
+      at Object.rebuildIndexFromDB (tests/unit/media-persistence.test.js:267:55)
+
+Test Suites: 1 failed, 1 total
+Tests:       5 failed, 7 passed, 12 total
+Snapshots:   0 total
+Time:        0.752 s, estimated 1 s
+Ran all test suites matching /tests\\unit\\media-persistence.test.js/i.
+Jest did not exit one second after the test run has completed.
+
+'This usually means that there are asynchronous operations that weren't stopped in your tests. Consider running Jest with `--detectOpenHandles` to troubleshoot this issue.

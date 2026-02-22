@@ -416,6 +416,32 @@ class ConversationRepository {
   }
 
   /**
+   * Busca un mensaje específico por su ID
+   * @param {string} messageId - ID del mensaje (messageId)
+   * @returns {Promise<Message|null>}
+   */
+  async findMessageById(messageId) {
+    if (!this._isAvailable() || !messageId) return null;
+    try {
+      const command = new GetCommand({
+        TableName: TABLES.MESSAGES,
+        Key: { messageId }
+      });
+
+      const response = await docClient.send(command);
+
+      if (!response.Item) {
+        return null;
+      }
+
+      return new Message(response.Item);
+    } catch (error) {
+      logger.error(`Error buscando mensaje ${messageId}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Obtiene el historial de mensajes
    * @param {string} participantId
    * @param {Object} options

@@ -492,10 +492,24 @@ whatsappWeb.on('message', async (message) => {
 // completo de la conversación sin activar ninguna lógica de bot.
 whatsappWeb.on('outgoing-message', async (outgoing) => {
   try {
-    const { to, body, id } = outgoing;
-    logger.info(`📤 [SERVER] Guardando mensaje enviado desde celular → ${to}: "${body.substring(0, 50)}"`);
+    const { to, body, id, mediaType, originalMsg } = outgoing;
+    logger.info(`📤 [SERVER] Guardando mensaje enviado desde celular → ${to}: "${body.substring(0, 50)}" (tipo: ${mediaType})`);
 
-    await messageProcessor.saveOutgoingMessage(to, body, id);
+    // If the advisor sent multimedia from the phone, persist the file to disk/S3
+    let mediaData = null;
+    if (originalMsg && mediaType !== 'text') {
+      try {
+        const mediaStorageService = require('./src/services/media-storage.service');
+        mediaData = await mediaStorageService.saveMediaFromMessage(originalMsg);
+        if (mediaData) {
+          logger.info(`✅ [SERVER] Media saliente guardada: ${mediaData.mediaUrl} (${mediaData.fileName})`);
+        }
+      } catch (mediaError) {
+        logger.warn(`⚠️ [SERVER] Error guardando media saliente (no crítico): ${mediaError.message}`);
+      }
+    }
+
+    await messageProcessor.saveOutgoingMessage(to, body, id, mediaData);
 
     logger.info(`✅ [SERVER] Mensaje desde celular guardado correctamente`);
   } catch (err) {

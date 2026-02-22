@@ -1,0 +1,11 @@
+npm verbose cli C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js
+npm info using npm@10.9.2
+npm info using node@v22.14.0
+npm verbose title npm test tests/unit/media-persistence.test.js
+npm verbose argv "test" "tests/unit/media-persistence.test.js" "--loglevel" "verbose"
+npm verbose logfile logs-max:10 dir:C:\Users\David\AppData\Local\npm-cache\_logs\2026-02-22T05_46_27_657Z-
+npm verbose logfile C:\Users\David\AppData\Local\npm-cache\_logs\2026-02-22T05_46_27_657Z-debug-0.log
+
+> whatsapp-chatbot@1.0.0 test
+> jest tests/unit/media-persistence.test.js
+

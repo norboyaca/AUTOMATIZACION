@@ -145,7 +145,7 @@ describe('Media Persistence', () => {
             };
 
             await mediaStorageService.saveMediaFromMessage(mockMessage);
-            const info = mediaStorageService.getMediaInfo('msg_test_002');
+            const info = await mediaStorageService.getMediaInfo('msg_test_002');
 
             expect(info).not.toBeNull();
             if (info) {
@@ -197,13 +197,13 @@ describe('Media Persistence', () => {
             expect(rebuilt).toBe(2);
 
             // Verificar que las entradas fueron agregadas al índice
-            const info1 = mediaStorageService.getMediaInfo('msg_db_001');
+            const info1 = await mediaStorageService.getMediaInfo('msg_db_001');
             expect(info1).not.toBeNull();
             expect(info1.s3Key).toBe('images/55555/photo.jpg');
             expect(info1.mimeType).toBe('image/jpeg');
             expect(info1.mediaUrl).toBe('/api/media/download/msg_db_001');
 
-            const info2 = mediaStorageService.getMediaInfo('msg_db_002');
+            const info2 = await mediaStorageService.getMediaInfo('msg_db_002');
             expect(info2).not.toBeNull();
             expect(info2.s3Key).toBe('documents/55555/doc.pdf');
             expect(info2.mimeType).toBe('application/pdf');
@@ -224,7 +224,7 @@ describe('Media Persistence', () => {
             await mediaStorageService.saveMediaFromMessage(mockMessage);
 
             // Verificar que tiene s3Key
-            const beforeInfo = mediaStorageService.getMediaInfo('msg_existing');
+            const beforeInfo = await mediaStorageService.getMediaInfo('msg_existing');
             expect(beforeInfo.s3Key).toBe('images/12345/test.jpg');
 
             // Simular rebuild que intenta sobreescribir con datos de DynamoDB
@@ -247,7 +247,7 @@ describe('Media Persistence', () => {
             expect(rebuilt).toBe(0);
 
             // Debe mantener el s3Key original
-            const afterInfo = mediaStorageService.getMediaInfo('msg_existing');
+            const afterInfo = await mediaStorageService.getMediaInfo('msg_existing');
             expect(afterInfo.s3Key).toBe('images/12345/test.jpg');
         });
 

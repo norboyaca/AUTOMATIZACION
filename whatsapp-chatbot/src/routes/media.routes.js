@@ -35,8 +35,8 @@ router.get('/download/:messageId', requireAuth, async (req, res) => {
             });
         }
 
-        // Buscar archivo en el índice
-        const mediaInfo = mediaStorageService.getMediaInfo(messageId);
+        // Buscar archivo en el índice (ahora asíncrono con fallback a DB)
+        const mediaInfo = await mediaStorageService.getMediaInfo(messageId);
 
         if (!mediaInfo) {
             logger.warn(`⚠️ [MEDIA-ROUTE] Archivo no encontrado para messageId: ${messageId}`);
@@ -85,7 +85,7 @@ router.get('/download/:messageId', requireAuth, async (req, res) => {
 router.get('/stream/:messageId', requireAuth, async (req, res) => {
     try {
         const { messageId } = req.params;
-        const mediaInfo = mediaStorageService.getMediaInfo(messageId);
+        const mediaInfo = await mediaStorageService.getMediaInfo(messageId);
 
         if (!mediaInfo) {
             return res.status(404).json({ success: false, error: 'Archivo no encontrado en índice' });

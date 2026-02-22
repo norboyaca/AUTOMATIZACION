@@ -760,12 +760,15 @@ class BaileysProvider extends EventEmitter {
       logger.info(`📤 [OUTGOING] Mensaje desde celular capturado → ${remoteJid}: "${displayBody.substring(0, 60)}" (tipo: ${mediaType})`);
 
       // Emitir evento separado — server.js lo escucha para guardar sin activar bot
+      // Se incluye el objeto original del mensaje para que server.js pueda descargar multimedia
       this.emit('outgoing-message', {
         to: remoteJid,
         body: displayBody,
         id: messageId,
         timestamp: msg.messageTimestamp || Date.now(),
-        mediaType: mediaType
+        mediaType: mediaType,
+        // Include the full Baileys message so server.js can call saveMediaFromMessage for media
+        originalMsg: isMultimedia ? { ...msg, _original: msg } : null
       });
     } catch (err) {
       logger.error('❌ Error capturando mensaje saliente desde celular:', err.message);
