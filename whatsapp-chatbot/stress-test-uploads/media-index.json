@@ -1,0 +1,87 @@
+[
+  [
+    "MSG_LOCAL_OK",
+    {
+      "mediaUrl": "/api/media/download/MSG_LOCAL_OK",
+      "fileName": "local.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 100,
+      "filePath": "C:\\Users\\David\\Desktop\\NORBOY-CHAT\\AUTOMATIZACION\\whatsapp-chatbot\\stress-test-uploads\\user1\\user1_MSG_LOCAL_OK.jpg",
+      "mediaType": "image",
+      "chatId": "user1",
+      "savedAt": 1771742755259,
+      "_originalMessage": null
+    }
+  ],
+  [
+    "MSG_S3_OK",
+    {
+      "mediaUrl": "/api/media/download/MSG_S3_OK",
+      "fileName": "s3.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 200,
+      "filePath": "C:\\Users\\David\\Desktop\\NORBOY-CHAT\\AUTOMATIZACION\\whatsapp-chatbot\\stress-test-uploads\\user2\\user2_MSG_S3_OK.jpg",
+      "mediaType": "image",
+      "chatId": "user2",
+      "savedAt": 1771742755270,
+      "s3Key": "keys/s3.jpg",
+      "_originalMessage": null
+    }
+  ],
+  [
+    "MSG_WA_OK",
+    {
+      "mediaUrl": "/api/media/download/MSG_WA_OK",
+      "fileName": "wa.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 300,
+      "filePath": "C:\\Users\\David\\Desktop\\NORBOY-CHAT\\AUTOMATIZACION\\whatsapp-chatbot\\stress-test-uploads\\user3\\user3_MSG_WA_OK.jpg",
+      "mediaType": "image",
+      "chatId": "user3",
+      "savedAt": 1771742755273,
+      "_originalMessage": {
+        "key": {
+          "id": "WA_REF"
+        },
+        "message": {
+          "imageMessage": {}
+        }
+      }
+    }
+  ],
+  [
+    "MSG_WA_BAD_MAC",
+    {
+      "mediaUrl": "/api/media/download/MSG_WA_BAD_MAC",
+      "fileName": "bad.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 400,
+      "filePath": "C:\\Users\\David\\Desktop\\NORBOY-CHAT\\AUTOMATIZACION\\whatsapp-chatbot\\stress-test-uploads\\user4\\user4_MSG_WA_BAD_MAC.jpg",
+      "mediaType": "image",
+      "chatId": "user4",
+      "savedAt": 1771742755290,
+      "_originalMessage": {
+        "key": {
+          "id": "WA_BAD"
+        },
+        "message": {
+          "imageMessage": {}
+        }
+      }
+    }
+  ],
+  [
+    "MSG_TOTAL_FAIL",
+    {
+      "mediaUrl": "/api/media/download/MSG_TOTAL_FAIL",
+      "fileName": "fail.jpg",
+      "mimeType": "image/jpeg",
+      "fileSize": 500,
+      "filePath": "C:\\Users\\David\\Desktop\\NORBOY-CHAT\\AUTOMATIZACION\\whatsapp-chatbot\\stress-test-uploads\\user5\\user5_MSG_TOTAL_FAIL.jpg",
+      "mediaType": "image",
+      "chatId": "user5",
+      "savedAt": 1771742755292,
+      "_originalMessage": null
+    }
+  ]
+]

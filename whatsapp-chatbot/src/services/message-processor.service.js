@@ -1274,14 +1274,21 @@ async function saveMessage(userId, message, sender, messageType = 'text', mediaD
       direction: sender === 'user' ? 'incoming' : 'outgoing'
     };
 
+    // Check for media types that SHOULD have media but might have failed initial download
+    const isMediaType = ['image', 'video', 'audio', 'document'].includes(messageActualType);
+
     // Add media metadata to the message record if it exists
     if (mediaData) {
-      messageRecord.mediaUrl = mediaData.mediaUrl || null;
+      messageRecord.mediaUrl = mediaData.mediaUrl || `/api/media/download/${messageRecord.id}`;
       messageRecord.fileName = mediaData.fileName || null;
       messageRecord.mimeType = mediaData.mimeType || null;
       messageRecord.fileSize = mediaData.fileSize || null;
-      messageRecord.s3Key = mediaData.s3Key || null;  // Permanent S3 key for cross-session access
+      messageRecord.s3Key = mediaData.s3Key || null;
       messageRecord.type = mediaData.mediaType || messageActualType;
+    } else if (isMediaType) {
+      // ✅ FIX: Si es media pero falló la descarga, forzar URL de proxy para activar reconstrucción on-demand
+      messageRecord.mediaUrl = `/api/media/download/${messageRecord.id}`;
+      logger.warn(`⚠️ [MSG-PROC] Media download failed for ${messageRecord.id}, forcing proxy URL for on-demand recovery.`);
     }
 
     // ===========================================
@@ -1331,12 +1338,12 @@ async function saveMessage(userId, message, sender, messageType = 'text', mediaD
             type: messageActualType === 'text' ? 'text' : messageActualType,
             content: {
               text: messageText,
-              ...(mediaData ? {
-                mediaUrl: mediaData.mediaUrl,
-                fileName: mediaData.fileName,
-                mimeType: mediaData.mimeType,
-                fileSize: mediaData.fileSize,
-                s3Key: mediaData.s3Key || null  // Permanent S3 key for cross-session media retrieval
+              ...(mediaData || isMediaType ? {
+                mediaUrl: (mediaData && mediaData.mediaUrl) || `/api/media/download/${messageRecord.id}`,
+                fileName: (mediaData && mediaData.fileName) || null,
+                mimeType: (mediaData && mediaData.mimeType) || null,
+                fileSize: (mediaData && mediaData.fileSize) || null,
+                s3Key: (mediaData && mediaData.s3Key) || null
               } : {})
             },
             from: sender === 'user' ? userId : undefined,
@@ -1344,7 +1351,9 @@ async function saveMessage(userId, message, sender, messageType = 'text', mediaD
             status: 'delivered',
             metadata: {
               sender: sender,
-              originalType: messageActualType
+              originalType: messageActualType,
+              // Guardar el mensaje original de WhatsApp para poder reconstruir media on-demand
+              whatsappMessage: options.originalMessage?._original || options.originalMessage || null
             },
             createdAt: new Date(messageRecord.timestamp),
             updatedAt: new Date()

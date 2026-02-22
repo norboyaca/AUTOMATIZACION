@@ -30,6 +30,17 @@ function getRepo() {
     return conversationRepository;
 }
 
+// WhatsApp Socket for emergency fallback downloads
+let whatsappSocket = null;
+
+/**
+ * Inyecta el socket de Baileys para descargas de respaldo
+ */
+function setWhatsAppSocket(sock) {
+    whatsappSocket = sock;
+    logger.info('🔌 [MEDIA-STORAGE] Socket de WhatsApp inyectado para fallbacks');
+}
+
 // ===========================================
 // CONFIGURACIÓN
 // ===========================================
@@ -386,15 +397,30 @@ async function getMediaInfo(messageId) {
         const repo = getRepo();
         const message = await repo.findMessageById(messageId);
 
-        if (message && message.content && message.content.s3Key) {
+        // Si es un mensaje con media (tenga o no s3Key)
+        if (message && message.content && (message.content.s3Key || message.type !== 'text')) {
             logger.info(`🔍 [MEDIA-STORAGE] Reconstruyendo info de media desde DB para: ${messageId}`);
 
-            const { fileName, mimeType, fileSize, s3Key } = message.content;
+            let { fileName, mimeType, fileSize, s3Key } = message.content;
+
+            // ✅ NUEVO: Fallback para metadatos si están vacíos (caso de descarga inicial fallida)
+            const waMsg = message.metadata?.whatsappMessage || null;
+            if (!mimeType && waMsg) {
+                const mediaMsg = waMsg.message?.imageMessage || waMsg.message?.videoMessage ||
+                    waMsg.message?.audioMessage || waMsg.message?.documentMessage;
+                if (mediaMsg) {
+                    mimeType = mediaMsg.mimetype;
+                    fileName = fileName || mediaMsg.fileName || `archivo_${messageId}`;
+                    fileSize = fileSize || mediaMsg.fileLength;
+                    logger.debug(`📄 [MEDIA-STORAGE] Metadatos inferidos de WhatsApp: ${mimeType}`);
+                }
+            }
+
             const chatId = message.participantId || 'unknown';
 
-            // Reconstruct path (even if it doesn't exist yet, getMediaBuffer will download it)
+            // Reconstruct path
+            const ext = MIME_TO_EXT[mimeType] || MIME_TO_EXT[mimeType?.split(';')[0]] || '.bin';
             const chatDir = path.join(UPLOADS_BASE_DIR, chatId);
-            const ext = MIME_TO_EXT[mimeType] || MIME_TO_EXT[mimeType.split(';')[0]] || '.bin';
             const filePath = path.join(chatDir, `${chatId}_${messageId}${ext}`);
 
             const mediaInfo = {
@@ -405,8 +431,9 @@ async function getMediaInfo(messageId) {
                 filePath,
                 mediaType: (mimeType || '').split('/')[0] || 'document',
                 chatId,
-                savedAt: Date.now(),
-                s3Key
+                savedAt: message.timestamp || Date.now(),
+                s3Key,
+                _originalMessage: waMsg
             };
 
             // Save in index for future requests
@@ -531,10 +558,58 @@ async function getMediaBuffer(messageId) {
                 if (!fs.existsSync(dir)) await fsPromises.mkdir(dir, { recursive: true });
                 await fsPromises.writeFile(info.filePath, buffer);
             } catch (err) {
-                logger.warn(`⚠️ [MEDIA-STORAGE] No se pudo restaurar caché local: ${err.message}`);
+                logger.warn(`⚠️ [MEDIA-STORAGE] No se pudo restaurar caché local desde S3: ${err.message}`);
+            }
+            return buffer;
+        }
+    }
+
+    // 3. Fallback: Intentar descarga directa de WhatsApp (Emergencia)
+    if (whatsappSocket && info._originalMessage) {
+        logger.info(`📱 [MEDIA-STORAGE] Intentando descarga de emergencia desde WhatsApp para: ${messageId}`);
+        try {
+            // downloadMediaMessage necesita el objeto de mensaje de Baileys
+            const buffer = await downloadMediaMessage(
+                info._originalMessage,
+                'buffer',
+                {},
+                {
+                    logger: {
+                        info: () => { },
+                        error: (...args) => logger.error(...args),
+                        warn: (...args) => logger.warn(...args),
+                        debug: () => { },
+                        trace: () => { },
+                        child: () => ({
+                            info: () => { },
+                            error: (...args) => logger.error(...args),
+                            warn: (...args) => logger.warn(...args),
+                            debug: () => { },
+                            trace: () => { },
+                        }),
+                    },
+                    reuploadRequest: whatsappSocket.updateMediaMessage
+                }
+            );
+
+            if (buffer) {
+                logger.info(`✅ [MEDIA-STORAGE] Descarga de emergencia exitosa para ${messageId}`);
+                // Restaurar caché local
+                try {
+                    const dir = path.dirname(info.filePath);
+                    if (!fs.existsSync(dir)) await fsPromises.mkdir(dir, { recursive: true });
+                    await fsPromises.writeFile(info.filePath, buffer);
+                } catch (err) {
+                    logger.warn(`⚠️ [MEDIA-STORAGE] No se pudo restaurar caché local desde WhatsApp: ${err.message}`);
+                }
+                return buffer;
+            }
+        } catch (err) {
+            logger.error(`❌ [MEDIA-STORAGE] Fallo en descarga de emergencia: ${err.message}`);
+            if (err.message.includes('MAC')) {
+                logger.error('   → Error de integridad (Bad MAC). La clave de cifrado podría ser inválida para esta sesión.');
             }
         }
-        return buffer;
     }
 
     return null;
@@ -623,4 +698,5 @@ module.exports = {
     hasMedia,
     getStats,
     ensureUploadDir,
+    setWhatsAppSocket, // ✅ Exportado para inyección desde el provider
 };

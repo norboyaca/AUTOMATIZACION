@@ -18,6 +18,7 @@ const fs = require('fs');
 const logger = require('../../utils/logger');
 const EventEmitter = require('events');
 const conversationStateService = require('../../services/conversation-state.service');
+const mediaStorageService = require('../../services/media-storage.service');
 
 // ✅ FFMPEG para conversión de audio (Compatibilidad móvil)
 const ffmpeg = require('fluent-ffmpeg');
@@ -478,6 +479,9 @@ class BaileysProvider extends EventEmitter {
     this.isReady = true;
     this.isConnecting = false;
     this.status = 'connected';
+
+    // Inyectar socket en servicio de media para posibles fallbacks
+    mediaStorageService.setWhatsAppSocket(this.sock);
 
     // Mensaje específico según si restauró sesión o es nueva
     if (this.hasExistingSession && !this.qrEmitted) {

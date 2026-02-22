@@ -1,0 +1,33 @@
+INFO: ­ƒôé [MEDIA-STORAGE] ├ìndice cargado: 5 archivos
+INFO: ­ƒöî [MEDIA-STORAGE] Socket de WhatsApp inyectado para fallbacks
+=====================================================
+    TEST DE INTENSIDAD: RECUPERACI├ôN DE MEDIA       
+=====================================================
+
+­ƒö╣ [ESCENARIO] HIT_LOCAL: Archivo existe en disco
+Ô£à EXITO: Recuperado correctamente ("DATA_LOCAL")
+
+­ƒö╣ [ESCENARIO] FALLBACK_S3: No est├í en disco, pero s├¡ en S3
+Ô£à EXITO: Recuperado correctamente ("DATA_FROM_S3")
+
+­ƒö╣ [ESCENARIO] FALLBACK_WA: No est├í en disco ni S3, descarga de WhatsApp
+Ô£à EXITO: Recuperado correctamente ("DATA_FROM_WHATSAPP")
+
+­ƒö╣ [ESCENARIO] FAIL_BAD_MAC: Falla descarga de WhatsApp por Bad MAC
+INFO: ­ƒô▒ [MEDIA-STORAGE] Intentando descarga de emergencia desde WhatsApp para: MSG_WA_BAD_MAC
+­ƒô▒ [STRESS-WA] Intentando descarga: WA_BAD
+ERROR: ÔØî [MEDIA-STORAGE] Fallo en descarga de emergencia: Bad MAC
+ERROR:    ÔåÆ Error de integridad (Bad MAC). La clave de cifrado podr├¡a ser inv├ílida para esta sesi├│n.
+Ô£à EXITO: Fallo controlado (retorn├│ null como se esperaba)
+
+­ƒö╣ [ESCENARIO] FAIL_TOTAL: No tiene S3Key ni metadatos de WhatsApp
+Ô£à EXITO: Fallo controlado (retorn├│ null como se esperaba)
+
+­ƒö╣ [ESCENARIO] CONCURRENCIA: M├║ltiples peticiones simult├íneas
+ÔÅ▒´©Å  10 peticiones procesadas en 8ms
+Ô£à EXITO: Todas las peticiones concurrentes retornaron datos consistentes
+
+=====================================================
+        RESULTADO FINAL: PRUEBAS COMPLETADAS        
+=====================================================
+Inspecciona ./stress-test-uploads para ver la cach├® restaurada.

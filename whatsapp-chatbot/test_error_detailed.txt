@@ -1,0 +1,17 @@
+C:\Users\David\Desktop\NORBOY-CHAT\AUTOMATIZACION\whatsapp-chatbot\node_modules\logform\levels.js:10
+  Colorizer.addColors(config.colors || config);
+                             ^
+
+TypeError: Cannot read properties of undefined (reading 'colors')
+    at module.exports [as levels] (C:\Users\David\Desktop\NORBOY-CHAT\AUTOMATIZACION\whatsapp-chatbot\node_modules\logform\levels.js:10:30)
+    at Object.<anonymous> (C:\Users\David\Desktop\NORBOY-CHAT\AUTOMATIZACION\whatsapp-chatbot\node_modules\winston\lib\winston\config\index.js:17:23)
+    at Module._compile (node:internal/modules/cjs/loader:1554:14)
+    at Object..js (node:internal/modules/cjs/loader:1706:10)
+    at Module.load (node:internal/modules/cjs/loader:1289:32)
+    at Function._load (node:internal/modules/cjs/loader:1108:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:220:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1311:12)
+    at Module.require (C:\Users\David\Desktop\NORBOY-CHAT\AUTOMATIZACION\whatsapp-chatbot\stress-test-media.js:76:40)
+
+Node.js v22.14.0

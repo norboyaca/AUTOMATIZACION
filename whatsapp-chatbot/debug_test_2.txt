@@ -29,3 +29,5 @@
 Ô£¿ PRUEBA FINALIZADA CON ├ëXITO AL 100% Ô£¿
 
 2026-02-22 00:49:00 [[34MDEBUG[39M]: ­ƒÆ¥ [MEDIA-STORAGE] ├ìndice guardado: 1 archivos
+2026-02-22 01:48:59 [[32MINFO[39M]: ­ƒº╣ [MEDIA-STORAGE] Iniciando limpieza de cach├® local...
+2026-02-22 01:48:59 [[34MDEBUG[39M]: ­ƒº╣ [MEDIA-STORAGE] Limpieza completada: Sin archivos para borrar
