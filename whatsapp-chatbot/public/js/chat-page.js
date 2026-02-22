@@ -1558,6 +1558,31 @@
                 }
             }
         });
+
+        // ✅ NUEVO: Listener para actualización de IA/Bot en tiempo real
+        socket.on('bot-status-updated', (data) => {
+            console.log('🤖 [SOCKET] Recibido bot-status-updated:', data);
+
+            // 1. Actualizar datos locales de la conversación si ya existe
+            const conv = conversations.find(c => c.userId === data.userId);
+            if (conv) {
+                conv.bot_active = data.botActive;
+                if (data.status) conv.status = data.status;
+                // Re-renderizar lista para reflejar badges si es necesario
+                renderConversationList();
+            }
+
+            // 2. Si es el chat abierto, actualizar cabecera
+            if (currentChatUserId === data.userId) {
+                console.log('🤖 Actualizando UI del chat abierto para:', data.userId);
+                if (currentConvData) {
+                    currentConvData.bot_active = data.botActive;
+                    if (data.status) currentConvData.status = data.status;
+                    updateChatHeaderStatus();
+                    updateChatHeaderActions();
+                }
+            }
+        });
     }
 
     function updateConnectionStatus(status, text) {

@@ -160,7 +160,13 @@ async function processIncomingMessage(userId, message, options = {}) {
           type: 'out_of_hours',
           timestamp: Date.now()
         });
-        logger.info(`📢 Evento 'escalation-detected' emitido (fuera de horario) para ${userId}`);
+        io.emit('bot-status-updated', {
+          userId: userId,
+          botActive: false,
+          status: conversation.status,
+          timestamp: Date.now()
+        });
+        logger.info(`📢 Evento 'escalation-detected' y 'bot-status-updated' emitido (fuera de horario) para ${userId}`);
       }
 
       logger.info(`✅ Mensaje fuera de horario enviado a ${userId}`);
@@ -448,6 +454,16 @@ Mientras tanto, en qué podemos ayudarle?`;
                 await whatsappProvider.sendMessage(userId, advisorMsg);
                 await saveMessage(userId, advisorMsg, 'bot', 'escalation');
 
+                // ✅ NUEVO: Emitir evento de estado del bot actualizado
+                if (io) {
+                  io.emit('bot-status-updated', {
+                    userId: userId,
+                    botActive: false,
+                    status: conversation.status,
+                    timestamp: Date.now()
+                  });
+                }
+
                 // Finalizar flujo
                 await flowManager.endFlow(userId);
                 conversation.activeFlow = null;
@@ -511,6 +527,12 @@ Mientras tanto, en qué podemos ayudarle?`;
                     reason: aiResponse.escalation?.reason || 'no_information',
                     priority: aiResponse.escalation?.priority || 'medium',
                     message: flowResult.originalQuery, timestamp: Date.now()
+                  });
+                  io.emit('bot-status-updated', {
+                    userId: userId,
+                    botActive: false,
+                    status: conversation.status,
+                    timestamp: Date.now()
                   });
                 }
                 return null;
@@ -854,7 +876,13 @@ Por favor, digita:
           detectedKeyword: escalation.detectedKeyword,
           timestamp: Date.now()
         });
-        logger.info(`📢 Evento 'escalation-detected' emitido al dashboard para ${userId}`);
+        io.emit('bot-status-updated', {
+          userId: userId,
+          botActive: false,
+          status: conversation.status,
+          timestamp: Date.now()
+        });
+        logger.info(`📢 Evento 'escalation-detected' y 'bot-status-updated' emitido al dashboard para ${userId}`);
       }
 
       logger.info(`✅ Mensaje de escalación enviado a ${userId}`);
@@ -945,7 +973,13 @@ Por favor, digita:
           type: response.type,
           timestamp: Date.now()
         });
-        logger.info(`📢 Evento 'escalation-detected' emitido al dashboard para ${userId}`);
+        io.emit('bot-status-updated', {
+          userId: userId,
+          botActive: false,
+          status: conversation.status,
+          timestamp: Date.now()
+        });
+        logger.info(`📢 Evento 'escalation-detected' y 'bot-status-updated' emitido al dashboard para ${userId}`);
       }
 
       logger.info(`✅ Mensaje de escalación enviado a ${userId}: "${responseText}"`);
@@ -1015,7 +1049,13 @@ Por favor, digita:
           type: 'escalation_fallback',
           timestamp: Date.now()
         });
-        logger.info(`📢 Evento 'escalation-detected' emitido (fallback) para ${userId}`);
+        io.emit('bot-status-updated', {
+          userId: userId,
+          botActive: false,
+          status: conversation.status,
+          timestamp: Date.now()
+        });
+        logger.info(`📢 Evento 'escalation-detected' y 'bot-status-updated' emitido (fallback) para ${userId}`);
       }
 
       logger.info(`🚨 Usuario ${userId} escalado a asesor (fallback)`);
@@ -1064,6 +1104,16 @@ Por favor, digita:
         await saveMessage(userId, message, 'user', options.messageType || 'text', mediaData, options.whatsappMessageId);
       }
       await saveMessage(userId, fallbackMsg, 'bot');
+
+      // ✅ NUEVO: Emitir evento de estado del bot actualizado
+      if (io) {
+        io.emit('bot-status-updated', {
+          userId: userId,
+          botActive: false,
+          status: conversation.status,
+          timestamp: Date.now()
+        });
+      }
 
       logger.error(`🚨 Usuario ${userId} escalado a asesor (error)`);
 

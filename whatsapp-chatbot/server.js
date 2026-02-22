@@ -54,6 +54,12 @@ messageProcessor.setSocketIO(io);
 // ✅ NUEVO: Inicializar advisorControl con Socket.IO para emitir eventos de nuevos mensajes
 advisorControlService.setSocketIO(io);
 
+// ✅ NUEVO: Inicializar rutas con Socket.IO para emitir eventos de control manual
+const routes = require('./src/routes');
+if (routes.setSocketIO) {
+  routes.setSocketIO(io);
+}
+
 // ===========================================
 // SOCKET.IO - COMUNICACIÓN EN TIEMPO REAL
 // ===========================================

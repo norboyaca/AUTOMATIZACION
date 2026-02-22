@@ -34,6 +34,14 @@ const logger = require('../utils/logger');
 
 const router = express.Router();
 
+// ✅ NUEVO: Socket.IO para emitir eventos
+let io = null;
+
+function setSocketIO(socketIOInstance) {
+  io = socketIOInstance;
+  logger.info('✅ Socket.IO inicializado en conversations.routes');
+}
+
 /**
  * GET /api/conversations
  *
@@ -243,6 +251,16 @@ router.post('/:userId/take', requireAuth, (req, res) => {
       });
     }
 
+    // ✅ NUEVO: Emitir evento de estado del bot actualizado
+    if (io) {
+      io.emit('bot-status-updated', {
+        userId: userId,
+        botActive: conversation.bot_active,
+        status: conversation.status,
+        timestamp: Date.now()
+      });
+    }
+
     res.json({
       success: true,
       message: 'Conversación tomada exitosamente',
@@ -277,6 +295,16 @@ router.post('/:userId/release', requireAuth, (req, res) => {
       return res.status(404).json({
         success: false,
         error: 'Conversación no encontrada'
+      });
+    }
+
+    // ✅ NUEVO: Emitir evento de estado del bot actualizado
+    if (io) {
+      io.emit('bot-status-updated', {
+        userId: userId,
+        botActive: conversation.bot_active,
+        status: conversation.status,
+        timestamp: Date.now()
       });
     }
 
@@ -485,43 +513,13 @@ router.post('/:userId/deactivate-bot', requireAuth, async (req, res) => {
 
     logger.info(`🔴 Desactivando bot manualmente para ${userId} por ${advisor.name}`);
 
-    const conversation = conversationStateService.getOrCreateConversation(userId);
-
-    if (!conversation) {
-      return res.status(404).json({
-        success: false,
-        error: 'Conversación no encontrada'
-      });
-    }
-
-    // Desactivar bot
-    conversation.bot_active = false;
-    conversation.status = 'advisor_handled';
-    conversation.assignedTo = advisor.id;
-    conversation.advisorName = advisor.name;
-    conversation.needs_human = true;
-    conversation.botDeactivatedAt = Date.now();
-    conversation.botDeactivatedBy = advisor.id;
-
-    // Limpiar flujo activo si existe
-    try {
-      const flowManager = require('../flows');
-      if (flowManager.hasActiveFlow(userId)) {
-        flowManager.endFlow(userId);
-        conversation.activeFlow = null;
-        logger.info(`🔄 Flujo activo limpiado para ${userId}`);
-      }
-    } catch (e) {
-      logger.warn(`⚠️ Error limpiando flujo: ${e.message}`);
-    }
-
-    logger.info(`✅ Bot desactivado para ${userId} por ${advisor.name}`);
+    const result = await advisorControlService.deactivateBot(userId, advisor);
 
     res.json({
       success: true,
       message: 'Bot desactivado correctamente',
-      botActive: false,
-      status: conversation.status
+      botActive: result.botActive,
+      status: result.status
     });
 
   } catch (error) {
@@ -2127,4 +2125,7 @@ router.delete('/:userId', requireAuth, async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = {
+  router,
+  setSocketIO
+};

@@ -217,6 +217,15 @@ async function sendAdvisorMessage(userId, advisorData, message, replyTo = null) 
         timestamp: Date.now()
       });
       logger.debug(`📡 Evento 'new-message' emitido para ${userId} (asesor, ID: ${messageRecord.id})`);
+
+      // ✅ NUEVO: Emitir evento de estado del bot actualizado
+      io.emit('bot-status-updated', {
+        userId: userId,
+        botActive: false,
+        status: conversation.status,
+        timestamp: Date.now()
+      });
+      logger.debug(`📡 Evento 'bot-status-updated' emitido para ${userId} (Bot Inactivo)`);
     }
 
     logger.info(`✅ Mensaje de asesor enviado a ${userId}`);
@@ -296,6 +305,17 @@ async function reactivateBot(userId, advisorData) {
     logger.info(`   📋 Acción realizada por: ${advisorData.name} (${advisorData.id})`);
     logger.info(`   🔄 Nuevo ciclo iniciado: contador de intentos en 0`);
 
+    // ✅ NUEVO: Emitir evento de estado del bot actualizado
+    if (io) {
+      io.emit('bot-status-updated', {
+        userId: userId,
+        botActive: true,
+        status: conversation.status,
+        timestamp: Date.now()
+      });
+      logger.debug(`📡 Evento 'bot-status-updated' emitido para ${userId} (Bot Activo)`);
+    }
+
     // ✅ CORRECCIÓN: Retornar el resultado correctamente
     return {
       success: true,
@@ -305,6 +325,66 @@ async function reactivateBot(userId, advisorData) {
 
   } catch (error) {
     logger.error(`Error reactivando bot para ${userId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Desactiva el bot manualmente
+ * 
+ * @param {string} userId - ID del usuario
+ * @param {Object} advisorData - Datos del asesor { id, name }
+ * @returns {Promise<Object>} Resultado
+ */
+async function deactivateBot(userId, advisorData) {
+  try {
+    const conversation = conversationStateService.getOrCreateConversation(userId);
+
+    if (!conversation) {
+      throw new Error('Conversación no encontrada');
+    }
+
+    // Desactivar bot
+    conversation.bot_active = false;
+    conversation.status = 'advisor_handled';
+    conversation.assignedTo = advisorData.id;
+    conversation.advisorName = advisorData.name;
+    conversation.needs_human = true;
+    conversation.botDeactivatedAt = Date.now();
+    conversation.botDeactivatedBy = advisorData.id;
+
+    // Limpiar flujo activo si existe
+    try {
+      const flowObject = require('../flows');
+      if (flowObject && typeof flowObject.hasActiveFlow === 'function' && flowObject.hasActiveFlow(userId)) {
+        await flowObject.endFlow(userId);
+        conversation.activeFlow = null;
+        logger.info(`🔄 Flujo activo limpiado para ${userId}`);
+      }
+    } catch (e) {
+      logger.warn(`⚠️ Error limpiando flujo: ${e.message}`);
+    }
+
+    logger.info(`✅ Bot DESACTIVADO manualmente para ${userId} por ${advisorData.name}`);
+
+    // Emitir evento de estado del bot actualizado
+    if (io) {
+      io.emit('bot-status-updated', {
+        userId: userId,
+        botActive: false,
+        status: conversation.status,
+        timestamp: Date.now()
+      });
+      logger.debug(`📡 Evento 'bot-status-updated' emitido para ${userId} (Bot Inactivo)`);
+    }
+
+    return {
+      success: true,
+      botActive: false,
+      status: conversation.status
+    };
+  } catch (error) {
+    logger.error(`❌ Error en deactivateBot para ${userId}:`, error);
     throw error;
   }
 }
@@ -584,6 +664,15 @@ async function sendAdvisorMediaMessage(userId, advisorData, mediaData, caption =
         timestamp: Date.now()
       });
       logger.debug(`📡 Evento 'new-message' emitido para ${userId} (media, ID: ${messageRecord.id})`);
+
+      // ✅ NUEVO: Emitir evento de estado del bot actualizado
+      io.emit('bot-status-updated', {
+        userId: userId,
+        botActive: false,
+        status: conversation.status,
+        timestamp: Date.now()
+      });
+      logger.debug(`📡 Evento 'bot-status-updated' emitido para ${userId} (Bot Inactivo - Media)`);
     }
 
     logger.info(`✅ Mensaje multimedia de asesor enviado a ${userId}`);
@@ -606,6 +695,7 @@ module.exports = {
   sendAdvisorMessage,
   sendAdvisorMediaMessage,  // ✅ NUEVO: Enviar mensajes multimedia
   reactivateBot,
+  deactivateBot,            // ✅ NUEVO: Desactivación manual
   isBotActive,
   getAdvisorMessages,
   getInactiveBotConversations,

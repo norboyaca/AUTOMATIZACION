@@ -6,7 +6,7 @@
 
 const express = require('express');
 const path = require('path');
-const routes = require('./routes');
+const { router: routes } = require('./routes');
 const errorMiddleware = require('./middlewares/error.middleware');
 const { apiLimiter } = require('./middlewares/rate-limit.middleware');
 

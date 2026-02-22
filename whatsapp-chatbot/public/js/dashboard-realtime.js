@@ -197,7 +197,7 @@ function initializeRealtimeListeners() {
     }
   });
 
-  // ✅ NUEVO: Listener para actualización de estado de conversación
+  // ✅ NUEVO: Listener para actualización de estado de conversación (tomar/liberar)
   socket.on('conversation-status-changed', (data) => {
     console.log('📊 Estado de conversación cambiado:', data);
     updatePendingBadge();
@@ -206,9 +206,30 @@ function initializeRealtimeListeners() {
     throttledLoadConversations();
   });
 
-  // ✅ FIX: Listener duplicado de 'new-message' ELIMINADO
-  // El handler principal arriba (línea ~4872) ya maneja toda la lógica
-  // incluyendo multimedia, dedup, y actualización de tabla con throttle
+  // ✅ NUEVO: Listener para sincronización de estado del bot (activo/inactivo)
+  socket.on('bot-status-updated', (data) => {
+    console.log('🤖 Realtime: Recibido evento bot-status-updated:', data);
+
+    // 1. Actualizar la tabla de conversaciones
+    throttledLoadConversations();
+
+    // 2. Si el chat está abierto para este usuario, actualizar interfaz del chat
+    if (typeof window.getCurrentChatUserId === 'function') {
+      const currentChatId = window.getCurrentChatUserId();
+      console.log(`🤖 Realtime: Chat abierto actualmente: ${currentChatId}, Evento para: ${data.userId}`);
+
+      if (currentChatId === data.userId) {
+        console.log('🤖 Realtime: Coincidencia de usuario, actualizando UI del chat...');
+        if (typeof window.updateBotStatusUI === 'function') {
+          window.updateBotStatusUI(data.botActive, data.status);
+        } else {
+          console.warn('⚠️ Realtime: window.updateBotStatusUI no es una función');
+        }
+      }
+    } else {
+      console.warn('⚠️ Realtime: window.getCurrentChatUserId no está definido');
+    }
+  });
 
   console.log('✅ Listeners de tiempo real inicializados');
 }

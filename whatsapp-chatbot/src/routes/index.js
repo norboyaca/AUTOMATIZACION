@@ -14,7 +14,7 @@ const express = require('express');
 const multer = require('multer');
 const webhookRoutes = require('./webhook.routes');
 const authRoutes = require('./auth.routes');
-const conversationsRoutes = require('./conversations.routes');
+const { router: conversationsRoutes, setSocketIO: setConversationsSocketIO } = require('./conversations.routes');
 const holidaysRoutes = require('./holidays.routes');
 const mediaRoutes = require('./media.routes');
 const { requireAuth } = require('../middlewares/auth.middleware');
@@ -877,5 +877,10 @@ router.delete('/quick-replies/:id', requireAuth, (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = {
+  router,
+  setSocketIO: (io) => {
+    setConversationsSocketIO(io);
+  }
+};
 
